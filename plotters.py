@@ -133,8 +133,7 @@ def plot_segment(Seg, units, sigma=0.05, zscore=False, save=None, colors=None):
         if zscore:
             fr = ele.signal_processing.zscore(fr)
         axes[1].plot(tvec,fr,color=colors[unit])
-
-    axes[2].plot(asig.times, asig, color='k',lw=0.5)
+    axes[2].plot(asig.times, asig.data, color='k',lw=0.5)
 
     # deco
     axes[0].set_yticks(range(len(units)))
@@ -158,8 +157,8 @@ def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=No
     fig, axes =plt.subplots(nrows=2, sharex=True, sharey=True)
     
     asig = Segment.analogsignals[0]
-    axes[0].plot(asig.times, asig, color='k', lw=1)
-    axes[1].plot(asig.times, asig, color='k', lw=1)
+    axes[0].plot(asig.times, asig.data, color='k', lw=1)
+    axes[1].plot(asig.times, asig.data, color='k', lw=1)
 
     units = get_units(SpikeInfo, unit_column)
 
@@ -173,7 +172,6 @@ def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=No
 
     for u, unit in enumerate(units):
         St, = select_by_dict(Segment.spiketrains, unit=unit)
-
         asig_recons = sp.zeros(asig.shape[0])
         asig_recons[:] = sp.nan 
 
@@ -185,7 +183,7 @@ def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=No
         inds = inds - offset
 
         try:
-            frates = SpikeInfo.groupby((unit_column, 'segment')).get_group((unit,j))['frate_fast'].values
+            frates = SpikeInfo.groupby([unit_column, 'segment']).get_group((unit,j))['frate_fast'].values
             pred_spikes = [Models[unit].predict(f) for f in frates]
 
             for i, spike in enumerate(pred_spikes):

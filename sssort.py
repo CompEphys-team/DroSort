@@ -99,8 +99,10 @@ for seg in Blk.segments:
 # highpass filter
 freq = Config.getfloat('preprocessing','highpass_freq')
 print_msg("highpass filtering data at %.2f Hz" % freq)
-for seg in Blk.segments:
+for i, seg in enumerate(Blk.segments):
     seg.analogsignals[0] = ele.signal_processing.butter(seg.analogsignals[0], highpass_freq=freq)
+    if 'filename' not in seg.annotations:
+        seg.annotations['filename']= 'segment_'+str(i)
 
 # invert if peaks are negative
 if Config.get('preprocessing','peak_mode') == 'negative':
@@ -295,7 +297,7 @@ calc_update_frates(Blk.segments, SpikeInfo, 'unit', kernel_fast, kernel_slow)
 
 # model
 n_model_comp = Config.getint('spike model','n_model_comp')
-Models = train_Models(SpikeInfo, 'unit', Templates, n_comp=n_model_comp, verbose=False)
+Models = train_Models(SpikeInfo, 'unit', Templates, n_comp=n_model_comp, verbose=True)
 outpath = plots_folder / ("Models_ini" + fig_format)
 plot_Models(Models, save=outpath)
 
