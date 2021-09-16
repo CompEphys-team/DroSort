@@ -89,7 +89,7 @@ def plot_templates(Templates, SpikeInfo, unit_column=None, unit_order=None, N=10
 
     for i, unit in enumerate(units):
         try:
-            ix = SpikeInfo.groupby((unit_column,'good')).get_group((unit,True))['id']
+            ix = SpikeInfo.groupby([unit_column,'good']).get_group((unit,True))['id']
             if N is not None and ix.shape[0] > N:
                 ix = ix.sample(N)
             T = Templates[:,ix]
@@ -98,7 +98,7 @@ def plot_templates(Templates, SpikeInfo, unit_column=None, unit_order=None, N=10
             pass
 
         try:
-            ix = SpikeInfo.groupby((unit_column,'good')).get_group((unit,False))['id']
+            ix = SpikeInfo.groupby([unit_column,'good']).get_group((unit,False))['id']
             if N is not None and ix.shape[0] > N:
                 ix = ix.sample(N)
             T = Templates[:,ix]
