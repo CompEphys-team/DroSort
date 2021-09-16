@@ -17,5 +17,7 @@ More details coming soon.
 
 ## Quickstart
 Try
->> python sssort.py example_config.ini
+```console
+$ python sssort.py example_config.ini
+```
 for a typical run on example data from a Drosophila ab3 sensillum taken by Lydia Ellison at Sussex University.
