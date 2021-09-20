@@ -65,7 +65,8 @@ def print_msg(msg, log=True):
         memstr = '('+str(mem_used) + ' GB): '
         timestr = tp.humantime(sp.around(time.time()-t0,2))
         print(colorama.Fore.CYAN + timestr + '\t' +  memstr + '\t' +
-              colorama.Fore.GREEN + msg)
+              # colorama.Fore.GREEN + msg)
+              colorama.Fore.WHITE + msg)
         if log:
             with open('log.log', 'a+') as fH:
                 log_str = timestr + '\t' +  memstr + '\t' + msg + '\n'
@@ -73,7 +74,8 @@ def print_msg(msg, log=True):
     else:
         timestr = tp.humantime(sp.around(time.time()-t0,2))
         print(colorama.Fore.CYAN + timestr + '\t' +
-              colorama.Fore.GREEN + msg)
+              # colorama.Fore.GREEN + msg)
+              colorama.Fore.WHITE + msg)
         if log:
             with open('log.log', 'a+') as fH:
                 log_str = timestr + '\t' + '\t' + msg
@@ -268,6 +270,7 @@ def peak_reject(Templates, f=3):
     peak = Templates[mid_ix,:]
     left = Templates[0,:]
     right = Templates[-1,:]
+
     bad_inds = sp.logical_or(left > peak/f, right > peak/f)
     return bad_inds
 

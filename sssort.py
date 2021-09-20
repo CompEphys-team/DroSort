@@ -151,6 +151,16 @@ for i, seg in enumerate(Blk.segments):
 n_spikes = sp.sum([seg.spiketrains[0].shape[0] for seg in Blk.segments])
 print_msg("total number of spikes found: %s" % n_spikes)
 
+
+#Plot detected spikes
+for i,seg in enumerate(Blk.segments):
+    namepath = plots_folder / ("first_spike_detection_%d"%i)
+    plot_spike_events(seg,thres=MAD(AnalogSignal)*mad_thresh,save=namepath,save_format=fig_format,show=True)
+
+print_msg("detected spikes plotted")
+
+#Detect bad segments based on norm probability distribution
+
 if Config.getboolean('preprocessing', 'sd_reject'):
     stim_onset = Config.getfloat('preprocessing', 'stim_onset') * pq.s
     alpha = Config.getfloat('preprocessing', 'sd_reject_alpha')
@@ -168,7 +178,7 @@ if Config.getboolean('preprocessing', 'sd_reject'):
 
     bad_trials = sp.logical_or(mus < (grand_mu - sd_rej_fac * grand_sig), mus > (grand_mu + sd_rej_fac * grand_sig))
     [bad_segments.append(i) for i in sp.where(bad_trials)[0]]
-    # print_msg("rejecting %i out of %i trials" % (sum(bad_trials), bad_trials.shape[0]))
+    print_msg("rejecting %i out of %i trials" % (sum(bad_trials), bad_trials.shape[0]))
 
 if len(bad_segments) > 0:
     good_segments = []
@@ -179,10 +189,20 @@ if len(bad_segments) > 0:
             stim_name = Path(Blk.segments[i].annotations['filename']).stem
             print_msg("rejecting: %i:%s" % (i,stim_name))
 
+    Blk_all = Blk.segments
     Blk.segments = good_segments
 
     n_spikes = sp.sum([seg.spiketrains[0].shape[0] for seg in Blk.segments])
     print_msg("total number of spikes left: %s" % n_spikes)
+
+
+    #Plot detected spikes after rejection
+    for i,(seg_all,seg_good) in enumerate(zip(Blk.segments,Blk_all)):
+        namepath = plots_folder / ("first_spike_detection_%d"%i)
+        plot_compared_spike_events(seg_all,seg_good,thres=MAD(AnalogSignal)*mad_thresh,save=namepath,save_format=fig_format,show=True)
+
+    print_msg("detected spikes plotted")
+
 
 """
  
@@ -263,7 +283,7 @@ segment_labels = sp.concatenate(segment_labels)
 SpikeInfo['segment'] = segment_labels
 
 # get all labels
-SpikeInfo['unit'] = spike_labels
+SpikeInfo['unit'] = spike_labels #AG: Use units for the different spike models generated.
 
 # get clean templates
 n_neighbors = Config.getint('spike model','template_reject')
@@ -275,6 +295,12 @@ SpikeInfo = unassign_spikes(SpikeInfo, 'unit')
 outpath = plots_folder / ("templates_init" + fig_format)
 plot_templates(Templates, SpikeInfo, N=100, save=outpath)
 
+
+#AG 09-2021. TODO adapt plot funtion for templates.
+# for Seg in Blk.segments:
+#     outpath = plots_folder / ("templates_in_signal_init"+fig_format)
+#     # plot_templates_n_signal(Segment,Templates,save=outpath,save_format = fig_format,show=True)
+#     plot_fitted_spikes(Seg, j, Templates, SpikeInfo, 'unit', save=outpath)
 
 """
  

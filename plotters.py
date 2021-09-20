@@ -88,6 +88,7 @@ def plot_templates(Templates, SpikeInfo, unit_column=None, unit_order=None, N=10
     fig, axes = plt.subplots(ncols=len(units), sharey=True,  figsize=[len(units),2])
 
     for i, unit in enumerate(units):
+        #AG prints the spikes marked as good in color and rest in black
         try:
             ix = SpikeInfo.groupby([unit_column,'good']).get_group((unit,True))['id']
             if N is not None and ix.shape[0] > N:
@@ -151,6 +152,142 @@ def plot_segment(Seg, units, sigma=0.05, zscore=False, save=None, colors=None):
         plt.close(fig)
 
     return fig, axes
+
+def plot_spike_events(Segment,thres=2,max_window=1,max_row=5,save=None,save_format='.png',show=False):
+    plt.rcParams.update({'font.size': 5})
+    for asig in Segment.analogsignals:  
+        max_window = int(max_window*asig.sampling_rate) #FIX conversion from secs to points
+
+        asig=asig.reshape(asig.shape[0])
+        n_rows = asig.shape[0]//max_window #compute number of rows needed to plot complete signal
+        n_plots = n_rows//max_row+ int(not(n_rows/max_row).is_integer())
+
+        #Plot max_row rows per window, plots n_plots to plot the complete signal
+        for i_fig in range(0,n_plots):
+            fig, axes = plt.subplots(nrows=max_row)
+
+            for idx in range(0,max_row): #plot the max_row axes.
+                #plot analog signal
+                ini = i_fig*max_window*max_row+idx * max_window
+                end = i_fig*max_window*max_row+idx * max_window+max_window
+                
+                end = min(end,asig.data.shape[0])-1
+                if ini >= asig.data.shape[0]:
+                    break
+
+                axes[idx].plot(asig.times[ini:end],asig.data[ini:end],linewidth=1)
+
+                #plot spike events
+                st = Segment.spiketrains[0] #get spike trains (assuming there's only one spike train)
+                t_ini = asig.times[ini]; t_end = asig.times[end]
+                #get events in this chunk
+                t_events = st.times[np.where((st.times > t_ini) & (st.times < t_end))]
+                #get events amplitude value (spike)
+                a_events = st.waveforms[np.where((st.times > t_ini) & (st.times < t_end))] 
+                a_events = [max(a) for a in a_events]
+
+                axes[idx].plot(t_events,a_events,'.',markersize=1)
+                axes[idx].plot(asig.times[ini:end],np.ones(asig.times[ini:end].shape)*thres,linewidth=0.5)
+
+            if idx ==0:
+                break
+
+            #set plot info:
+            fig.suptitle("Spike Detection (%d/%d)"%(i_fig+1,n_plots))
+            axes[idx].set_xlabel("Time (%s)"%str(asig.times.units).split()[-1])
+            v_unit = str(asig.units).split()[-1]
+            if v_unit == 'dimensionless':
+                v_unit = 'V'
+            axes[idx//2].set_ylabel("Voltage (%s)"%v_unit)
+
+            plt.tight_layout()
+
+            if save is not None:
+                fig.savefig(str(save)+"_%d"%i_fig+save_format)
+
+            if show:
+                plt.show()
+            else:
+                plt.close(fig)
+
+    # return fig, axes
+
+def plot_compared_spike_events(Segment1,Segment2,thres=2,max_window=1,max_row=5,save=None,save_format='.png',show=False):
+
+    for asig1,asig2 in zip(Segment1.analogsignals,Segment2.analogsignals):  
+        max_window = int(max_window*asig1.sampling_rate) #FIX conversion from secs to points
+
+        asig1=asig1.reshape(asig1.shape[0])
+        n_rows = asig1.shape[0]//max_window
+        n_plots = n_rows//max_row+ int(not(n_rows/max_row).is_integer())
+
+        #Plot max_row rows per window, plots n_plots to plot the complete signal
+        for i_fig in range(0,n_plots):
+            fig, axes = plt.subplots(nrows=max_row)
+
+            for idx in range(0,max_row):
+                #plot analog signal
+                ini = i_fig*max_window*max_row+idx * max_window
+                end = i_fig*max_window*max_row+idx * max_window+max_window
+                
+                end = min(end,asig1.data.shape[0])-1
+                if ini >= asig1.data.shape[0]:
+                    break
+
+                axes[idx].plot(asig1.times[ini:end],asig1.data[ini:end],linewidth=1)
+
+                #plot spike events
+                st = Segment1.spiketrains[0] #get spike trains
+                print(st)
+
+                t_ini = asig1.times[ini]; t_end = asig1.times[end]
+                #get events in this chunk
+                t_events = st.times[np.where((st.times > t_ini) & (st.times < t_end))]
+                #get events amplitude value (spike)
+                a_events = st.waveforms[np.where((st.times > t_ini) & (st.times < t_end))] 
+                a_events = [max(a) for a in a_events]
+
+                axes[idx].plot(t_events,a_events,'.',markersize=1)
+
+
+                #plot spike events from second Segment
+                st = Segment2.spiketrains[0] #get spike trains
+                print(st)
+                #get events in this chunk
+                t_events = st.times[np.where((st.times > t_ini) & (st.times < t_end))]
+                #get events amplitude value (spike)
+                a_events = st.waveforms[np.where((st.times > t_ini) & (st.times < t_end))] 
+                a_events = [max(a) for a in a_events]
+
+                axes[idx].plot(t_events,a_events,'.',markersize=1)
+
+
+                axes[idx].plot(asig1.times[ini:end],np.ones(asig1.times[ini:end].shape)*thres,linewidth=0.5)
+
+            if idx ==0:
+                break
+            #set plot info:
+            fig.suptitle("Spike Detection (%d/%d)"%(i_fig+1,n_plots))
+            axes[idx].set_xlabel("Time (%s)"%str(asig1.times.units).split()[-1])
+            v_unit = str(asig1.units).split()[-1]
+            if v_unit == 'dimensionless':
+                v_unit = 'V'
+            axes[idx//2].set_ylabel("Voltage (%s)"%v_unit)
+
+            plt.tight_layout()
+
+            if save is not None:
+                fig.savefig(str(save)+"_%d"%i_fig+save_format)
+
+            if show:
+                plt.show()
+            else:
+                plt.close(fig)
+
+    # return fig, axes
+
+
+
 
 def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=None, zoom=None, save=None, colors=None):
     """ plot to inspect fitted spikes """
