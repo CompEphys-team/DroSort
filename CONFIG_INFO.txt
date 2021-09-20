@@ -1,0 +1,39 @@
+[path]
+experiment_name = run
+data_path = examples/sorttest.dill
+
+[preprocessing] 
+peak_mode = negative //inverts if peaks are negative.
+highpass_freq = 100  //Freq value for filter.
+z_trials = True //Compute z-scores
+stim_onset = 2
+sd_reject = True //Rejects spikes after first detection  
+sd_reject_alpha = 0.05 //alpha value for norm distribution => rejection factor
+
+[spike detect]
+mad_thresh = 4 //threshold detection higher value ignores noise (might loose shortest ones)
+wsize = 4 //Window to remove border spikes (value of spike ?)
+
+[spike sort]
+iterations = 24
+first_merge = 4
+it_merge = 2
+init_clusters = 2
+clust_alpha = 0.5
+penalty = 0.15
+f_noise = 0.05
+
+[spike model]
+n_model_comp = 5
+template_reject = 40  //number of neighbours for the Template rejection
+
+[output]
+output_format = .dill
+csv = True
+zoom = 5200, 5400
+fig_format = .png
+fig_dpi = 300
+
+[kernels]
+sigma_fast = 0.05
+sigma_slow = 0.25
