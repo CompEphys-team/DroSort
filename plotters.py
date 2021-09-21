@@ -175,7 +175,7 @@ def plot_spike_events(Segment,thres=2,max_window=1,max_row=5,save=None,save_form
                 if ini >= asig.data.shape[0]:
                     break
 
-                axes[idx].plot(asig.times[ini:end],asig.data[ini:end],linewidth=1)
+                axes[idx].plot(asig.times[ini:end],asig.data[ini:end],linewidth=1,color='k')
 
                 #plot spike events
                 st = Segment.spiketrains[0] #get spike trains (assuming there's only one spike train)
@@ -287,6 +287,21 @@ def plot_compared_spike_events(Segment1,Segment2,thres=2,max_window=1,max_row=5,
     # return fig, axes
 
 
+def plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column,max_window, plots_folder, fig_format, unit_order=None, save=None, colors=None):
+
+    for j, Seg in enumerate(Blk.segments):
+        seg_name = Path(Seg.annotations['filename']).stem
+
+        asig = Seg.analogsignals[0]
+        max_window = int(max_window*asig.sampling_rate) #FIX conversion from secs to points
+        n_plots = asig.shape[0]//max_window
+
+        for n_plot in range(0,n_plots):
+            outpath = plots_folder / (seg_name + '_fitted_spikes_%s_%d'%(max_window,n_plot) + fig_format)
+            ini = n_plot*max_window + max_window
+            end = ini + max_window
+            zoom = [ini,end]/asig.sampling_rate
+            plot_fitted_spikes(Seg, j, Models, SpikeInfo, unit_column, zoom=zoom, save=outpath)
 
 
 def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=None, zoom=None, save=None, colors=None):
