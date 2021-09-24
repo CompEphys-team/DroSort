@@ -128,7 +128,7 @@ def unassign_spikes(SpikeInfo, unit_column, min_good=5):
     for unit in units:
         Df = SpikeInfo.groupby(unit_column).get_group(unit)
         if sp.sum(Df['good']) < min_good:
-            print_msg("not enough good spikes for unit %s" %unit)
+            print_msg("not enough good spikes (%d) for unit %s" %(sp.sum(Df['good']),unit))
             SpikeInfo.loc[Df.index, unit_column] = '-1'
     return SpikeInfo
 
@@ -453,6 +453,31 @@ def Rss(X,Y):
     """ sum of squared residuals """
     return sp.sum((X-Y)**2) / X.shape[0]
 
+def score_amplitude(X,Y):
+    # print(max(X) ,max(Y))
+    """ if predicted spike amplitude is bigger than the original (the spike increased), 
+        return worse score"""
+        
+    ampl_Y = max(Y)
+    ampl_X = max(X)
+
+    ampl_Y = max(Y)-min(Y)
+    ampl_X = max(X)-min(X)
+
+    if ampl_Y <= ampl_X:
+        return 0 
+    else:
+        return (ampl_Y - ampl_X) #If amplitude is much bigger in prediction, bad score
+
+def double_score(X,Y):
+    rss = Rss(X,Y)
+    ampl = score_amplitude(X,Y)
+
+    if ampl > 0:
+        return (0.6*rss+0.4*ampl)
+    else:
+        return rss
+
 def Score_spikes(Templates, SpikeInfo, unit_column, Models, score_metric=Rss, penalty=0.1):
     """ Score all spikes using Models """
 
@@ -540,6 +565,7 @@ def best_merge(Avgs, Sds, units, alpha=1):
                 merge_candidates.remove((i,i))
             except ValueError:
                 pass
+
         min_ix = sp.argmin([Q[c] for c in merge_candidates])
         pair = merge_candidates[min_ix]
         merge =  [units[pair[0]],units[pair[1]]]
@@ -547,3 +573,81 @@ def best_merge(Avgs, Sds, units, alpha=1):
         merge = []
 
     return merge
+
+
+def safe_merge(merge,SpikeInfo,unit_column,min_frac=0.75):
+    for label in merge:
+        frac = get_frac(SpikeInfo,unit_column,label)
+        if frac < min_frac:
+            print_msg("#####Not enough rate. Merge of " + ' '.join(merge)+" rejected")
+            return []
+
+    return merge
+
+def get_frac(SpikeInfo,unit_column,unit):
+    units = get_units(SpikeInfo, unit_column)
+    spike_labels = SpikeInfo[unit_column]
+
+    ix = sp.where(spike_labels == unit)[0]
+
+    n_goods = sp.sum(SpikeInfo.loc[ix,'good'])
+    n_total = ix.shape[0]
+
+    return n_goods/n_total
+
+
+
+def populate_block(Blk,SpikeInfo,unit_column,units):
+     #TODO populate block function. Here and in "Finish"
+    for i, seg in enumerate(Blk.segments):
+        spike_labels = SpikeInfo.groupby(('segment')).get_group((i))[unit_column].values
+        seg.spiketrains[0].annotations['unit_labels'] = list(spike_labels)
+
+        # make spiketrains
+        St = seg.spiketrains[0]
+        spike_labels = St.annotations['unit_labels']
+        sts = [St]
+        print(units)
+        for unit in units:
+            times = St.times[sp.array(spike_labels) == unit]
+            st = neo.core.SpikeTrain(times, t_start = St.t_start, t_stop=St.t_stop)
+            st.annotate(unit=unit)
+            sts.append(st)
+        seg.spiketrains=sts
+
+
+def remove_spikes(SpikeInfo,unit_column,criteria):
+    if criteria == 'min':
+        units = get_units(SpikeInfo, unit_column)
+        spike_labels = SpikeInfo[unit_column]
+
+        n_spikes_units = []
+        for unit in units:
+            ix = sp.where(spike_labels == unit)[0]
+            n_spikes_units.append(ix.shape[0])
+
+        rm_unit = units[sp.argmin(n_spikes_units)]
+    else:
+        rm_unit = criteria
+
+    SpikeInfo[unit_column] = SpikeInfo[unit_column].replace(rm_unit,'-1')
+
+    # index_names = SpikeInfo[ SpikeInfo[unit_column] == rm_unit ].index
+  
+    # # drop these row indexes
+    # # from dataFrame
+    # SpikeInfo = SpikeInfo.drop(index_names, inplace = True)
+
+
+def eval_model(SpikeInfo,this_unit_col,prev_unit_col,Scores,Templates,ScoresSum,AICs):
+    #Re-eval model:
+    n_changes = sp.sum(~(SpikeInfo[this_unit_col] == SpikeInfo[prev_unit_col]).values)
+    
+    Rss_sum = sp.sum(np.min(Scores,axis=1)) / Templates.shape[1]
+    ScoresSum.append(Rss_sum)
+    units = get_units(SpikeInfo, this_unit_col)
+    AICs.append(len(units) - 2 * sp.log(Rss_sum))
+
+    n_units = len(units)
+
+    return n_changes,Rss_sum,ScoresSum,units,AICs,n_units

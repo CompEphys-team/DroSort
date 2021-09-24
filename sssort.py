@@ -38,6 +38,153 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 
+def sssort(n_units,n_final_clusters,it_no_merge,it_merge,Blk,Templates,Models,SpikeInfo,kernel_fast,kernel_slow,n_model_comp,penalty,clust_alpha,ScoresSum,AICs):
+    
+    it =1
+
+    not_merge =0
+
+    # for it in range(1,its):
+    while n_units > n_final_clusters:
+    # fracs = 0
+
+    # while fracs < 0.9
+        # unit columns
+        prev_unit_col = 'unit_%i' % (it-1)
+        this_unit_col = 'unit_%i' % it
+
+        # update rates
+        calc_update_frates(Blk.segments, SpikeInfo, prev_unit_col, kernel_fast, kernel_slow)
+
+        # train models with labels from last iteration
+        Models = train_Models(SpikeInfo, prev_unit_col, Templates, verbose=False, n_comp=n_model_comp)
+        outpath = plots_folder / ("Models_%s%s" % (prev_unit_col, fig_format))
+        plot_Models(Models, save=outpath)
+
+
+        # Score spikes with models
+        # if it == its-1: # the last
+            # penalty = 0
+        # if n_units > n_final_clusters+1:
+        #     score = double_score
+        # else:
+        #     score = Rss
+        score = Rss
+
+
+        # Scores, units = Score_spikes(Templates, SpikeInfo, prev_unit_col, Models, score_metric=Rss, penalty=penalty)
+        Scores, units = Score_spikes(Templates, SpikeInfo, prev_unit_col, Models, score_metric=score, penalty=penalty)
+
+        # assign new labels
+        min_ix = sp.argmin(Scores, axis=1)
+
+        new_labels = sp.array([units[i] for i in min_ix],dtype='object')
+        SpikeInfo[this_unit_col] = new_labels
+
+        # clean assignment
+        # TODO? adaptative min_good limit?
+        # min_good = Scores.shape[0] / n_units
+        # min_good -= min_good*0.8
+
+        # SpikeInfo = unassign_spikes(SpikeInfo, this_unit_col,min_good=min_good) #AG TODO: add to config file
+        
+        SpikeInfo = unassign_spikes(SpikeInfo, this_unit_col)
+        reject_spikes(Templates, SpikeInfo, this_unit_col,verbose=True)
+
+
+
+        # fracs = []
+        # for unit in units:
+        #     frac = get_frac(SpikeInfo,this_unit_col,unit)
+        #     if frac < 0.7:
+        #         Df = SpikeInfo.groupby(this_unit_col).get_group(unit)
+        #         SpikeInfo.loc[Df.index, this_unit_col] = '-1'
+        #         print_msg("#!#!#!#!#!#!Removing cluster %s with frac %f"%(unit,frac))
+        #     fracs.append(frac)
+
+
+        # fracs = min(fracs)
+
+        # randomly unassign a fraction of spikes
+        # if it != its-1: # the last
+        N = int(n_spikes * sorting_noise)
+        SpikeInfo.loc[SpikeInfo.sample(N).index,this_unit_col] = '-1'
+        
+        # plot templates
+        outpath = plots_folder / ("Templates_%s%s" % (this_unit_col, fig_format))
+        plot_templates(Templates, SpikeInfo, this_unit_col, save=outpath)
+
+        # every n iterations, merge
+        if (it > first_merge) and (it % it_merge) == 0:
+            print_msg("check for merges ... ")
+            Avgs, Sds = calculate_pairwise_distances(Templates, SpikeInfo, this_unit_col)
+            merge = best_merge(Avgs, Sds, units, clust_alpha)
+
+            # merge = safe_merge(merge,SpikeInfo,this_unit_col,min_frac=0.75)
+
+            if len(merge) > 0:
+                print_msg("########merging: " + ' '.join(merge))
+                ix = SpikeInfo.groupby(this_unit_col).get_group(merge[1])['id']
+                SpikeInfo.loc[ix, this_unit_col] = merge[0]
+                not_merge =0
+            else:
+                not_merge +=1
+
+        if not_merge > it_no_merge:
+            clust_alpha +=0.1
+            if clust_alpha == 0.9:
+                clust_alpha = 0.5
+            it_merge = max(it_merge-1,1)
+            it_no_merge = max(it_no_merge-1,1)
+            print_msg("%d failed merges. New alpha value: %f"%(not_merge,clust_alpha))
+            not_merge = 0
+
+            it_merge = Config.getint('spike sort','it_merge')
+
+            it_no_merge = Config.getint('spike sort','it_no_merge')
+
+        # Model eval
+        # n_changes = sp.sum(~(SpikeInfo[this_unit_col] == SpikeInfo[prev_unit_col]).values)
+        
+        # Rss_sum = sp.sum(np.min(Scores,axis=1)) / Templates.shape[1]
+        # ScoresSum.append(Rss_sum)
+        # units = get_units(SpikeInfo, this_unit_col)
+        # AICs.append(len(units) - 2 * sp.log(Rss_sum))
+
+        # n_units = len(units)
+
+
+        n_changes,Rss_sum,ScoresSum,units,AICs,n_units = eval_model(SpikeInfo,this_unit_col,prev_unit_col,Scores,Templates,ScoresSum,AICs)
+
+
+        if n_units > n_final_clusters:
+            it +=1
+
+        try:
+            zoom = sp.array(Config.get('output','zoom').split(','),dtype='float32') / 1000
+            
+
+            # for j, Seg in enumerate(Blk.segments):
+            seg_name = Path(Seg.annotations['filename']).stem
+
+            populate_block(Blk,SpikeInfo,unit_column,units)
+
+            Seg = Blk.segments[0]
+
+            outpath = plots_folder / (seg_name + '_fitted_spikes_%d'%(it) + fig_format)
+            plot_fitted_spikes(Seg, j, Models, SpikeInfo, prev_unit_col, zoom=zoom, save=outpath,wsize=n_samples)
+        except:
+            pass
+
+
+        # print iteration info
+        print_msg("It:%i - Rss sum: %.3e - # reassigned spikes: %s / %d" % (it, Rss_sum, n_changes,len(spike_labels)))
+        print_msg("Number of clusters after iteration: %d"%len(units))
+
+    return it
+
+
+
 """
  
  #### ##    ## #### 
@@ -287,7 +434,7 @@ SpikeInfo['unit'] = spike_labels #AG: Unit column has cluster id.
 
 # get clean templates
 n_neighbors = Config.getint('spike model','template_reject')
-reject_spikes(Templates, SpikeInfo, 'unit', n_neighbors, verbose=False)
+reject_spikes(Templates, SpikeInfo, 'unit', n_neighbors, verbose=True)
 
 # unassign spikes if unit has too little good spikes
 SpikeInfo = unassign_spikes(SpikeInfo, 'unit')
@@ -326,6 +473,36 @@ Models = train_Models(SpikeInfo, 'unit', Templates, n_comp=n_model_comp, verbose
 outpath = plots_folder / ("Models_ini" + fig_format)
 plot_Models(Models, save=outpath)
 
+zoom = sp.array(Config.get('output','zoom').split(','),dtype='float32') / 1000
+
+
+# for j, Seg in enumerate(Blk.segments):
+seg_name = Path(Seg.annotations['filename']).stem
+units = get_units(SpikeInfo, 'unit')
+
+# #TODO populate block function. Here and in "Finish"
+# for i, seg in enumerate(Blk.segments):
+#     spike_labels = SpikeInfo.groupby(('segment')).get_group((i))['unit'].values
+#     seg.spiketrains[0].annotations['unit_labels'] = list(spike_labels)
+
+#     # make spiketrains
+#     St = seg.spiketrains[0]
+#     spike_labels = St.annotations['unit_labels']
+#     sts = [St]
+
+#     for unit in units:
+#         times = St.times[sp.array(spike_labels) == unit]
+#         st = neo.core.SpikeTrain(times, t_start = St.t_start, t_stop=St.t_stop)
+#         st.annotate(unit=unit)
+#         sts.append(st)
+#     seg.spiketrains=sts
+
+populate_block(Blk,SpikeInfo,'unit',units)
+
+Seg = Blk.segments[0]
+outpath = plots_folder / (seg_name + '_fitted_spikes_init' + fig_format)
+plot_fitted_spikes(Seg, j, Models, SpikeInfo, 'unit', zoom=zoom, save=outpath,wsize=n_samples)
+
 """
  
  ########  ##     ## ##    ## 
@@ -357,15 +534,26 @@ AICs = []
 
 spike_ids = SpikeInfo['id'].values
 
+# it_no_merge = 3 #AG TODO: add into config file
+it_no_merge = Config.getint('spike sort','it_no_merge')
+
+# n_final_clusters = 3
+
+######
+
+# it = sssort(n_units,n_final_clusters,it_no_merge,it_merge,Blk,Templates,Models,SpikeInfo,kernel_fast,kernel_slow,n_model_comp,penalty,clust_alpha,ScoresSum,AICs)
+
+
+
 it =1
 
 not_merge =0
-it_no_merge = 3 #AG TODO: add into config file
-
-n_final_clusters = 3
 
 # for it in range(1,its):
 while n_units > n_final_clusters:
+# fracs = 0
+
+# while fracs < 0.9
     # unit columns
     prev_unit_col = 'unit_%i' % (it-1)
     this_unit_col = 'unit_%i' % it
@@ -378,14 +566,23 @@ while n_units > n_final_clusters:
     outpath = plots_folder / ("Models_%s%s" % (prev_unit_col, fig_format))
     plot_Models(Models, save=outpath)
 
+
     # Score spikes with models
     # if it == its-1: # the last
-    #     penalty = 0
-    Scores, units = Score_spikes(Templates, SpikeInfo, prev_unit_col, Models, score_metric=Rss, penalty=penalty)
+        # penalty = 0
+    # if n_units > n_final_clusters+1:
+    #     score = double_score
+    # else:
+    #     score = Rss
+    score = Rss
+
+
+    # Scores, units = Score_spikes(Templates, SpikeInfo, prev_unit_col, Models, score_metric=Rss, penalty=penalty)
+    Scores, units = Score_spikes(Templates, SpikeInfo, prev_unit_col, Models, score_metric=score, penalty=penalty)
 
     # assign new labels
     min_ix = sp.argmin(Scores, axis=1)
-    # print(Scores)
+
     new_labels = sp.array([units[i] for i in min_ix],dtype='object')
     SpikeInfo[this_unit_col] = new_labels
 
@@ -397,13 +594,26 @@ while n_units > n_final_clusters:
     # SpikeInfo = unassign_spikes(SpikeInfo, this_unit_col,min_good=min_good) #AG TODO: add to config file
     
     SpikeInfo = unassign_spikes(SpikeInfo, this_unit_col)
-    reject_spikes(Templates, SpikeInfo, this_unit_col,verbose=False)
+    reject_spikes(Templates, SpikeInfo, this_unit_col,verbose=True)
 
 
-    # # randomly unassign a fraction of spikes
+
+    # fracs = []
+    # for unit in units:
+    #     frac = get_frac(SpikeInfo,this_unit_col,unit)
+    #     if frac < 0.7:
+    #         Df = SpikeInfo.groupby(this_unit_col).get_group(unit)
+    #         SpikeInfo.loc[Df.index, this_unit_col] = '-1'
+    #         print_msg("#!#!#!#!#!#!Removing cluster %s with frac %f"%(unit,frac))
+    #     fracs.append(frac)
+
+
+    # fracs = min(fracs)
+
+    # randomly unassign a fraction of spikes
     # if it != its-1: # the last
-    #     N = int(n_spikes * sorting_noise)
-    #     SpikeInfo.loc[SpikeInfo.sample(N).index,this_unit_col] = '-1'
+    N = int(n_spikes * sorting_noise)
+    SpikeInfo.loc[SpikeInfo.sample(N).index,this_unit_col] = '-1'
     
     # plot templates
     outpath = plots_folder / ("Templates_%s%s" % (this_unit_col, fig_format))
@@ -414,8 +624,11 @@ while n_units > n_final_clusters:
         print_msg("check for merges ... ")
         Avgs, Sds = calculate_pairwise_distances(Templates, SpikeInfo, this_unit_col)
         merge = best_merge(Avgs, Sds, units, clust_alpha)
+
+        # merge = safe_merge(merge,SpikeInfo,this_unit_col,min_frac=0.75)
+
         if len(merge) > 0:
-            print_msg("merging: " + ' '.join(merge))
+            print_msg("########merging: " + ' '.join(merge))
             ix = SpikeInfo.groupby(this_unit_col).get_group(merge[1])['id']
             SpikeInfo.loc[ix, this_unit_col] = merge[0]
             not_merge =0
@@ -426,65 +639,313 @@ while n_units > n_final_clusters:
         clust_alpha +=0.1
         if clust_alpha == 0.9:
             clust_alpha = 0.5
+        it_merge = max(it_merge-1,1)
+        it_no_merge = max(it_no_merge-1,1)
         print_msg("%d failed merges. New alpha value: %f"%(not_merge,clust_alpha))
         not_merge = 0
 
-    # Model eval
-    n_changes = sp.sum(~(SpikeInfo[this_unit_col] == SpikeInfo[prev_unit_col]).values)
-    
-    Rss_sum = sp.sum(np.min(Scores,axis=1)) / Templates.shape[1]
-    ScoresSum.append(Rss_sum)
-    units = get_units(SpikeInfo, this_unit_col)
-    AICs.append(len(units) - 2 * sp.log(Rss_sum))
+        it_merge = Config.getint('spike sort','it_merge')
 
-    n_units = len(units)
+        it_no_merge = Config.getint('spike sort','it_no_merge')
+
+    # Model eval
+    # n_changes = sp.sum(~(SpikeInfo[this_unit_col] == SpikeInfo[prev_unit_col]).values)
+    
+    # Rss_sum = sp.sum(np.min(Scores,axis=1)) / Templates.shape[1]
+    # ScoresSum.append(Rss_sum)
+    # units = get_units(SpikeInfo, this_unit_col)
+    # AICs.append(len(units) - 2 * sp.log(Rss_sum))
+
+    # n_units = len(units)
+
+
+    n_changes,Rss_sum,ScoresSum,units,AICs,n_units = eval_model(SpikeInfo,this_unit_col,prev_unit_col,Scores,Templates,ScoresSum,AICs)
+
+
     if n_units > n_final_clusters:
         it +=1
 
+    try:
+        zoom = sp.array(Config.get('output','zoom').split(','),dtype='float32') / 1000
+        
+
+        # for j, Seg in enumerate(Blk.segments):
+        seg_name = Path(Seg.annotations['filename']).stem
+
+        populate_block(Blk,SpikeInfo,prev_unit_col,units)
+
+        Seg = Blk.segments[0]
+
+        outpath = plots_folder / (seg_name + '_fitted_spikes_%d'%(it) + fig_format)
+        plot_fitted_spikes(Seg, j, Models, SpikeInfo, prev_unit_col, zoom=zoom, save=outpath,wsize=n_samples)
+    except Exception as ex:
+        print(ex.args)
+        pass
+
+
     # print iteration info
-    print_msg("It:%i - Rss sum: %.3e - # reassigned spikes: %s" % (it, Rss_sum, n_changes))
+    print_msg("It:%i - Rss sum: %.3e - # reassigned spikes: %s / %d" % (it, Rss_sum, n_changes,len(spike_labels)))
     print_msg("Number of clusters after iteration: %d"%len(units))
+
+
+#######
 
 print_msg("algorithm run is done")
 
+
+
+#TODO: add new "final" column
+unit_column = 'unit_%d'%it
+
+
+try:
+    get_units(SpikeInfo,unit_column)
+except:
+    SpikeInfo[unit_column] = SpikeInfo['unit']
+    pass
+
+
+# plot templates and models for last column
+outpath = plots_folder / ("Templates_%s%s" % (unit_column,fig_format))
+plot_templates(Templates, SpikeInfo, unit_column, save=outpath)
+outpath = plots_folder / ("Models_%s%s" % (unit_column,fig_format))
+plot_Models(Models, save=outpath)
 # Remove the smallest cluster (contains false positive spikes)
 if rm_smaller_cluster:
-    #TODO: add new "final" column
-    unit_column = 'unit_%d'%it
 
-    # plot templates and models for last column
-    outpath = plots_folder / ("Templates_final%s%s" % (unit_column,fig_format))
-    plot_templates(Templates, SpikeInfo, unit_column, save=outpath)
-    outpath = plots_folder / ("Models_final%s%s" % (unit_column,fig_format))
-    plot_Models(Models, save=outpath)
+    # units = get_units(SpikeInfo, unit_column)
+    # spike_labels = SpikeInfo[unit_column]
 
-    units = get_units(SpikeInfo, unit_column)
-    spike_labels = SpikeInfo[unit_column]
+    # n_spikes_units = []
+    # for unit in units:
+    #     ix = sp.where(spike_labels == unit)[0]
+    #     n_spikes_units.append(ix.shape[0])
 
-    n_spikes_units = []
-    for unit in units:
-        ix = sp.where(spike_labels == unit)[0]
-        n_spikes_units.append(ix.shape[0])
-
-    min_unit = units[sp.argmin(n_spikes_units)]
-    SpikeInfo[unit_column] = SpikeInfo[unit_column].replace(min_unit,'-1')
+    # min_unit = units[sp.argmin(n_spikes_units)]
+    # SpikeInfo[unit_column] = SpikeInfo[unit_column].replace(min_unit,'-1')
+    remove_spikes(SpikeInfo,unit_column,'min')
 
     #TODO add to function or include in run loop
-    #Re-eval model:
-    n_changes = sp.sum(~(SpikeInfo[this_unit_col] == SpikeInfo[prev_unit_col]).values)
+    # #Re-eval model:
+    # n_changes = sp.sum(~(SpikeInfo[this_unit_col] == SpikeInfo[prev_unit_col]).values)
     
-    Rss_sum = sp.sum(np.min(Scores,axis=1)) / Templates.shape[1]
-    ScoresSum.append(Rss_sum)
-    units = get_units(SpikeInfo, this_unit_col)
-    AICs.append(len(units) - 2 * sp.log(Rss_sum))
+    # Rss_sum = sp.sum(np.min(Scores,axis=1)) / Templates.shape[1]
+    # ScoresSum.append(Rss_sum)
+    # units = get_units(SpikeInfo, this_unit_col)
+    # AICs.append(len(units) - 2 * sp.log(Rss_sum))
 
-    n_units = len(units)
+    # n_units = len(units)
+    
+    n_changes,Rss_sum,ScoresSum,units,AICs,n_units = eval_model(SpikeInfo,this_unit_col,prev_unit_col,Scores,Templates,ScoresSum,AICs)
 
     # plot templates and models for last column
     outpath = plots_folder / ("Templates_final%s" % ( fig_format))
     plot_templates(Templates, SpikeInfo, unit_column, save=outpath)
     outpath = plots_folder / ("Models_final%s" % (fig_format))
     plot_Models(Models, save=outpath)
+
+
+#######################################
+# Recluster based on amplitude
+#######################################
+# rate est
+kernel_slow = Config.getfloat('kernels','sigma_slow')
+kernel_fast = Config.getfloat('kernels','sigma_fast')
+calc_update_frates(Blk.segments, SpikeInfo, unit_column, kernel_fast, kernel_slow)
+
+# model
+n_model_comp = Config.getint('spike model','n_model_comp')
+Models = train_Models(SpikeInfo, unit_column, Templates, n_comp=n_model_comp, verbose=True)
+outpath = plots_folder / ("c2_Models_ini" + fig_format)
+plot_Models(Models, save=outpath)
+
+zoom = sp.array(Config.get('output','zoom').split(','),dtype='float32') / 1000
+
+
+# for j, Seg in enumerate(Blk.segments):
+seg_name = Path(Seg.annotations['filename']).stem
+units = get_units(SpikeInfo, unit_column)
+
+# #TODO populate block function. Here and in "Finish"
+# for i, seg in enumerate(Blk.segments):
+#     spike_labels = SpikeInfo.groupby(('segment')).get_group((i))['unit'].values
+#     seg.spiketrains[0].annotations['unit_labels'] = list(spike_labels)
+
+#     # make spiketrains
+#     St = seg.spiketrains[0]
+#     spike_labels = St.annotations['unit_labels']
+#     sts = [St]
+
+#     for unit in units:
+#         times = St.times[sp.array(spike_labels) == unit]
+#         st = neo.core.SpikeTrain(times, t_start = St.t_start, t_stop=St.t_stop)
+#         st.annotate(unit=unit)
+#         sts.append(st)
+#     seg.spiketrains=sts
+
+populate_block(Blk,SpikeInfo,unit_column,units)
+
+Seg = Blk.segments[0]
+outpath = plots_folder / (seg_name + 'c2_fitted_spikes_init' + fig_format)
+plot_fitted_spikes(Seg, j, Models, SpikeInfo, unit_column, zoom=zoom, save=outpath,wsize=n_samples)
+
+it +=1
+
+
+
+##All templates with ampl < 10, remove 
+
+
+
+
+
+
+not_merge =0
+
+# for it in range(1,its):
+# while n_units > n_final_clusters:
+fracs = 0
+
+while fracs < 0.9 and n_changes > 10 and it < 70:
+    # unit columns
+    prev_unit_col = 'unit_%i' % (it-1)
+    this_unit_col = 'unit_%i' % it
+
+    # update rates
+    calc_update_frates(Blk.segments, SpikeInfo, prev_unit_col, kernel_fast, kernel_slow)
+
+    # train models with labels from last iteration
+    Models = train_Models(SpikeInfo, prev_unit_col, Templates, verbose=False, n_comp=n_model_comp)
+    outpath = plots_folder / ("c2_Models_%s%s" % (prev_unit_col, fig_format))
+    plot_Models(Models, save=outpath)
+
+
+    # Score spikes with models
+    # if it == its-1: # the last
+        # penalty = 0
+    # if n_units > n_final_clusters+1:
+    #     score = double_score
+    # else:
+    #     score = Rss
+    score = double_score
+
+
+    # Scores, units = Score_spikes(Templates, SpikeInfo, prev_unit_col, Models, score_metric=Rss, penalty=penalty)
+    Scores, units = Score_spikes(Templates, SpikeInfo, prev_unit_col, Models, score_metric=score, penalty=penalty)
+
+    # assign new labels
+    min_ix = sp.argmin(Scores, axis=1)
+
+    new_labels = sp.array([units[i] for i in min_ix],dtype='object')
+    SpikeInfo[this_unit_col] = new_labels
+
+    # clean assignment
+    # TODO? adaptative min_good limit?
+    # min_good = Scores.shape[0] / n_units
+    # min_good -= min_good*0.8
+
+    # SpikeInfo = unassign_spikes(SpikeInfo, this_unit_col,min_good=min_good) #AG TODO: add to config file
+    
+    SpikeInfo = unassign_spikes(SpikeInfo, this_unit_col)
+    reject_spikes(Templates, SpikeInfo, this_unit_col,verbose=True,n_neighbors=2)
+
+
+
+    fracs = []
+    for unit in units:
+        frac = get_frac(SpikeInfo,this_unit_col,unit)
+        # if frac < 0.7:
+        #     Df = SpikeInfo.groupby(this_unit_col).get_group(unit)
+        #     SpikeInfo.loc[Df.index, this_unit_col] = '-1'
+        #     print_msg("#!#!#!#!#!#!Removing cluster %s with frac %f"%(unit,frac))
+        fracs.append(frac)
+
+
+    fracs = min(fracs)
+
+    # randomly unassign a fraction of spikes
+    # if it != its-1: # the last
+    N = int(n_spikes * sorting_noise)
+    SpikeInfo.loc[SpikeInfo.sample(N).index,this_unit_col] = '-1'
+    
+    # plot templates
+    outpath = plots_folder / ("c2_Templates_%s%s" % (this_unit_col, fig_format))
+    plot_templates(Templates, SpikeInfo, this_unit_col, save=outpath)
+
+    # # every n iterations, merge
+    # if (it > first_merge) and (it % it_merge) == 0:
+    #     print_msg("check for merges ... ")
+    #     Avgs, Sds = calculate_pairwise_distances(Templates, SpikeInfo, this_unit_col)
+    #     merge = best_merge(Avgs, Sds, units, clust_alpha,verbose=True)
+
+    #     # merge = safe_merge(merge,SpikeInfo,this_unit_col,min_frac=0.75)
+
+    #     if len(merge) > 0:
+    #         print_msg("########merging: " + ' '.join(merge))
+    #         ix = SpikeInfo.groupby(this_unit_col).get_group(merge[1])['id']
+    #         SpikeInfo.loc[ix, this_unit_col] = merge[0]
+    #         not_merge =0
+    #     else:
+    #         not_merge +=1
+
+    # if not_merge > it_no_merge:
+    #     clust_alpha +=0.1
+    #     if clust_alpha == 0.9:
+    #         clust_alpha = 0.5
+    #     it_merge = max(it_merge-1,1)
+    #     it_no_merge = max(it_no_merge-1,1)
+    #     print_msg("%d failed merges. New alpha value: %f"%(not_merge,clust_alpha))
+    #     not_merge = 0
+
+    #     it_merge = Config.getint('spike sort','it_merge')
+
+    #     it_no_merge = Config.getint('spike sort','it_no_merge')
+
+    # Model eval
+    # n_changes = sp.sum(~(SpikeInfo[this_unit_col] == SpikeInfo[prev_unit_col]).values)
+    
+    # Rss_sum = sp.sum(np.min(Scores,axis=1)) / Templates.shape[1]
+    # ScoresSum.append(Rss_sum)
+    # units = get_units(SpikeInfo, this_unit_col)
+    # AICs.append(len(units) - 2 * sp.log(Rss_sum))
+
+    # n_units = len(units)
+
+
+    n_changes,Rss_sum,ScoresSum,units,AICs,n_units = eval_model(SpikeInfo,this_unit_col,prev_unit_col,Scores,Templates,ScoresSum,AICs)
+
+
+    # if n_units > n_final_clusters:
+    it +=1
+
+    # try:
+    zoom = sp.array(Config.get('output','zoom').split(','),dtype='float32') / 1000
+    
+
+    # for j, Seg in enumerate(Blk.segments):
+    seg_name = Path(Seg.annotations['filename']).stem
+
+    populate_block(Blk,SpikeInfo,unit_column,units)
+
+    Seg = Blk.segments[0]
+
+    outpath = plots_folder / (seg_name + 'c2_fitted_spikes_%d'%(it) + fig_format)
+    plot_fitted_spikes(Seg, j, Models, SpikeInfo, prev_unit_col, zoom=zoom, save=outpath,wsize=n_samples)
+    # except Exception as ex:
+    #     print(ex.args)
+        # pass
+
+
+    # print iteration info
+    print_msg("It:%i - Rss sum: %.3e - # reassigned spikes: %s / %d" % (it, Rss_sum, n_changes,len(spike_labels)))
+    print_msg("Number of clusters after iteration: %d"%len(units))
+
+
+
+
+it -=1
+
+
 
 """
  
@@ -523,7 +984,7 @@ for i, seg in tqdm(enumerate(Blk.segments),desc="populating block for output"):
     St = seg.spiketrains[0]
     spike_labels = St.annotations['unit_labels']
     sts = [St]
-    print(units)
+
     for unit in units:
         times = St.times[sp.array(spike_labels) == unit]
         st = neo.core.SpikeTrain(times, t_start = St.t_start, t_stop=St.t_stop)
@@ -601,7 +1062,6 @@ if Config.getboolean('output','csv'):
  ##        ########  #######     ##       #### ##    ##  ######  ##        ########  ######     ##    
  
 """
-print(SpikeInfo.groupby('unit').describe)
 
 # plot all sorted spikes
 for j, Seg in enumerate(Blk.segments):
@@ -614,10 +1074,10 @@ for j, Seg in enumerate(Blk.segments):
 
 max_window = 4 #AG: TODO add to config file
 unit_column = 'unit_%i' % it
-plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column, max_window, plots_folder, fig_format)
+plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column, max_window, plots_folder, fig_format,wsize=n_samples)
 
 max_window = 0.3 #AG: TODO add to config file
-plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column, max_window, plots_folder, fig_format)
+plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column, max_window, plots_folder, fig_format,wsize=n_samples)
 
 print_msg("plotting done")
 print_msg("all done - quitting")
