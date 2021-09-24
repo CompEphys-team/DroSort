@@ -287,7 +287,7 @@ def plot_compared_spike_events(Segment1,Segment2,thres=2,max_window=1,max_row=5,
     # return fig, axes
 
 
-def plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column,max_window, plots_folder, fig_format, unit_order=None, save=None, colors=None,wsize=40):
+def plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column,max_window, plots_folder, fig_format, unit_order=None, save=None, colors=None,wsize=40,extension=''):
 
     for j, Seg in enumerate(Blk.segments):
         seg_name = Path(Seg.annotations['filename']).stem
@@ -297,7 +297,7 @@ def plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column,max_window, 
         n_plots = asig.shape[0]//max_window
 
         for n_plot in range(0,n_plots):
-            outpath = plots_folder / (seg_name + '_fitted_spikes_%s_%d'%(max_window,n_plot) + fig_format)
+            outpath = plots_folder / (seg_name + '_fitted_spikes%s_%s_%d'%(extension,max_window,n_plot) + fig_format)
             ini = n_plot*max_window + max_window
             end = ini + max_window
             end = min(end, Seg.analogsignals[0].shape[0])
@@ -313,6 +313,13 @@ def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=No
     asig = Segment.analogsignals[0]
     axes[0].plot(asig.times, asig.data, color='k', lw=1)
     axes[1].plot(asig.times, asig.data, color='k', lw=1)
+
+    st = Segment.spiketrains[0] #get all spike trains (assuming there's only one spike train)
+    #get events amplitude value (spike)
+    a_events = st.waveforms
+    a_events = [max(a) for a in a_events]
+    axes[1].plot(st.times,a_events,'.',markersize=1)
+
 
     units = get_units(SpikeInfo, unit_column)
 
@@ -338,13 +345,19 @@ def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=No
         inds = inds - offset
 
         try:
-            frates = SpikeInfo.groupby([unit_column, 'segment']).get_group((unit,j))['frate_fast'].values
-            pred_spikes = [Models[unit].predict(f) for f in frates]
+            if type(Models).__name__=='dict':
+                frates = SpikeInfo.groupby([unit_column, 'segment']).get_group((unit,j))['frate_fast'].values
+                pred_spikes = [Models[unit].predict(f) for f in frates]
+            else:
+                ix = SpikeInfo.groupby([unit_column,'good']).get_group((unit,True))['id']
+                pred_spikes = Models[:,ix].T
+
 
             for i, spike in enumerate(pred_spikes):
                 asig_recons[int(inds[i]-wsize/2):int(inds[i]+wsize/2)] = spike
 
             axes[1].plot(asig.times, asig_recons, lw=2.0, color=colors[unit], alpha=0.8)
+
         except KeyError:
             # thrown when no spikes are present in this segment
             pass
@@ -364,6 +377,55 @@ def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=No
         plt.close(fig)
 
     return fig, axes
+
+def plot_templates_on_trace(Segment, j, Templates, zoom=None, save=None,wsize=40):
+    """ plot to inspect fitted spikes """
+    fig, axes =plt.subplots(nrows=2, sharex=True, sharey=True)
+    
+    asig = Segment.analogsignals[0]
+    axes[0].plot(asig.times, asig.data, color='k', lw=1)
+    axes[1].plot(asig.times, asig.data, color='k', lw=1)
+
+    st = Segment.spiketrains[0] #get spike trains (assuming there's only one spike train)
+
+    fs = asig.sampling_rate
+
+    asig_recons = sp.zeros(asig.shape[0])
+    asig_recons[:] = sp.nan 
+
+    inds = (st.times * fs).simplified.magnitude.astype('int32')
+    offset = (st.t_start * fs).simplified.magnitude.astype('int32')
+    inds = inds - offset
+
+    pred_spikes = Templates[:,:].T
+
+    for i, spike in enumerate(pred_spikes):
+        asig_recons[int(inds[i]-wsize/2):int(inds[i]+wsize/2)] = spike
+
+    axes[1].plot(asig.times, asig_recons, lw=1.5, color='b')
+
+    #get events amplitude value (spike)
+    a_events = st.waveforms
+    a_events = [max(a) for a in a_events]
+
+    axes[1].plot(st.times,a_events,'.',markersize=2,color='r')
+
+    if zoom is not None:
+        for ax in axes:
+            ax.set_xlim(zoom)
+            
+    stim_name = Path(Segment.annotations['filename']).stem
+    fig.suptitle(stim_name)
+    fig.tight_layout()
+    fig.subplots_adjust(top=0.9)
+    sns.despine(fig)
+
+    if save is not None:
+        fig.savefig(save)
+        plt.close(fig)
+
+    return fig, axes
+
 
 def plot_convergence(ScoresSum, save=None):
     """ convergence check """

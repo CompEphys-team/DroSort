@@ -233,6 +233,13 @@ outpath = results_folder / 'Templates.npy'
 sp.save(outpath, Templates)
 print_msg("saving Templates to %s" % outpath)
 
+zoom = sp.array(Config.get('output','zoom').split(','),dtype='float32') / 1000
+for j,Seg in enumerate(Blk.segments):
+    outpath = plots_folder / ("templates_in_signal_init"+fig_format)
+    plot_templates_on_trace(Seg, j, Templates, save=outpath,wsize=n_samples,zoom=zoom)
+
+
+
 """
  
   ######  ##       ##     ##  ######  ######## ######## ########  
@@ -294,12 +301,6 @@ SpikeInfo = unassign_spikes(SpikeInfo, 'unit')
 outpath = plots_folder / ("templates_init" + fig_format)
 plot_templates(Templates, SpikeInfo, N=100, save=outpath)
 
-#AG 09-2021. TODO adapt plot funtion for templates.
-# for Seg in Blk.segments:
-#     outpath = plots_folder / ("templates_in_signal_init"+fig_format)
-#     # plot_templates_n_signal(Segment,Templates,save=outpath,save_format = fig_format,show=True)
-#     plot_fitted_spikes(Seg, j, Templates, SpikeInfo, 'unit', save=outpath)
-
 """
  
  #### ##    ## #### ######## 
@@ -336,6 +337,42 @@ populate_block(Blk,SpikeInfo,'unit',units)
 Seg = Blk.segments[0]
 outpath = plots_folder / (seg_name + '_fitted_spikes_init' + fig_format)
 plot_fitted_spikes(Seg, j, Models, SpikeInfo, 'unit', zoom=zoom, save=outpath,wsize=n_samples)
+
+#AG 09-2021. TODO adapt plot funtion for templates.
+for j,Seg in enumerate(Blk.segments):
+    outpath = plots_folder / ("templates_in_signal_init"+fig_format)
+    # # plot_templates_n_signal(Segment,Templates,save=outpath,save_format = fig_format,show=True)
+    # # plot_fitted_spikes_templates(Seg, j, Templates, SpikeInfo, 'unit', save=outpath,wsize=n_samples,zoom=zoom)
+    # plot_fitted_spikes(Seg, j, Templates, SpikeInfo, 'unit', save=outpath,wsize=n_samples,zoom=zoom)
+
+max_window = 0.3 #AG: TODO add to config file
+plot_fitted_spikes_complete(Blk, Templates, SpikeInfo, 'unit', max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates')
+
+
+max_window = 0.3 #AG: TODO add to config file
+
+for j, Seg in enumerate(Blk.segments):
+    seg_name = Path(Seg.annotations['filename']).stem
+
+    asig = Seg.analogsignals[0]
+    max_window = int(max_window*asig.sampling_rate) #FIX conversion from secs to points
+    n_plots = asig.shape[0]//max_window
+
+    for n_plot in range(0,n_plots):
+        outpath = plots_folder / (seg_name + '_templates_%s_%d'%(max_window,n_plot) + fig_format)
+        ini = n_plot*max_window + max_window
+        end = ini + max_window
+        end = min(end, Seg.analogsignals[0].shape[0])
+        zoom = [ini,end]/asig.sampling_rate
+
+        plot_templates_on_trace(Seg, j, Templates, save=outpath,wsize=n_samples,zoom=zoom)
+
+# for j,Seg in enumerate(Blk.segments):
+#     outpath = plots_folder / ("templates_in_signal_init"+fig_format)
+#     plot_templates_on_trace(Seg, j, Templates, save=outpath,wsize=n_samples,zoom=zoom)
+
+
+
 
 """
  
