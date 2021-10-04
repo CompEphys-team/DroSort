@@ -151,7 +151,7 @@ def MAD(AnalogSignal):
     mad = sp.median(sp.absolute(X - sp.median(X))) * AnalogSignal.units
     return mad
 
-def spike_detect(AnalogSignal, bounds, lowpass_freq=1000*pq.Hz):
+def spike_detect(AnalogSignal, bounds, lowpass_freq=1000*pq.Hz,wsize=40):
     """
     detects all spikes in an AnalogSignal that fall within amplitude bounds
 
@@ -175,6 +175,7 @@ def spike_detect(AnalogSignal, bounds, lowpass_freq=1000*pq.Hz):
     peak_inds = signal.argrelmax(AnalogSignal)[0]
 
     # to data structure
+    # SAVES MAX AND NOT SIGNAL!!!
     peak_amps = AnalogSignal.magnitude[peak_inds, :, sp.newaxis] * AnalogSignal.units
 
     tvec = AnalogSignal.times
@@ -188,6 +189,123 @@ def spike_detect(AnalogSignal, bounds, lowpass_freq=1000*pq.Hz):
     SpikeTrain = bounded_threshold(SpikeTrain, bounds)
 
     return SpikeTrain
+
+def double_spike_detect(AnalogSignal, bounds_pos,bounds_neg, lowpass_freq=1000*pq.Hz,wsize=40,plot=False,verbose=False):
+    """
+    detects all spikes in an AnalogSignal that fall within amplitude bounds
+    combines positive and negative peaks
+
+    Args:
+        AnalogSignal (neo.core.AnalogSignal): the waveform
+        bounds (quantities.Quantity): a Quantity of shape (2,) with
+            (lower,upper) bounds, unit [uV]
+        lowpass_freq (quantities.Quantity): cutoff frequency for a smoothing
+            step before spike detection, unit [Hz]
+
+    Returns:
+        neo.core.SpikeTrain: the resulting SpikeTrain
+    """
+    SpikeTrain_pos = spike_detect(AnalogSignal,bounds_pos, lowpass_freq)
+    SpikeTrain_neg = spike_detect(AnalogSignal*-1,bounds_neg, lowpass_freq)
+
+    times_unique = copy.deepcopy(SpikeTrain_pos.times)
+    waveforms = copy.deepcopy(SpikeTrain_pos.waveforms)
+
+    plt.plot(AnalogSignal.times,AnalogSignal.magnitude)
+    plt.plot(SpikeTrain_neg.times,-1*SpikeTrain_neg.waveforms.reshape(SpikeTrain_neg.waveforms.shape[0]),'x')
+    plt.plot(SpikeTrain_pos.times,SpikeTrain_pos.waveforms.reshape(SpikeTrain_pos.waveforms.shape[0]),'x')
+    
+    for i,st_neg in enumerate(SpikeTrain_neg):
+        st_neg_id = int(st_neg*AnalogSignal.sampling_rate)
+
+        size = wsize/2/AnalogSignal.sampling_rate
+        size.units = pq.s
+        
+        indexes = np.where((SpikeTrain_pos > st_neg-size) & (SpikeTrain_pos < st_neg+size))
+
+        if indexes[0].size == 0: #spike not found in positive trains detection
+            pini_st_neg = st_neg_id - wsize//2
+            pend_st_neg = st_neg_id + wsize//2
+
+            neg_waveform = AnalogSignal.magnitude[pini_st_neg:st_neg_id]
+            waveform = neg_waveform
+
+            new_time_id = int(pini_st_neg + np.argmax(neg_waveform))
+            new_time = AnalogSignal.times[new_time_id]
+
+            #remove false detections
+            if max(AnalogSignal.magnitude[new_time_id-wsize//2:new_time_id]) > AnalogSignal.magnitude[new_time_id]:
+                if verbose:
+                    print_msg("max value bigger than peak, not a spike "+str(new_time))
+                continue
+
+            plt.plot(st_neg,1,'.',color='r')
+            plt.plot(new_time,1,'.',color='b')
+            plt.plot((AnalogSignal.times[pini_st_neg],AnalogSignal.times[pend_st_neg]),(1,1),'.',color='k')   
+            
+            times_unique = np.append(times_unique,new_time)
+            waveforms = np.append(waveforms,max(waveform).item())
+
+            # waveforms = np.append(waveforms,waveform,axis=1)
+
+
+    if plot:
+        plt.show()
+    else:
+        plt.close()
+
+    times_unique *= AnalogSignal.times.units
+    waveforms = waveforms[:,sp.newaxis,sp.newaxis]
+
+    SpikeTrain = neo.core.SpikeTrain(times_unique,
+                                     t_start=AnalogSignal.t_start,
+                                     t_stop=AnalogSignal.t_stop,
+                                     sampling_rate=AnalogSignal.sampling_rate,
+                                     waveforms=waveforms,
+                                     sort=True)
+
+    return SpikeTrain
+
+def reject_non_spikes(AnalogSignal,SpikeTrain,wsize,plot=False,verbose=False):
+
+    to_remove = []
+    for i,sp in enumerate(SpikeTrain):
+        sp_id = int(sp*AnalogSignal.sampling_rate)
+
+        waveform = AnalogSignal.magnitude[sp_id-wsize//2:sp_id+wsize//2]
+        end_waveform = AnalogSignal.magnitude[sp_id:sp_id+wsize//2]
+        ini_waveform = AnalogSignal.magnitude[sp_id-wsize//2:sp_id]
+
+        half = (max(waveform)+min(waveform))/2
+
+        # print(half)
+        if waveform[0] < waveform[-1]-0.3 and np.where(end_waveform<half)[0].size==0:
+            to_remove.append(i)
+            plt.plot(waveform)
+
+    if plot:
+        plt.show()
+    else:
+        plt.close()
+
+    if verbose:
+        # print_msg("Removing spike at "+str(sp))
+        print_msg("Removing %d non-spikes"%len(to_remove))
+
+
+    new_times = np.delete(SpikeTrain.times,to_remove)
+    new_waveforms = np.delete(SpikeTrain.waveforms,to_remove)
+    new_waveforms = new_waveforms[:,np.newaxis,np.newaxis]
+
+
+    SpikeTrain = neo.core.SpikeTrain(new_times*AnalogSignal.times.units,
+                                     t_start=AnalogSignal.t_start,
+                                     t_stop=AnalogSignal.t_stop,
+                                     sampling_rate=AnalogSignal.sampling_rate,
+                                     waveforms=new_waveforms,
+                                     sort=True)
+    return SpikeTrain
+
 
 def bounded_threshold(SpikeTrain, bounds):
     """
@@ -614,6 +732,8 @@ def populate_block(Blk,SpikeInfo,unit_column,units):
             st.annotate(unit=unit)
             sts.append(st)
         seg.spiketrains=sts
+
+    return Blk
 
 
 def remove_spikes(SpikeInfo,unit_column,criteria):

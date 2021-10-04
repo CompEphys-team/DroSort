@@ -130,11 +130,26 @@ print_msg('- spike detect - ')
 
 # detecting all spikes by MAD thresholding
 mad_thresh = Config.getfloat('spike detect', 'mad_thresh')
+wsize = Config.getfloat('spike detect', 'wsize') * pq.ms
+
 
 bad_segments = []
 for i, seg in enumerate(Blk.segments):
     AnalogSignal, = select_by_dict(seg.analogsignals, kind='original')
-    st = spike_detect(AnalogSignal, [MAD(AnalogSignal)*mad_thresh, sp.inf] * AnalogSignal.units)
+    bounds = [MAD(AnalogSignal)*mad_thresh, sp.inf] * AnalogSignal.units
+    bounds_neg = [MAD(AnalogSignal)*(mad_thresh-2), sp.inf] * AnalogSignal.units #TODO hardcode mad_thresh lower
+    # bounds_neg = [-sp.inf,-MAD(AnalogSignal)*(mad_thresh-2)] * AnalogSignal.units #TODO hardcode mad_thresh lower
+
+
+    fs = Blk.segments[0].analogsignals[0].sampling_rate
+    n_samples = (wsize * fs).simplified.magnitude.astype('int32')
+
+    if Config.get('preprocessing','peak_mode') == 'double':
+        # st = spike_detect(AnalogSignal, [0,sp.inf])
+        st = double_spike_detect(AnalogSignal, bounds, bounds_neg,wsize=n_samples)
+    else:
+        st = spike_detect(AnalogSignal, bounds,wsize=n_samples)
+
     if st.times.shape[0] == 0:
         stim_name = Path(seg.annotations['filename']).stem
         print_msg("no spikes found for segment %i:%s" % (i,stim_name))
@@ -145,6 +160,10 @@ for i, seg in enumerate(Blk.segments):
     wsize = Config.getfloat('spike detect', 'wsize') * pq.ms
     st_cut = st.time_slice(st.t_start + wsize/2, st.t_stop - wsize/2)
     st_cut.t_start = st.t_start
+
+
+    st_cut = reject_non_spikes(AnalogSignal,st_cut,n_samples)
+
     seg.spiketrains.append(st_cut)
 
 n_spikes = sp.sum([seg.spiketrains[0].shape[0] for seg in Blk.segments])
@@ -228,6 +247,12 @@ for j, seg in enumerate(Blk.segments):
 
 Templates = sp.concatenate(templates,axis=1)
 
+# min_ampl = 1
+# Templates = clean_by_amplitude(Templates,min_ampl)
+
+
+
+
 # templates to disk
 outpath = results_folder / 'Templates.npy'
 sp.save(outpath, Templates)
@@ -296,10 +321,11 @@ n_neighbors = Config.getint('spike model','template_reject')
 reject_spikes(Templates, SpikeInfo, 'unit', n_neighbors, verbose=True)
 
 # unassign spikes if unit has too little good spikes
-SpikeInfo = unassign_spikes(SpikeInfo, 'unit')
+SpikeInfo = unassign_spikes(SpikeInfo, 'unit',min_good=15)
 
 outpath = plots_folder / ("templates_init" + fig_format)
 plot_templates(Templates, SpikeInfo, N=100, save=outpath)
+
 
 """
  
@@ -332,47 +358,35 @@ zoom = sp.array(Config.get('output','zoom').split(','),dtype='float32') / 1000
 seg_name = Path(Seg.annotations['filename']).stem
 units = get_units(SpikeInfo, 'unit')
 
-populate_block(Blk,SpikeInfo,'unit',units)
+
+Blk = populate_block(Blk,SpikeInfo,'unit',units)
 
 Seg = Blk.segments[0]
 outpath = plots_folder / (seg_name + '_fitted_spikes_init' + fig_format)
 plot_fitted_spikes(Seg, j, Models, SpikeInfo, 'unit', zoom=zoom, save=outpath,wsize=n_samples)
 
-#AG 09-2021. TODO adapt plot funtion for templates.
-for j,Seg in enumerate(Blk.segments):
-    outpath = plots_folder / ("templates_in_signal_init"+fig_format)
-    # # plot_templates_n_signal(Segment,Templates,save=outpath,save_format = fig_format,show=True)
-    # # plot_fitted_spikes_templates(Seg, j, Templates, SpikeInfo, 'unit', save=outpath,wsize=n_samples,zoom=zoom)
-    # plot_fitted_spikes(Seg, j, Templates, SpikeInfo, 'unit', save=outpath,wsize=n_samples,zoom=zoom)
-
-max_window = 0.3 #AG: TODO add to config file
-plot_fitted_spikes_complete(Blk, Templates, SpikeInfo, 'unit', max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates')
+#FIX: Template seems like model?¿?¿?¿?
+# max_window = 0.3 #AG: TODO add to config file
+# plot_fitted_spikes_complete(Blk, Templates, SpikeInfo, 'unit', max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates')
 
 
-max_window = 0.3 #AG: TODO add to config file
+# max_window = 0.3 #AG: TODO add to config file
 
-for j, Seg in enumerate(Blk.segments):
-    seg_name = Path(Seg.annotations['filename']).stem
+# for j, Seg in enumerate(Blk.segments):
+#     seg_name = Path(Seg.annotations['filename']).stem
 
-    asig = Seg.analogsignals[0]
-    max_window = int(max_window*asig.sampling_rate) #FIX conversion from secs to points
-    n_plots = asig.shape[0]//max_window
+#     asig = Seg.analogsignals[0]
+#     max_window = int(max_window*asig.sampling_rate) #FIX conversion from secs to points
+#     n_plots = asig.shape[0]//max_window
 
-    for n_plot in range(0,n_plots):
-        outpath = plots_folder / (seg_name + '_templates_%s_%d'%(max_window,n_plot) + fig_format)
-        ini = n_plot*max_window + max_window
-        end = ini + max_window
-        end = min(end, Seg.analogsignals[0].shape[0])
-        zoom = [ini,end]/asig.sampling_rate
+#     for n_plot in range(0,n_plots):
+#         outpath = plots_folder / (seg_name + '_templates_%s_%d'%(max_window,n_plot) + fig_format)
+#         ini = n_plot*max_window + max_window
+#         end = ini + max_window
+#         end = min(end, Seg.analogsignals[0].shape[0])
+#         zoom = [ini,end]/asig.sampling_rate
 
-        plot_templates_on_trace(Seg, j, Templates, save=outpath,wsize=n_samples,zoom=zoom)
-
-# for j,Seg in enumerate(Blk.segments):
-#     outpath = plots_folder / ("templates_in_signal_init"+fig_format)
-#     plot_templates_on_trace(Seg, j, Templates, save=outpath,wsize=n_samples,zoom=zoom)
-
-
-
+#         plot_templates_on_trace(Seg, j, Templates, save=outpath,wsize=n_samples,zoom=zoom)
 
 """
  
@@ -410,6 +424,7 @@ it =1
 
 not_merge =0
 # fracs = 0
+change_cluster=5
 
 # for it in range(1,its):
 while n_units > n_final_clusters:
@@ -435,7 +450,10 @@ while n_units > n_final_clusters:
     #     score = double_score
     # else:
     #     score = Rss
-    score = Rss
+    if n_units == change_cluster:
+        score == amplitude
+    else:
+        score = Rss
 
 
     # Scores, units = Score_spikes(Templates, SpikeInfo, prev_unit_col, Models, score_metric=Rss, penalty=penalty)
@@ -469,6 +487,14 @@ while n_units > n_final_clusters:
     #     fracs.append(frac)
 
     # fracs = min(fracs)
+
+    n_changes = sp.sum(~(SpikeInfo[this_unit_col] == SpikeInfo[prev_unit_col]).values)
+    print(n_changes)
+
+    # if n_changes > 50:
+    #     SpikeInfo[this_unit_col] = SpikeInfo[prev_unit_col]
+    #     print_msg("Number of changes %d not allowed. Skipping and changing penalty"%n_changes)
+    #     continue
 
 
     # randomly unassign a fraction of spikes
@@ -511,7 +537,6 @@ while n_units > n_final_clusters:
 
     n_changes,Rss_sum,ScoresSum,units,AICs,n_units = eval_model(SpikeInfo,this_unit_col,prev_unit_col,Scores,Templates,ScoresSum,AICs)
 
-
     if n_units > n_final_clusters:
         it +=1
 
@@ -523,7 +548,7 @@ while n_units > n_final_clusters:
         seg_name = Path(Seg.annotations['filename']).stem
 
         # populate_block(Blk,SpikeInfo,prev_unit_col,units)
-        populate_block(Blk,SpikeInfo,this_unit_col,units)
+        Blk = populate_block(Blk,SpikeInfo,this_unit_col,units)
 
         Seg = Blk.segments[0]
 

@@ -349,8 +349,9 @@ def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=No
                 frates = SpikeInfo.groupby([unit_column, 'segment']).get_group((unit,j))['frate_fast'].values
                 pred_spikes = [Models[unit].predict(f) for f in frates]
             else:
+                Templates = Models
                 ix = SpikeInfo.groupby([unit_column,'good']).get_group((unit,True))['id']
-                pred_spikes = Models[:,ix].T
+                pred_spikes = Templates[:,ix].T
 
 
             for i, spike in enumerate(pred_spikes):
