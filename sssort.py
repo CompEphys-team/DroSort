@@ -446,56 +446,24 @@ while n_units > n_final_clusters:
     # Score spikes with models
     # if it == its-1: # the last
         # penalty = 0
-    # if n_units > n_final_clusters+1:
-    #     score = double_score
-    # else:
-    #     score = Rss
-    if n_units == change_cluster:
-        score == amplitude
-    else:
-        score = Rss
+    score = Rss #change to double_score or amplitude_score for other model scoring
 
-
-    # Scores, units = Score_spikes(Templates, SpikeInfo, prev_unit_col, Models, score_metric=Rss, penalty=penalty)
     Scores, units = Score_spikes(Templates, SpikeInfo, prev_unit_col, Models, score_metric=score, penalty=penalty)
 
     # assign new labels
     min_ix = sp.argmin(Scores, axis=1)
 
     new_labels = sp.array([units[i] for i in min_ix],dtype='object')
-    SpikeInfo[this_unit_col] = new_labels
+    if n_units > change_cluster: #do not train after n clusters.
+        SpikeInfo[this_unit_col] = new_labels
+    else:
+        SpikeInfo[this_unit_col] = SpikeInfo[prev_unit_col]
 
-    # clean assignment
-    # TODO? adaptative min_good limit?
-    # min_good = Scores.shape[0] / n_units
-    # min_good -= min_good*0.8
-
-    # SpikeInfo = unassign_spikes(SpikeInfo, this_unit_col,min_good=min_good) #AG TODO: add to config file
-    
     SpikeInfo = unassign_spikes(SpikeInfo, this_unit_col)
-    reject_spikes(Templates, SpikeInfo, this_unit_col,verbose=True)
-
-
-    #Unsassing spikes from clusters with bad rates
-    # fracs = []
-    # for unit in units:
-    #     frac = get_frac(SpikeInfo,this_unit_col,unit)
-    #     if frac < 0.7:
-    #         Df = SpikeInfo.groupby(this_unit_col).get_group(unit)
-    #         SpikeInfo.loc[Df.index, this_unit_col] = '-1'
-    #         print_msg("#!#!#!#!#!#!Removing cluster %s with frac %f"%(unit,frac))
-    #     fracs.append(frac)
-
-    # fracs = min(fracs)
+    reject_spikes(Templates, SpikeInfo, this_unit_col,verbose=False)
 
     n_changes = sp.sum(~(SpikeInfo[this_unit_col] == SpikeInfo[prev_unit_col]).values)
     print(n_changes)
-
-    # if n_changes > 50:
-    #     SpikeInfo[this_unit_col] = SpikeInfo[prev_unit_col]
-    #     print_msg("Number of changes %d not allowed. Skipping and changing penalty"%n_changes)
-    #     continue
-
 
     # randomly unassign a fraction of spikes
     # if it != its-1: # the last
@@ -519,6 +487,8 @@ while n_units > n_final_clusters:
             ix = SpikeInfo.groupby(this_unit_col).get_group(merge[1])['id']
             SpikeInfo.loc[ix, this_unit_col] = merge[0]
             not_merge =0
+            # clust_alpha = clust_alpha_org
+            # it_merge = it_merge_org
         else:
             not_merge +=1
 
@@ -569,7 +539,6 @@ while n_units > n_final_clusters:
 print_msg("algorithm run is done")
 
 
-#TODO: add new "final" column
 unit_column = 'unit_%d'%it
 
 
@@ -579,6 +548,7 @@ try:
 except:
     SpikeInfo[unit_column] = SpikeInfo['unit']
     pass
+
 
 
 # plot templates and models for last column
