@@ -227,10 +227,6 @@ def double_spike_detect(AnalogSignal, bounds_pos,bounds_neg, lowpass_freq=1000*p
             pini_st_neg = st_neg_id - wsize//2
             pend_st_neg = min(st_neg_id + wsize//2,AnalogSignal.times.size-1)
 
-            if pini_st_neg > AnalogSignal.times.size-1:
-                print("skp")
-                continue
-
             neg_waveform = AnalogSignal.magnitude[pini_st_neg:st_neg_id]
             waveform = neg_waveform
 
@@ -284,7 +280,9 @@ def reject_non_spikes(AnalogSignal,SpikeTrain,wsize,plot=False,verbose=False):
 
         #ignore spike when first point much smaller than last
         # and crosses mid point only once.
-        if waveform[0] < waveform[-1]-0.3 and np.where(end_waveform<half)[0].size==0:
+        # or amplitude is too small for a spike
+        #TODO:change by percentaje ampl*0.3?
+        if (waveform[0] < waveform[-1]-0.3 and np.where(end_waveform<half)[0].size==0) or ((max(waveform)-min(waveform)) < 0.3):
             to_remove.append(i)
             plt.plot(waveform)
 

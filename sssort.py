@@ -66,6 +66,9 @@ plots_folder = results_folder / 'plots'
 os.makedirs(plots_folder, exist_ok=True)
 os.chdir(config_path.parent / exp_name)
 
+print("rm %s/*"%plots_folder)
+os.system("rm %s/*"%plots_folder)
+
 # copy config
 shutil.copyfile(config_path, config_path.parent / exp_name / config_path.name)
 
@@ -162,7 +165,7 @@ for i, seg in enumerate(Blk.segments):
     st_cut.t_start = st.t_start
 
 
-    st_cut = reject_non_spikes(AnalogSignal,st_cut,n_samples)
+    st_cut = reject_non_spikes(AnalogSignal,st_cut,n_samples,verbose=True)
 
     seg.spiketrains.append(st_cut)
 
@@ -406,6 +409,7 @@ SpikeInfo['unit_0'] = SpikeInfo['unit'] # the init
 n_final_clusters = Config.getint('spike sort','n_final_clusters')
 rm_smaller_cluster = Config.getboolean('posprocessing','rm_smaller_cluster')
 it_merge = Config.getint('spike sort','it_merge')
+org_it_merge = it_merge
 first_merge = Config.getint('spike sort','first_merge')
 clust_alpha = Config.getfloat('spike sort','clust_alpha')
 units = get_units(SpikeInfo, 'unit_0')
@@ -443,7 +447,7 @@ while n_units >= n_final_clusters and not last:
     plot_Models(Models, save=outpath)
 
     if n_units <= change_cluster: #ignore train after n clusters.
-        penalty = 0 #low penalty does not allow changes in model
+        penalty = -10 #low penalty does not allow changes in model
         it_merge = 1
         clust_alpha = 10
 
@@ -454,6 +458,14 @@ while n_units >= n_final_clusters and not last:
     # assign new labels
     min_ix = sp.argmin(Scores, axis=1)
     new_labels = sp.array([units[i] for i in min_ix],dtype='object')
+
+    n_changes = np.sum(~(SpikeInfo[prev_unit_col]==new_labels))
+    print("Changes by scoring: %d "%np.sum(~(SpikeInfo[prev_unit_col]==new_labels)))
+    if it_merge > 1 and n_changes < 3:
+        it_merge = 1
+        clust_alpha +=0.1
+    else:
+        it_merge = org_it_merge
 
     SpikeInfo[this_unit_col] = new_labels
 
@@ -580,6 +592,7 @@ outpath = plots_folder / ("Models_%s%s" % (unit_column,fig_format))
 plot_Models(Models, save=outpath)
 
 # Remove the smallest cluster (contains false positive spikes)
+# TODO change for smallest amplitude?
 if rm_smaller_cluster:
     remove_spikes(SpikeInfo,unit_column,'min')
     n_changes,Rss_sum,ScoresSum,units,AICs,n_units = eval_model(SpikeInfo,this_unit_col,prev_unit_col,Scores,Templates,ScoresSum,AICs)
