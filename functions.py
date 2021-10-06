@@ -225,7 +225,11 @@ def double_spike_detect(AnalogSignal, bounds_pos,bounds_neg, lowpass_freq=1000*p
 
         if indexes[0].size == 0: #spike not found in positive trains detection
             pini_st_neg = st_neg_id - wsize//2
-            pend_st_neg = st_neg_id + wsize//2
+            pend_st_neg = min(st_neg_id + wsize//2,AnalogSignal.times.size-1)
+
+            if pini_st_neg > AnalogSignal.times.size-1:
+                print("skp")
+                continue
 
             neg_waveform = AnalogSignal.magnitude[pini_st_neg:st_neg_id]
             waveform = neg_waveform
@@ -278,7 +282,8 @@ def reject_non_spikes(AnalogSignal,SpikeTrain,wsize,plot=False,verbose=False):
 
         half = (max(waveform)+min(waveform))/2
 
-        # print(half)
+        #ignore spike when first point much smaller than last
+        # and crosses mid point only once.
         if waveform[0] < waveform[-1]-0.3 and np.where(end_waveform<half)[0].size==0:
             to_remove.append(i)
             plt.plot(waveform)
@@ -579,13 +584,13 @@ def score_amplitude(X,Y):
     # ampl_Y = max(Y)
     # ampl_X = max(X)
 
-    ampl_Y = max(Y)-min(Y)
-    ampl_X = max(X)-min(X)
+    ampl_Y = max(Y)+min(Y)
+    ampl_X = max(X)+min(X)
 
-    if ampl_Y <= ampl_X:
-        return 0 
-    else:
-        return (ampl_Y - ampl_X) #If amplitude is much bigger in prediction, bad score
+    # if ampl_Y <= ampl_X:
+    #     return 0 
+    # else:
+    return -abs(ampl_Y - ampl_X) #If amplitude is much bigger in prediction, bad score
 
 def double_score(X,Y):
     rss = Rss(X,Y)
@@ -643,6 +648,90 @@ def Score_spikes(Templates, SpikeInfo, unit_column, Models, score_metric=Rss, pe
  
 """
 
+# def distance_to_units(Templates,SpikeInfo,unit_column,lim=10):
+#     spike_ids = SpikeInfo['id'].values
+
+#     units = get_units(SpikeInfo, unit_column)
+#     n_units = len(units)
+
+#     n_spikes = spike_ids.shape[0]
+#     Distances = sp.zeros((n_spikes,n_units))
+#     Amplitudes = sp.zeros((n_units))
+
+#     # pca = PCA(n_components=5)
+#     # X = pca.fit_transform(Templates.T)
+
+#     for i, spike_id in enumerate(spike_ids):
+#         # spike = X[spike_id,:]
+#         spike = Templates[:, spike_id].T
+#         ampl = max(spike)-min(spike)
+
+#         for j, unit in enumerate(units):
+#             # the simulated data
+#             ix_b = SpikeInfo.groupby([unit_column, 'good']).get_group((unit, True))['id']
+#             # T_a = np.tile(ampl,(ix_b.shape[0],1))
+#             T_a = np.array([ampl])
+#             T_b = Templates[:,ix_b].T
+#             # print(T_b.shape)
+#             T_b = np.array([max(t)-min(t) for t in T_b])
+
+#             # T_b = [max(Templates,1)-min(Templates,1)]
+#             # T_b = X[ix_b,:]
+
+#             # print(T_a)
+#             # print(T_a.shape)
+#             # print(T_b.shape)
+
+#             D_pw = metrics.pairwise.euclidean_distances(T_a.reshape(1,-1),T_b.reshape(-1,1))
+#             # Distances[i,j] = np.sum(np.sum(D_pw,1)) #sum each component distance for this spike
+#             # Distances[i,j] = sp.average(np.sum(D_pw,1)) + sp.std(np.sum(D_pw,1))
+#             Distances[i,j] = sp.average(D_pw)
+            
+#             Amplitudes[j] = sp.average(T_b[:lim])
+
+#             # print(Distances[i,j])
+#             # Distances[i] = D_pw[0]
+
+#     Distances[sp.isnan(Distances)] = sp.inf
+#     # print(Distances)
+    
+#     return Distances,Amplitudes
+def get_units_amplitudes(Templates,SpikeInfo,unit_column,lim=10):
+    units = get_units(SpikeInfo, unit_column)
+    n_units = len(units)
+
+    # n_spikes = spike_ids.shape[0]
+    Amplitudes = sp.zeros((n_units))
+
+    for i, unit in enumerate(units):
+        # the simulated data
+        ix_b = SpikeInfo.groupby([unit_column, 'good']).get_group((unit, True))['id']
+        T_b = Templates[:,ix_b].T
+
+        T_b = np.array([max(t)-min(t) for t in T_b])
+
+        Amplitudes[i] = sp.average(T_b[:lim])
+
+    
+    return Amplitudes
+
+def get_neighbours_amplitude(Templates,SpikeInfo,unit_column,unit,idx=0,n=5):
+    ix_b = SpikeInfo.groupby([unit_column, 'good']).get_group((unit, True))['id']
+
+    idx %= len(ix_b)
+
+    T_b = Templates[:,ix_b].T
+    T_b = Templates.T
+    T_b = [max(t)-min(t) for t in T_b]
+
+    ini = max(idx-n,0)
+    end = min(idx-n,len(T_b))
+
+    T_b = np.array(T_b[ini:idx]+T_b[idx+1:end])
+
+    return sp.average(T_b)
+
+
 def calculate_pairwise_distances(Templates, SpikeInfo, unit_column, n_comp=5):
     """ calculate all pairwise distances between Templates in PC space defined by n_comp.
     returns matrix of average distances and of their sd """
@@ -663,6 +752,7 @@ def calculate_pairwise_distances(Templates, SpikeInfo, unit_column, n_comp=5):
             T_a = X[ix_a,:]
             T_b = X[ix_b,:]
             D_pw = metrics.pairwise.euclidean_distances(T_a,T_b)
+
             Avgs[i,j] = sp.average(D_pw)
             Sds[i,j] = sp.std(D_pw)
     return Avgs, Sds
@@ -677,6 +767,7 @@ def best_merge(Avgs, Sds, units, alpha=1):
 
     try:
         merge_candidates = list(zip(sp.arange(Q.shape[0]),sp.argmin(Q,1)))
+
         # remove self
         for i in range(Q.shape[0]):
             try:
@@ -716,7 +807,6 @@ def get_frac(SpikeInfo,unit_column,unit):
 
 
 def populate_block(Blk,SpikeInfo,unit_column,units):
-     #TODO populate block function. Here and in "Finish"
     for i, seg in enumerate(Blk.segments):
         spike_labels = SpikeInfo.groupby(('segment')).get_group((i))[unit_column].values
         seg.spiketrains[0].annotations['unit_labels'] = list(spike_labels)
