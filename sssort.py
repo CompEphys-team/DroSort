@@ -66,7 +66,7 @@ plots_folder = results_folder / 'plots'
 os.makedirs(plots_folder, exist_ok=True)
 os.chdir(config_path.parent / exp_name)
 
-print("rm %s/*"%plots_folder)
+#TODO: add question!!
 os.system("rm %s/*"%plots_folder)
 
 # copy config
@@ -165,7 +165,7 @@ for i, seg in enumerate(Blk.segments):
     st_cut.t_start = st.t_start
 
 
-    st_cut = reject_non_spikes(AnalogSignal,st_cut,n_samples,verbose=True)
+    st_cut = reject_non_spikes(AnalogSignal,st_cut,n_samples,verbose=True,plot=False)
 
     seg.spiketrains.append(st_cut)
 
@@ -429,7 +429,6 @@ not_merge =0
 
 change_cluster=Config.getint('spike sort','cluster_limit_train')
 last = False
-
 while n_units >= n_final_clusters and not last:
     if n_units == n_final_clusters:
         last = True
@@ -446,28 +445,29 @@ while n_units >= n_final_clusters and not last:
     outpath = plots_folder / ("Models_%s%s" % (prev_unit_col, fig_format))
     plot_Models(Models, save=outpath)
 
-    if n_units <= change_cluster: #ignore train after n clusters.
-        penalty = -10 #low penalty does not allow changes in model
+    if n_units > change_cluster:
+        # Score spikes with models
+        score = Rss #change to double_score or amplitude_score for other model scoring
+        Scores, units = Score_spikes(Templates, SpikeInfo, prev_unit_col, Models, score_metric=score, penalty=penalty)
+
+        # assign new labels
+        min_ix = sp.argmin(Scores, axis=1)
+        new_labels = sp.array([units[i] for i in min_ix],dtype='object')
+
+    else: #stop clusters changes and force merging
         it_merge = 1
         clust_alpha = 10
+        new_labels = sp.array(SpikeInfo[prev_unit_col])
 
-    # Score spikes with models
-    score = Rss #change to double_score or amplitude_score for other model scoring
-    Scores, units = Score_spikes(Templates, SpikeInfo, prev_unit_col, Models, score_metric=score, penalty=penalty)
+    SpikeInfo[this_unit_col] = new_labels
 
-    # assign new labels
-    min_ix = sp.argmin(Scores, axis=1)
-    new_labels = sp.array([units[i] for i in min_ix],dtype='object')
-
-    n_changes = np.sum(~(SpikeInfo[prev_unit_col]==new_labels))
-    print("Changes by scoring: %d "%np.sum(~(SpikeInfo[prev_unit_col]==new_labels)))
+    n_changes = np.sum(~(SpikeInfo[prev_unit_col]==SpikeInfo[this_unit_col]))
+    print("Changes by scoring: %d "%n_changes)
     if it_merge > 1 and n_changes < 3:
         it_merge = 1
         clust_alpha +=0.1
     else:
         it_merge = org_it_merge
-
-    SpikeInfo[this_unit_col] = new_labels
 
     SpikeInfo = unassign_spikes(SpikeInfo, this_unit_col)
     reject_spikes(Templates, SpikeInfo, this_unit_col,verbose=False)
@@ -492,8 +492,6 @@ while n_units >= n_final_clusters and not last:
             ix = SpikeInfo.groupby(this_unit_col).get_group(merge[1])['id']
             SpikeInfo.loc[ix, this_unit_col] = merge[0]
             not_merge =0
-            # clust_alpha = clust_alpha_org
-            # it_merge = it_merge_org
         else:
             not_merge +=1
 
@@ -539,7 +537,6 @@ while n_units >= n_final_clusters and not last:
 
 
 #######
-
 print_msg("algorithm run is done")
 
 last_unit_col = [col for col in SpikeInfo.columns if col.startswith('unit')][-1]
