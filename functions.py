@@ -190,6 +190,7 @@ def spike_detect(AnalogSignal, bounds, lowpass_freq=1000*pq.Hz,wsize=40):
 
     return SpikeTrain
 
+#TODO: optimize time, save in negative detection "positive peak" and max?
 def double_spike_detect(AnalogSignal, bounds_pos,bounds_neg, lowpass_freq=1000*pq.Hz,wsize=40,plot=False,verbose=False):
     """
     detects all spikes in an AnalogSignal that fall within amplitude bounds
@@ -226,7 +227,7 @@ def double_spike_detect(AnalogSignal, bounds_pos,bounds_neg, lowpass_freq=1000*p
         if indexes[0].size == 0: #spike not found in positive trains detection
             pini_st_neg = st_neg_id - wsize//2
             pend_st_neg = min(st_neg_id + wsize//2,AnalogSignal.times.size-1)
-
+            
             neg_waveform = AnalogSignal.magnitude[pini_st_neg:st_neg_id]
             waveform = neg_waveform
 
@@ -242,12 +243,9 @@ def double_spike_detect(AnalogSignal, bounds_pos,bounds_neg, lowpass_freq=1000*p
             plt.plot(st_neg,1,'.',color='r')
             plt.plot(new_time,1,'.',color='b')
             plt.plot((AnalogSignal.times[pini_st_neg],AnalogSignal.times[pend_st_neg]),(1,1),'.',color='k')   
-            
+
             times_unique = np.append(times_unique,new_time)
             waveforms = np.append(waveforms,max(waveform).item())
-
-            # waveforms = np.append(waveforms,waveform,axis=1)
-
 
     if plot:
         plt.show()
@@ -266,6 +264,7 @@ def double_spike_detect(AnalogSignal, bounds_pos,bounds_neg, lowpass_freq=1000*p
 
     return SpikeTrain
 
+#TODO: do with Templates, updating SpikeInfo
 def reject_non_spikes(AnalogSignal,SpikeTrain,wsize,plot=False,verbose=False):
 
     to_remove = []
@@ -273,19 +272,36 @@ def reject_non_spikes(AnalogSignal,SpikeTrain,wsize,plot=False,verbose=False):
         sp_id = int(sp*AnalogSignal.sampling_rate)
 
         waveform = AnalogSignal.magnitude[sp_id-wsize//2:sp_id+wsize//2]
-        end_waveform = AnalogSignal.magnitude[sp_id:sp_id+wsize//2]
-        ini_waveform = AnalogSignal.magnitude[sp_id-wsize//2:sp_id]
+        # end_waveform = AnalogSignal.magnitude[sp_id:sp_id+wsize//2]
+        # ini_waveform = AnalogSignal.magnitude[sp_id-wsize//2:sp_id]
 
-        half = (max(waveform)+min(waveform))/2
+        # half = (max(waveform)+min(waveform))/2
         ampl = (max(waveform)-min(waveform))
+        half = max(waveform)-(ampl)/3
+        # ampl = (max(waveform)-min(waveform))
+
+        try:
+            duration_vals = np.where(np.isclose(waveform, half,atol=0.06))[0]
+            dur = duration_vals[-1]-duration_vals[0]
+        except:
+            dur = -np.inf
 
         #ignore spike when first point much smaller than last
         # and crosses mid point only once.
         # or amplitude is too small for a spike
-        #TODO: review ampl*0.2 value
-        if (waveform[0] < waveform[-1]-ampl*0.2 and np.where(end_waveform<half)[0].size==0) or (ampl < 0.3):
+        non_spike_cond = (waveform[0] < waveform[-1]-ampl*0.2 and np.where(waveform[waveform.size//2:]<half)[0].size==0)
+        if non_spike_cond or ampl < 0.25 or dur > 25:
             to_remove.append(i)
-            plt.plot(waveform)
+            # if sp > 2.25 and sp < 2.3:
+            #     print(sp,waveform[0] < waveform[-1]-ampl*0.2, np.where(waveform[waveform.size//2:]<half)[0].size==0, (ampl < 0.25),dur > 25)
+            #     print(waveform[0], waveform[-1],ampl*0.2, half, ampl ,dur)
+            #     plt.plot(waveform)
+            #     plt.plot(waveform.size//2,AnalogSignal.magnitude[sp_id],'.',color='k')
+            #     plt.plot(np.ones(waveform.shape)*half)
+            #     plt.plot(waveform[0],'.')
+            #     plt.plot(waveform.size,waveform[-1],'.')
+            #     plt.show()
+
 
     if plot:
         plt.show()
@@ -726,7 +742,7 @@ def get_neighbours_amplitude(Templates,SpikeInfo,unit_column,unit,idx=0,n=5):
     ini = max(idx-n,0)
     end = min(idx-n,len(T_b))
 
-    T_b = np.array(T_b[ini:idx]+T_b[idx+1:end])
+    T_b = np.array(T_b[ini:idx]+T_b[idx+1:end]) #neighbours amplitudes
 
     return sp.average(T_b)
 

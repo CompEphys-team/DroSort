@@ -492,6 +492,8 @@ while n_units >= n_final_clusters and not last:
             ix = SpikeInfo.groupby(this_unit_col).get_group(merge[1])['id']
             SpikeInfo.loc[ix, this_unit_col] = merge[0]
             not_merge =0
+            it_merge = Config.getint('spike sort','it_merge')
+            it_no_merge = Config.getint('spike sort','it_no_merge')
         else:
             not_merge +=1
 
@@ -502,9 +504,6 @@ while n_units >= n_final_clusters and not last:
         it_no_merge = max(it_no_merge-1,1)
         print_msg("%d failed merges. New alpha value: %f"%(not_merge,clust_alpha))
         not_merge = 0
-
-        it_merge = Config.getint('spike sort','it_merge')
-        it_no_merge = Config.getint('spike sort','it_no_merge')
 
     # Model eval
 
@@ -569,14 +568,30 @@ if reassigned_amplitude:
 
         new_label = units[(dict_units[org_label]+1)%2]
 
+        #TODO: fix and analyze neighbours by idx not cluster ?
         sur_ampl = get_neighbours_amplitude(Templates,SpikeInfo,unit_column,org_label,idx=spike_id,n=3)
+        sur_ampl_new = get_neighbours_amplitude(Templates,SpikeInfo,unit_column,new_label,idx=spike_id,n=3)
+        zoom = [st.times[spike_id]-0.3*pq.s,st.times[spike_id]+0.3*pq.s]
+
+        print(ampl,sur_ampl,sur_ampl_new,st.times[spike_id])
+        fig, axes=plot_fitted_spikes(Seg, j, Models, SpikeInfo, this_unit_col, zoom=zoom, save=None,wsize=n_samples)
+        axes[1].plot(st.times[spike_id],spike[spike.size//2],'.',markersize=10,color='r')
+        plt.show()
+        if abs(ampl-sur_ampl) > abs(ampl-sur_ampl_new):
+            new_labels[i] = new_label
+            zoom = [st.times[spike_id]-0.3*pq.s,st.times[spike_id]+0.3*pq.s]
+
+            print(ampl,sur_ampl,sur_ampl_new,st.times[spike_id])
+            fig, axes=plot_fitted_spikes(Seg, j, Models, SpikeInfo, this_unit_col, zoom=zoom, save=None,wsize=n_samples)
+            plt.show()
+
         # if st.times[spike_id] > 10.55 and st.times[spike_id] < 10.65:
             # print(ampl,sur_ampl,amplitudes,dict_units[org_label],st.times[spike_id])
 
-        if ampl > sur_ampl + 0.15 and amplitudes[dict_units[new_label]] > amplitudes[dict_units[org_label]]:
-            # print(ampl,sur_ampl,amplitudes,dict_units[org_label],st.times[spike_id])
-            # print("Changing unit from %c to %c"%(org_label,new_label))
-            new_labels[i] = new_label
+        # if ampl > sur_ampl + 0.15 and amplitudes[dict_units[new_label]] > amplitudes[dict_units[org_label]]:
+        #     # print(ampl,sur_ampl,amplitudes,dict_units[org_label],st.times[spike_id])
+        #     # print("Changing unit from %c to %c"%(org_label,new_label))
+        #     new_labels[i] = new_label
 
     print_msg("Num of final changes %d"%np.sum(~(SpikeInfo[unit_column]==new_labels).values))
 
