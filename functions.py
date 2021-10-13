@@ -730,19 +730,33 @@ def get_units_amplitudes(Templates,SpikeInfo,unit_column,lim=10):
     
     return Amplitudes
 
-def get_neighbours_amplitude(Templates,SpikeInfo,unit_column,unit,idx=0,n=5):
-    ix_b = SpikeInfo.groupby([unit_column, 'good']).get_group((unit, True))['id']
+def get_neighbours_amplitude(st,Templates,SpikeInfo,unit_column,unit,idx=0,n=5,ax=None,id_=1):
+    unit = int(unit)
+    unit_spikes = SpikeInfo.groupby([unit_column]).get_group(unit)
+    ix_b = unit_spikes['id']
+    times = unit_spikes['time']
 
-    idx %= len(ix_b)
-
+    idx=int(idx)
+    print(times[0])
     T_b = Templates[:,ix_b].T
     T_b = Templates.T
     T_b = [max(t)-min(t) for t in T_b]
 
     ini = max(idx-n,0)
-    end = min(idx-n,len(T_b))
+    end = min(idx+n+1,len(T_b))
+    print(st.size)
+    print(SpikeInfo.size)
+    print(ix_b[ini:idx].values)
+    print(idx)
+    print(times)
+    print(ix_b[idx+1:end].values)
+    print(st[ini:idx],st[idx+1:end])
 
+    ax[1].plot(times[idx],2,'.','g')
+    ax[1].plot(times[ini:idx],np.ones(times[ix_b[ini:idx]].size)*id_,'.')
+    ax[1].plot(times[idx+1:end],np.ones(n)*id_,'.')
     T_b = np.array(T_b[ini:idx]+T_b[idx+1:end]) #neighbours amplitudes
+    print(SpikeInfo)
 
     return sp.average(T_b)
 

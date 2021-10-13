@@ -67,7 +67,7 @@ os.makedirs(plots_folder, exist_ok=True)
 os.chdir(config_path.parent / exp_name)
 
 #TODO: add question!!
-os.system("rm %s/*"%plots_folder)
+# os.system("rm %s/*"%plots_folder)
 
 # copy config
 shutil.copyfile(config_path, config_path.parent / exp_name / config_path.name)
@@ -249,7 +249,7 @@ for j, seg in enumerate(Blk.segments):
     templates.append(get_Templates(data, inds, n_samples))
 
 Templates = sp.concatenate(templates,axis=1)
-
+print(Templates.shape)
 # min_ampl = 1
 # Templates = clean_by_amplitude(Templates,min_ampl)
 
@@ -515,9 +515,10 @@ while n_units >= n_final_clusters and not last:
 
         # for j, Seg in enumerate(Blk.segments):
         seg_name = Path(Seg.annotations['filename']).stem
-
+        print(Blk.segments[0].spiketrains[0].size)
         # populate_block(Blk,SpikeInfo,prev_unit_col,units)
         Blk = populate_block(Blk,SpikeInfo,this_unit_col,units)
+        print(Blk.segments[0].spiketrains[0].size)
 
         Seg = Blk.segments[0]
 
@@ -550,6 +551,7 @@ unit_column = last_unit_col
 #     pass
 
 reassigned_amplitude = Config.getboolean('posprocessing','reassign_amplitude')
+print(Blk.segments[0].spiketrains[0].size)
 
 if reassigned_amplitude:
     units = get_units(SpikeInfo,unit_column)
@@ -568,14 +570,16 @@ if reassigned_amplitude:
 
         new_label = units[(dict_units[org_label]+1)%2]
 
-        #TODO: fix and analyze neighbours by idx not cluster ?
-        sur_ampl = get_neighbours_amplitude(Templates,SpikeInfo,unit_column,org_label,idx=spike_id,n=3)
-        sur_ampl_new = get_neighbours_amplitude(Templates,SpikeInfo,unit_column,new_label,idx=spike_id,n=3)
         zoom = [st.times[spike_id]-0.3*pq.s,st.times[spike_id]+0.3*pq.s]
 
-        print(ampl,sur_ampl,sur_ampl_new,st.times[spike_id])
         fig, axes=plot_fitted_spikes(Seg, j, Models, SpikeInfo, this_unit_col, zoom=zoom, save=None,wsize=n_samples)
         axes[1].plot(st.times[spike_id],spike[spike.size//2],'.',markersize=10,color='r')
+
+        #TODO: fix and analyze neighbours by idx not cluster ?
+        sur_ampl = get_neighbours_amplitude(st,Templates,SpikeInfo,unit_column,org_label,idx=spike_id,n=3,ax=axes,id_=2)
+        sur_ampl_new = get_neighbours_amplitude(st,Templates,SpikeInfo,unit_column,new_label,idx=spike_id,n=3,ax=axes,id_=3)
+
+        print(ampl,sur_ampl,sur_ampl_new,st.times[spike_id])
         plt.show()
         if abs(ampl-sur_ampl) > abs(ampl-sur_ampl_new):
             new_labels[i] = new_label
