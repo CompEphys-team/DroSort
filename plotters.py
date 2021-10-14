@@ -336,11 +336,16 @@ def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=No
         asig_recons = sp.zeros(asig.shape[0])
         asig_recons[:] = sp.nan 
 
-        # wsize = 4*pq.ms # HARDCODE!
-        # wsize = wsize # FIXED
-        # wsize = (wsize * fs).simplified.magnitude.astype('int32') # HARDCODE
+        # inds = (St.times * fs).simplified.magnitude.astype('int32')
 
-        inds = (St.times * fs).simplified.magnitude.astype('int32')
+        # get times from SpikeInfo so units are extracted 
+        # from Spike and not from annotation in spiketrains
+        times = SpikeInfo.groupby([unit_column]).get_group(unit)['time'].values
+        fr = (asig.times[1]-asig.times[0]).simplified.magnitude.astype('int32')
+        Inds = [np.where(np.isclose(t,np.array(st.times),atol=fr))[0][0] for t in np.array(times)]
+
+        inds = (st.times[Inds]*fs).simplified.magnitude.astype('int32')
+
         offset = (St.t_start * fs).simplified.magnitude.astype('int32')
         inds = inds - offset
 
@@ -350,9 +355,8 @@ def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=No
                 pred_spikes = [Models[unit].predict(f) for f in frates]
             else:
                 Templates = Models
-                ix = SpikeInfo.groupby([unit_column,'good']).get_group((unit,True))['id']
+                ix = SpikeInfo.groupby([unit_column]).get_group(unit)['id']
                 pred_spikes = Templates[:,ix].T
-
 
             for i, spike in enumerate(pred_spikes):
                 asig_recons[int(inds[i]-wsize/2):int(inds[i]+wsize/2)] = spike
