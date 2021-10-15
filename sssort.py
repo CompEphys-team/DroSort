@@ -445,11 +445,11 @@ while n_units >= n_final_clusters and not last:
     outpath = plots_folder / ("Models_%s%s" % (prev_unit_col, fig_format))
     plot_Models(Models, save=outpath)
 
-    if n_units > change_cluster:
-        # Score spikes with models
-        score = Rss #change to double_score or amplitude_score for other model scoring
-        Scores, units = Score_spikes(Templates, SpikeInfo, prev_unit_col, Models, score_metric=score, penalty=penalty)
+    # Score spikes with models
+    score = Rss #change to double_score or amplitude_score for other model scoring
+    Scores, units = Score_spikes(Templates, SpikeInfo, prev_unit_col, Models, score_metric=score, penalty=penalty)
 
+    if n_units > change_cluster:
         # assign new labels
         min_ix = sp.argmin(Scores, axis=1)
         new_labels = sp.array([units[i] for i in min_ix],dtype='object')
@@ -550,56 +550,56 @@ unit_column = last_unit_col
 #     SpikeInfo[unit_column] = SpikeInfo['unit']
 #     pass
 
-reassigned_amplitude = Config.getboolean('posprocessing','reassign_amplitude')
-print(Blk.segments[0].spiketrains[0].size)
+# reassigned_amplitude = Config.getboolean('posprocessing','reassign_amplitude')
+# print(Blk.segments[0].spiketrains[0].size)
 
-if reassigned_amplitude:
-    units = get_units(SpikeInfo,unit_column)
-    amplitudes = get_units_amplitudes(Templates,SpikeInfo,unit_column,lim=10)
+# if reassigned_amplitude:
+#     units = get_units(SpikeInfo,unit_column)
+#     amplitudes = get_units_amplitudes(Templates,SpikeInfo,unit_column,lim=10)
 
-    spike_ids = SpikeInfo['id'].values    
-    dict_units = {u:i for i,u in enumerate(units)}
+#     spike_ids = SpikeInfo['id'].values    
+#     dict_units = {u:i for i,u in enumerate(units)}
 
-    new_labels = copy.deepcopy(SpikeInfo[unit_column].values)
+#     new_labels = copy.deepcopy(SpikeInfo[unit_column].values)
 
-    for i, (spike_id,org_label) in enumerate(zip(spike_ids,SpikeInfo[unit_column])):
-        if org_label == '-1':
-            continue
-        spike = Templates[:, spike_id].T
-        ampl = max(spike)-min(spike)
+#     for i, (spike_id,org_label) in enumerate(zip(spike_ids,SpikeInfo[unit_column])):
+#         if org_label == '-1':
+#             continue
+#         spike = Templates[:, spike_id].T
+#         ampl = max(spike)-min(spike)
 
-        new_label = units[(dict_units[org_label]+1)%2]
+#         new_label = units[(dict_units[org_label]+1)%2]
 
-        zoom = [st.times[spike_id]-0.3*pq.s,st.times[spike_id]+0.3*pq.s]
+#         zoom = [st.times[spike_id]-0.3*pq.s,st.times[spike_id]+0.3*pq.s]
 
-        fig, axes=plot_fitted_spikes(Seg, j, Models, SpikeInfo, this_unit_col, zoom=zoom, save=None,wsize=n_samples)
-        axes[1].plot(st.times[spike_id],spike[spike.size//2],'.',markersize=10,color='r')
+#         fig, axes=plot_fitted_spikes(Seg, j, Models, SpikeInfo, this_unit_col, zoom=zoom, save=None,wsize=n_samples)
+#         axes[1].plot(st.times[spike_id],spike[spike.size//2],'.',markersize=10,color='r')
 
-        #TODO: fix and analyze neighbours by idx not cluster ?
-        sur_ampl = get_neighbours_amplitude(st,Templates,SpikeInfo,unit_column,org_label,idx=spike_id,n=3,ax=axes,id_=2)
-        sur_ampl_new = get_neighbours_amplitude(st,Templates,SpikeInfo,unit_column,new_label,idx=spike_id,n=3,ax=axes,id_=3)
+#         #TODO: fix and analyze neighbours by idx not cluster ?
+#         sur_ampl = get_neighbours_amplitude(st,Templates,SpikeInfo,unit_column,org_label,idx=spike_id,n=3,ax=axes,id_=2)
+#         sur_ampl_new = get_neighbours_amplitude(st,Templates,SpikeInfo,unit_column,new_label,idx=spike_id,n=3,ax=axes,id_=3)
 
-        print(ampl,sur_ampl,sur_ampl_new,st.times[spike_id])
-        plt.show()
-        if abs(ampl-sur_ampl) > abs(ampl-sur_ampl_new):
-            new_labels[i] = new_label
-            zoom = [st.times[spike_id]-0.3*pq.s,st.times[spike_id]+0.3*pq.s]
+#         print(ampl,sur_ampl,sur_ampl_new,st.times[spike_id])
+#         plt.show()
+#         if abs(ampl-sur_ampl) > abs(ampl-sur_ampl_new):
+#             new_labels[i] = new_label
+#             zoom = [st.times[spike_id]-0.3*pq.s,st.times[spike_id]+0.3*pq.s]
 
-            print(ampl,sur_ampl,sur_ampl_new,st.times[spike_id])
-            fig, axes=plot_fitted_spikes(Seg, j, Models, SpikeInfo, this_unit_col, zoom=zoom, save=None,wsize=n_samples)
-            plt.show()
+#             print(ampl,sur_ampl,sur_ampl_new,st.times[spike_id])
+#             fig, axes=plot_fitted_spikes(Seg, j, Models, SpikeInfo, this_unit_col, zoom=zoom, save=None,wsize=n_samples)
+#             plt.show()
 
-        # if st.times[spike_id] > 10.55 and st.times[spike_id] < 10.65:
-            # print(ampl,sur_ampl,amplitudes,dict_units[org_label],st.times[spike_id])
+#         # if st.times[spike_id] > 10.55 and st.times[spike_id] < 10.65:
+#             # print(ampl,sur_ampl,amplitudes,dict_units[org_label],st.times[spike_id])
 
-        # if ampl > sur_ampl + 0.15 and amplitudes[dict_units[new_label]] > amplitudes[dict_units[org_label]]:
-        #     # print(ampl,sur_ampl,amplitudes,dict_units[org_label],st.times[spike_id])
-        #     # print("Changing unit from %c to %c"%(org_label,new_label))
-        #     new_labels[i] = new_label
+#         # if ampl > sur_ampl + 0.15 and amplitudes[dict_units[new_label]] > amplitudes[dict_units[org_label]]:
+#         #     # print(ampl,sur_ampl,amplitudes,dict_units[org_label],st.times[spike_id])
+#         #     # print("Changing unit from %c to %c"%(org_label,new_label))
+#         #     new_labels[i] = new_label
 
-    print_msg("Num of final changes %d"%np.sum(~(SpikeInfo[unit_column]==new_labels).values))
+#     print_msg("Num of final changes %d"%np.sum(~(SpikeInfo[unit_column]==new_labels).values))
 
-SpikeInfo[unit_column] = new_labels
+# SpikeInfo[unit_column] = new_labels
 
 # plot templates and models for last column
 outpath = plots_folder / ("Templates_%s%s" % (unit_column,fig_format))

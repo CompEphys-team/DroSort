@@ -320,52 +320,54 @@ def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=No
     a_events = [max(a) for a in a_events]
     axes[1].plot(st.times,a_events,'.',markersize=1)
 
+    plot_by_unit(axes[1],st,asig, Models, SpikeInfo, unit_column, unit_order, colors,wsize=40)
 
-    units = get_units(SpikeInfo, unit_column)
+    # # units = get_units(SpikeInfo, unit_column)
 
-    if unit_order is not None:
-        units = [units[i] for i in unit_order]
+    # if unit_order is not None:
+    #     units = [units[i] for i in unit_order]
     
-    if colors is None:
-        colors = get_colors(units)
+    # if colors is None:
+    #     colors = get_colors(units)
 
-    fs = asig.sampling_rate
+    # fs = asig.sampling_rate
 
-    for u, unit in enumerate(units):
-        St, = select_by_dict(Segment.spiketrains, unit=unit)
-        asig_recons = sp.zeros(asig.shape[0])
-        asig_recons[:] = sp.nan 
 
-        # inds = (St.times * fs).simplified.magnitude.astype('int32')
+    # for u, unit in enumerate(units):
+    #     St, = select_by_dict(Segment.spiketrains, unit=unit)
+    #     asig_recons = sp.zeros(asig.shape[0])
+    #     asig_recons[:] = sp.nan 
 
-        # get times from SpikeInfo so units are extracted 
-        # from Spike and not from annotation in spiketrains
-        times = SpikeInfo.groupby([unit_column]).get_group(unit)['time'].values
-        fr = (asig.times[1]-asig.times[0]).simplified.magnitude.astype('int32')
-        Inds = [np.where(np.isclose(t,np.array(st.times),atol=fr))[0][0] for t in np.array(times)]
+    #     # inds = (St.times * fs).simplified.magnitude.astype('int32')
 
-        inds = (st.times[Inds]*fs).simplified.magnitude.astype('int32')
+    #     # get times from SpikeInfo so units are extracted 
+    #     # from Spike and not from annotation in spiketrains
+    #     times = SpikeInfo.groupby([unit_column]).get_group(unit)['time'].values
+    #     fr = (asig.times[1]-asig.times[0]).simplified.magnitude.astype('int32')
+    #     Inds = [np.where(np.isclose(t,np.array(st.times),atol=fr))[0][0] for t in np.array(times)]
 
-        offset = (St.t_start * fs).simplified.magnitude.astype('int32')
-        inds = inds - offset
+    #     inds = (st.times[Inds]*fs).simplified.magnitude.astype('int32')
 
-        try:
-            if type(Models).__name__=='dict':
-                frates = SpikeInfo.groupby([unit_column, 'segment']).get_group((unit,j))['frate_fast'].values
-                pred_spikes = [Models[unit].predict(f) for f in frates]
-            else:
-                Templates = Models
-                ix = SpikeInfo.groupby([unit_column]).get_group(unit)['id']
-                pred_spikes = Templates[:,ix].T
+    #     offset = (St.t_start * fs).simplified.magnitude.astype('int32')
+    #     inds = inds - offset
 
-            for i, spike in enumerate(pred_spikes):
-                asig_recons[int(inds[i]-wsize/2):int(inds[i]+wsize/2)] = spike
+    #     try:
+    #         if type(Models).__name__=='dict':
+    #             frates = SpikeInfo.groupby([unit_column, 'segment']).get_group((unit,j))['frate_fast'].values
+    #             pred_spikes = [Models[unit].predict(f) for f in frates]
+    #         else:
+    #             Templates = Models
+    #             ix = SpikeInfo.groupby([unit_column]).get_group(unit)['id']
+    #             pred_spikes = Templates[:,ix].T
 
-            axes[1].plot(asig.times, asig_recons, lw=2.0, color=colors[unit], alpha=0.8)
+    #         for i, spike in enumerate(pred_spikes):
+    #             asig_recons[int(inds[i]-wsize/2):int(inds[i]+wsize/2)] = spike
 
-        except KeyError:
-            # thrown when no spikes are present in this segment
-            pass
+    #         axes[1].plot(asig.times, asig_recons, lw=2.0, color=colors[unit], alpha=0.8)
+
+    #     except KeyError:
+    #         # thrown when no spikes are present in this segment
+    #         pass
 
     if zoom is not None:
         for ax in axes:
@@ -382,6 +384,90 @@ def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=No
         plt.close(fig)
 
     return fig, axes
+
+def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, colors=None,wsize=40):
+    units = get_units(SpikeInfo,unit_column)
+    if unit_order is not None:
+        units = [units[i] for i in unit_order]
+    
+    if colors is None:
+        colors = get_colors(units)
+
+    fs = asig.sampling_rate
+
+    for u, unit in enumerate(units):
+        # St, = select_by_dict(Segment.spiketrains, unit=unit)
+        asig_recons = sp.zeros(asig.shape[0])
+        asig_recons[:] = sp.nan 
+
+        # inds = (St.times * fs).simplified.magnitude.astype('int32')
+
+        # get times from SpikeInfo so units are extracted 
+        # from Spike and not from annotation in spiketrains
+        times = SpikeInfo.groupby([unit_column]).get_group(unit)['time'].values
+        fr = (asig.times[1]-asig.times[0]).simplified.magnitude.astype('int32')
+        Inds = [np.where(np.isclose(t,np.array(st.times),atol=fr))[0][0] for t in np.array(times)]
+
+        inds = (st.times[Inds]*fs).simplified.magnitude.astype('int32')
+
+        offset = (st.t_start * fs).simplified.magnitude.astype('int32')
+        inds = inds - offset
+
+        try:
+            if type(Models).__name__=='dict':
+                frates = SpikeInfo.groupby([unit_column, 'segment']).get_group((unit,j))['frate_fast'].values
+                pred_spikes = [Models[unit].predict(f) for f in frates]
+            else:
+                Templates = Models
+                ix = SpikeInfo.groupby([unit_column]).get_group(unit)['id']
+                pred_spikes = Templates[:,ix].T
+
+            for i, spike in enumerate(pred_spikes):
+                # asig_recons[int(inds[i]-wsize/2):int(inds[i]+wsize/2)] = spike
+                asig_recons[int(inds[i]):int(inds[i]+wsize/2)] = spike[spike.size//2:]
+
+            ax.plot(asig.times, asig_recons, lw=2.0, color=colors[unit], alpha=0.8)
+
+        except KeyError:
+            # thrown when no spikes are present in this segment
+            pass
+
+def plot_compared_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column1,unit_column2, unit_order=None, zoom=None, save=None, colors=None,wsize=40):
+    """ plot to inspect fitted spikes """
+    fig, axes =plt.subplots(nrows=2, sharex=True, sharey=True)
+    
+    asig = Segment.analogsignals[0]
+    axes[0].plot(asig.times, asig.data, color='k', lw=1)
+    axes[1].plot(asig.times, asig.data, color='k', lw=1)
+
+    st = Segment.spiketrains[0] #get all spike trains (assuming there's only one spike train)
+    #get events amplitude value (spike)
+    a_events = st.waveforms
+    a_events = [max(a) for a in a_events]
+    axes[1].plot(st.times,a_events,'.',markersize=1)
+
+    plt.title(unit_column1)
+    plot_by_unit(axes[0],st,asig, Models, SpikeInfo, unit_column1, unit_order, colors,wsize=40)
+    plt.title(unit_column2)
+    plot_by_unit(axes[1],st,asig, Models, SpikeInfo, unit_column2, unit_order, colors,wsize=40)
+
+    if zoom is not None:
+        for ax in axes:
+            ax.set_xlim(zoom)
+            
+    stim_name = Path(Segment.annotations['filename']).stem
+    fig.suptitle(stim_name)
+    fig.tight_layout()
+    fig.subplots_adjust(top=0.9)
+    sns.despine(fig)
+
+    if save is not None:
+        fig.savefig(save)
+        plt.close(fig)
+
+    return fig, axes
+
+
 
 def plot_templates_on_trace(Segment, j, Templates, zoom=None, save=None,wsize=40):
     """ plot to inspect fitted spikes """

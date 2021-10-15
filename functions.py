@@ -94,6 +94,7 @@ def select_by_dict(objs, **selection):
     Returns:
         list: a list containing the subset of matching neo objects
     """
+    # print("Selection",selection.items())
     res = []
     for obj in objs:
         if selection.items() <= obj.annotations.items():
@@ -663,102 +664,72 @@ def Score_spikes(Templates, SpikeInfo, unit_column, Models, score_metric=Rss, pe
  
 """
 
-# def distance_to_units(Templates,SpikeInfo,unit_column,lim=10):
-#     spike_ids = SpikeInfo['id'].values
-
+# def get_units_amplitudes(Templates,SpikeInfo,unit_column,lim=10):
 #     units = get_units(SpikeInfo, unit_column)
 #     n_units = len(units)
 
-#     n_spikes = spike_ids.shape[0]
-#     Distances = sp.zeros((n_spikes,n_units))
+#     # n_spikes = spike_ids.shape[0]
 #     Amplitudes = sp.zeros((n_units))
 
-#     # pca = PCA(n_components=5)
-#     # X = pca.fit_transform(Templates.T)
+#     for i, unit in enumerate(units):
+#         # the simulated data
+#         ix_b = SpikeInfo.groupby([unit_column, 'good']).get_group((unit, True))['id']
+#         T_b = Templates[:,ix_b].T
 
-#     for i, spike_id in enumerate(spike_ids):
-#         # spike = X[spike_id,:]
-#         spike = Templates[:, spike_id].T
-#         ampl = max(spike)-min(spike)
+#         T_b = np.array([max(t)-min(t) for t in T_b])
 
-#         for j, unit in enumerate(units):
-#             # the simulated data
-#             ix_b = SpikeInfo.groupby([unit_column, 'good']).get_group((unit, True))['id']
-#             # T_a = np.tile(ampl,(ix_b.shape[0],1))
-#             T_a = np.array([ampl])
-#             T_b = Templates[:,ix_b].T
-#             # print(T_b.shape)
-#             T_b = np.array([max(t)-min(t) for t in T_b])
-
-#             # T_b = [max(Templates,1)-min(Templates,1)]
-#             # T_b = X[ix_b,:]
-
-#             # print(T_a)
-#             # print(T_a.shape)
-#             # print(T_b.shape)
-
-#             D_pw = metrics.pairwise.euclidean_distances(T_a.reshape(1,-1),T_b.reshape(-1,1))
-#             # Distances[i,j] = np.sum(np.sum(D_pw,1)) #sum each component distance for this spike
-#             # Distances[i,j] = sp.average(np.sum(D_pw,1)) + sp.std(np.sum(D_pw,1))
-#             Distances[i,j] = sp.average(D_pw)
-            
-#             Amplitudes[j] = sp.average(T_b[:lim])
-
-#             # print(Distances[i,j])
-#             # Distances[i] = D_pw[0]
-
-#     Distances[sp.isnan(Distances)] = sp.inf
-#     # print(Distances)
-    
-#     return Distances,Amplitudes
-def get_units_amplitudes(Templates,SpikeInfo,unit_column,lim=10):
-    units = get_units(SpikeInfo, unit_column)
-    n_units = len(units)
-
-    # n_spikes = spike_ids.shape[0]
-    Amplitudes = sp.zeros((n_units))
-
-    for i, unit in enumerate(units):
-        # the simulated data
-        ix_b = SpikeInfo.groupby([unit_column, 'good']).get_group((unit, True))['id']
-        T_b = Templates[:,ix_b].T
-
-        T_b = np.array([max(t)-min(t) for t in T_b])
-
-        Amplitudes[i] = sp.average(T_b[:lim])
+#         Amplitudes[i] = sp.average(T_b[:lim])
 
     
-    return Amplitudes
+#     return Amplitudes
 
-def get_neighbours_amplitude(st,Templates,SpikeInfo,unit_column,unit,idx=0,n=5,ax=None,id_=1):
-    unit = int(unit)
-    unit_spikes = SpikeInfo.groupby([unit_column]).get_group(unit)
-    ix_b = unit_spikes['id']
-    times = unit_spikes['time']
+def get_neighbors_amplitude(st,Templates,SpikeInfo,unit_column,unit,idx=0,t=0.3):
+    times_all = SpikeInfo['time']
 
-    idx=int(idx)
-    print(times[0])
-    T_b = Templates[:,ix_b].T
-    T_b = Templates.T
-    T_b = [max(t)-min(t) for t in T_b]
+    idx_t = times_all.values[idx]
 
-    ini = max(idx-n,0)
-    end = min(idx+n+1,len(T_b))
-    print(st.size)
-    print(SpikeInfo.size)
-    print(ix_b[ini:idx].values)
-    print(idx)
-    print(times)
-    print(ix_b[idx+1:end].values)
-    print(st[ini:idx],st[idx+1:end])
+    ini = idx_t - t
+    end = idx_t + t
 
-    ax[1].plot(times[idx],2,'.','g')
-    ax[1].plot(times[ini:idx],np.ones(times[ix_b[ini:idx]].size)*id_,'.')
-    ax[1].plot(times[idx+1:end],np.ones(n)*id_,'.')
-    T_b = np.array(T_b[ini:idx]+T_b[idx+1:end]) #neighbours amplitudes
-    print(SpikeInfo)
+    times = times_all.index[np.where((times_all.values > ini) & (times_all.values < end) & (times_all.values != idx_t))]
+    neighbors = times[np.where(SpikeInfo.loc[times,unit_column].values==unit)]
+
+    T_b = Templates[:,neighbors].T
+    T_b = np.array([max(t[t.size//2:])-min(t[t.size//2:]) for t in T_b])
 
     return sp.average(T_b)
+
+def get_duration(waveform):
+    ampl = (max(waveform)-min(waveform))
+    half = max(waveform)-(ampl)/3
+    try:
+        duration_vals = np.where(np.isclose(waveform, half,atol=0.06))[0]
+        dur = duration_vals[-1]-duration_vals[0]
+    except:
+        dur = -np.inf
+
+    return dur
+
+def get_neighbors_duration(st,Templates,SpikeInfo,unit_column,unit,idx=0,t=0.3):
+    times_all = SpikeInfo['time']
+
+    idx_t = times_all.values[idx]
+
+    ini = idx_t - t
+    end = idx_t + t
+
+    times = times_all.index[np.where((times_all.values > ini) & (times_all.values < end) & (times_all.values != idx_t))]
+    neighbors = times[np.where(SpikeInfo.loc[times,unit_column].values==unit)]
+
+    T_b = Templates[:,neighbors].T
+
+    durations = []
+
+    for waveform in T_b:
+        dur = get_duration(waveform)
+        durations.append(dur)
+
+    return sp.average(durations)
 
 
 def calculate_pairwise_distances(Templates, SpikeInfo, unit_column, n_comp=5):
