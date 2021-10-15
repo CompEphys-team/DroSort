@@ -861,3 +861,14 @@ def eval_model(SpikeInfo,this_unit_col,prev_unit_col,Scores,Templates,ScoresSum,
     n_units = len(units)
 
     return n_changes,Rss_sum,ScoresSum,units,AICs,n_units
+
+def distance_to_average(Templates,units,averages):
+    D_pw = sp.zeros((Templates.shape[1],len(units)))
+
+    for spike_id,spike in enumerate(Templates.T):
+        for i,unit in enumerate(units):
+            # print(spike.shape)
+            # print(averages[i].shape)
+            D_pw[spike_id,i] = Rss(spike,averages[i])
+ 
+    return D_pw

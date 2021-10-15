@@ -322,53 +322,6 @@ def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=No
 
     plot_by_unit(axes[1],st,asig, Models, SpikeInfo, unit_column, unit_order, colors,wsize=40)
 
-    # # units = get_units(SpikeInfo, unit_column)
-
-    # if unit_order is not None:
-    #     units = [units[i] for i in unit_order]
-    
-    # if colors is None:
-    #     colors = get_colors(units)
-
-    # fs = asig.sampling_rate
-
-
-    # for u, unit in enumerate(units):
-    #     St, = select_by_dict(Segment.spiketrains, unit=unit)
-    #     asig_recons = sp.zeros(asig.shape[0])
-    #     asig_recons[:] = sp.nan 
-
-    #     # inds = (St.times * fs).simplified.magnitude.astype('int32')
-
-    #     # get times from SpikeInfo so units are extracted 
-    #     # from Spike and not from annotation in spiketrains
-    #     times = SpikeInfo.groupby([unit_column]).get_group(unit)['time'].values
-    #     fr = (asig.times[1]-asig.times[0]).simplified.magnitude.astype('int32')
-    #     Inds = [np.where(np.isclose(t,np.array(st.times),atol=fr))[0][0] for t in np.array(times)]
-
-    #     inds = (st.times[Inds]*fs).simplified.magnitude.astype('int32')
-
-    #     offset = (St.t_start * fs).simplified.magnitude.astype('int32')
-    #     inds = inds - offset
-
-    #     try:
-    #         if type(Models).__name__=='dict':
-    #             frates = SpikeInfo.groupby([unit_column, 'segment']).get_group((unit,j))['frate_fast'].values
-    #             pred_spikes = [Models[unit].predict(f) for f in frates]
-    #         else:
-    #             Templates = Models
-    #             ix = SpikeInfo.groupby([unit_column]).get_group(unit)['id']
-    #             pred_spikes = Templates[:,ix].T
-
-    #         for i, spike in enumerate(pred_spikes):
-    #             asig_recons[int(inds[i]-wsize/2):int(inds[i]+wsize/2)] = spike
-
-    #         axes[1].plot(asig.times, asig_recons, lw=2.0, color=colors[unit], alpha=0.8)
-
-    #     except KeyError:
-    #         # thrown when no spikes are present in this segment
-    #         pass
-
     if zoom is not None:
         for ax in axes:
             ax.set_xlim(zoom)
@@ -404,7 +357,7 @@ def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, co
 
         # get times from SpikeInfo so units are extracted 
         # from Spike and not from annotation in spiketrains
-        times = SpikeInfo.groupby([unit_column]).get_group(unit)['time'].values
+        times = SpikeInfo.groupby([unit_column]).get_group((unit))['time'].values
         fr = (asig.times[1]-asig.times[0]).simplified.magnitude.astype('int32')
         Inds = [np.where(np.isclose(t,np.array(st.times),atol=fr))[0][0] for t in np.array(times)]
 
@@ -419,7 +372,7 @@ def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, co
                 pred_spikes = [Models[unit].predict(f) for f in frates]
             else:
                 Templates = Models
-                ix = SpikeInfo.groupby([unit_column]).get_group(unit)['id']
+                ix = SpikeInfo.groupby([unit_column]).get_group((unit))['id']
                 pred_spikes = Templates[:,ix].T
 
             for i, spike in enumerate(pred_spikes):
@@ -577,3 +530,39 @@ def plot_clustering(Templates, SpikeInfo, unit_column, n_components=5, N=300, sa
 
     return fig, axes
 
+def plot_averages(average_spikes,SpikeInfo,unit_column,colors=None):
+    fig, axes =plt.subplots(ncols=len(average_spikes), sharex=True, sharey=True)
+
+    units = get_units(SpikeInfo,unit_column)
+    
+    if colors is None:
+        colors = get_colors(units)
+
+    for i,average_spike in enumerate(average_spikes):
+        axes[i].plot(average_spike,color=colors[units[i]])
+        axes[i].set_title(units[i])
+
+    fig.suptitle("Average of clusters")
+    fig.tight_layout()
+
+    return fig,axes
+
+
+
+def plot_averages_with_spike(spike,average_spikes,SpikeInfo,unit_column,unit,colors=None):
+    fig, axes =plt.subplots(ncols=len(average_spikes), sharex=True, sharey=True)
+
+    units = get_units(SpikeInfo,unit_column)
+    
+    if colors is None:
+        colors = get_colors(units)
+
+    for i,average_spike in enumerate(average_spikes):
+        axes[i].plot(spike,color=colors[unit])
+        axes[i].plot(average_spike,color=colors[units[i]])
+        axes[i].set_title(units[i])
+
+    fig.suptitle("Average of clusters")
+    fig.tight_layout()
+
+    return fig,axes

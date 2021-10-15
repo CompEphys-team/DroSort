@@ -35,6 +35,8 @@ Templates= np.load(sys.argv[1]+"/Templates.npy")
 
 
 print_msg("Number of spikes in trace: %d"%SpikeInfo[unit_column].size)
+print_msg("Number of bad spikes: %d"%len(SpikeInfo.groupby(['good']).get_group(True)[unit_column]))
+print_msg("Number of good spikes: %d"%len(SpikeInfo.groupby(['good']).get_group(False)[unit_column]))
 print_msg("Number of clusters: %d"%len(units))
 
 ################################################################
@@ -96,19 +98,37 @@ for i, (spike_id,org_label) in enumerate(zip(spike_ids,SpikeInfo[unit_column])):
 
 print_msg("Num of final changes %d"%np.sum(~(SpikeInfo[unit_column]==new_labels).values))
 
+# max_window=1.5
 
+# for j, Seg in enumerate(Blk.segments):
+#     seg_name = Path(Seg.annotations['filename']).stem
+
+#     asig = Seg.analogsignals[0]
+#     max_window = int(max_window*asig.sampling_rate) #FIX conversion from secs to points
+#     n_plots = asig.shape[0]//max_window
+
+#     for n_plot in range(0,n_plots):
+#         # outpath = plots_folder / (seg_name + '_fitted_spikes%s_%s_%d'%(extension,max_window,n_plot) + fig_format)
+#         ini = n_plot*max_window + max_window
+#         end = ini + max_window
+#         end = min(end, Seg.analogsignals[0].shape[0])
+#         zoom = [ini,end]/asig.sampling_rate
+
+#         plot_fitted_spikes(Seg, j, Templates, SpikeInfo, unit_column, zoom=zoom, save=None,wsize=n_samples)
+
+# plt.show()
 print(ids)
 Blk = populate_block(Blk,SpikeInfo,'unit_pospro',units)
 st = Blk.segments[0].spiketrains[0]
 
-for i, (spike_id,org_label) in enumerate(zip(spike_ids,SpikeInfo['unit_pospro'])):
-    if i in ids:
-        zoom = [st.times[spike_id]-neighbors_t*pq.s,st.times[spike_id]+neighbors_t*pq.s]
-        print(ampl,sur_ampl,sur_ampl_new,st.times[spike_id])
-        fig, axes=plot_compared_fitted_spikes(Seg, 0, Templates, SpikeInfo, unit_column, 'unit_pospro', zoom=zoom, save=None,wsize=n_samples)
-        axes[0].plot(st.times[spike_id],1,'.')
-        axes[1].plot(st.times[spike_id],1,'.')
-        plt.show()
+# for i, (spike_id,org_label) in enumerate(zip(spike_ids,SpikeInfo['unit_pospro'])):
+#     if i in ids:
+#         zoom = [st.times[spike_id]-neighbors_t*pq.s,st.times[spike_id]+neighbors_t*pq.s]
+#         print(ampl,sur_ampl,sur_ampl_new,st.times[spike_id])
+#         fig, axes=plot_compared_fitted_spikes(Seg, 0, Templates, SpikeInfo, unit_column, 'unit_pospro', zoom=zoom, save=None,wsize=n_samples)
+#         axes[0].plot(st.times[spike_id],1,'.')
+#         axes[1].plot(st.times[spike_id],1,'.')
+#         plt.show()
 
 
 
@@ -120,4 +140,84 @@ for i, (spike_id,org_label) in enumerate(zip(spike_ids,SpikeInfo['unit_pospro'])
 
 
 # Get average shapes
+dt = Seg.analogsignals[0].times[1]-Seg.analogsignals[0].times[0]
+dt = dt.item()
+width_ms = (n_samples/1000)
+mode = 'peak'
+
+average_spikes = []
+# aligned_all_spikes = []
+aligned_spikes = []
+for spike_i,spike in enumerate(Templates.T):
+    spike = align_spike(spike, width_ms,dt,spike_i,mode)
+    if spike == []:
+        continue
+
+    if spike != []:
+        aligned_spikes.append(spike)
+
+aligned_spikes = np.array(aligned_spikes).T
+
+print(aligned_spikes.shape)
+print(Templates.shape)
+
+for unit in units:
+    ix = SpikeInfo.groupby('unit_pospro').get_group(unit)['id']
+    templates = aligned_spikes[:,ix].T
+
+    print_msg("Averaging %d spikes for cluster %c"%(len(templates),unit))
+
+    average_spike = np.average(templates, axis=0)
+
+    average_spikes.append(average_spike)
+
+# average_spikes=np.array(average_spikes)
+
+plot_templates(Templates, SpikeInfo, 'unit_pospro')
+plot_averages(average_spikes,SpikeInfo,'unit_pospro')
+plt.show()
+
+# for spike in Templates.T:
+#     spike = align_spike(spike, width_ms,dt,spike_i,mode)
+#     # plot_averages_with_spike(spike,average_spikes,SpikeInfo,'unit_pospro')
+#     # plt.show()
+
+
+
+units = get_units(SpikeInfo,'unit_pospro')
+# distances = distance_to_average(Templates,units,average_spikes)
+distances = distance_to_average(aligned_spikes,units,average_spikes)
+
+# print(distances.shape)
+# print(aligned_spikes.shape)
+# print(Templates.shape)
+# print(average_spikes.shape)
+
+dict_units = {u:i for i,u in enumerate(units)}
+
+new_labels = copy.deepcopy(SpikeInfo['unit_pospro'].values)
+
+SpikeInfo['unit_pospro2'] = new_labels
+
+
+for i,d in enumerate(distances):
+    org_unit = SpikeInfo['unit_pospro'][i]
+    unit_id = dict_units[org_unit]
+
+    new_label = units[(unit_id+1)%2]
+
+    if d[unit_id] > d[(unit_id+1)%2]+0.1: #if distance to the other cluster is bigger
+        SpikeInfo['unit_pospro2'][i] = new_label
+
+        print("my unit","other unit")
+        print(d[unit_id],d[(unit_id+1)%2])
+
+        zoom = [st.times[i]-neighbors_t*pq.s,st.times[i]+neighbors_t*pq.s]
+
+        fig, axes=plot_compared_fitted_spikes(Seg, 0, Templates, SpikeInfo, 'unit_pospro', 'unit_pospro2', zoom=zoom, save=None,wsize=n_samples)
+
+        plot_averages_with_spike(aligned_spikes[:,i],average_spikes,SpikeInfo,'unit_pospro',org_unit)
+        plt.show()
+
+
 
