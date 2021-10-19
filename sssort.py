@@ -135,6 +135,10 @@ print_msg('- spike detect - ')
 mad_thresh = Config.getfloat('spike detect', 'mad_thresh')
 wsize = Config.getfloat('spike detect', 'wsize') * pq.ms
 
+try:
+    r_non_spikes = Config.getboolean('spike detect','non_spikes')
+except Exception as e:
+    r_non_spikes = True
 
 bad_segments = []
 for i, seg in enumerate(Blk.segments):
@@ -159,15 +163,17 @@ for i, seg in enumerate(Blk.segments):
         bad_segments.append(i)
     st.annotate(kind='all_spikes')
 
+    # remove bad detections
+    if r_non_spikes:
+        st = reject_non_spikes(AnalogSignal,st,n_samples,verbose=True,plot=False)
+  
     # remove border spikes
     wsize = Config.getfloat('spike detect', 'wsize') * pq.ms
     st_cut = st.time_slice(st.t_start + wsize/2, st.t_stop - wsize/2)
     st_cut.t_start = st.t_start
 
-
-    st_cut = reject_non_spikes(AnalogSignal,st_cut,n_samples,verbose=True,plot=False)
-
     seg.spiketrains.append(st_cut)
+
 
 n_spikes = sp.sum([seg.spiketrains[0].shape[0] for seg in Blk.segments])
 print_msg("total number of spikes found: %s" % n_spikes)
@@ -366,7 +372,7 @@ Blk = populate_block(Blk,SpikeInfo,'unit',units)
 
 Seg = Blk.segments[0]
 outpath = plots_folder / (seg_name + '_fitted_spikes_init' + fig_format)
-plot_fitted_spikes(Seg, j, Models, SpikeInfo, 'unit', zoom=zoom, save=outpath,wsize=n_samples)
+plot_fitted_spikes(Seg, 0, Models, SpikeInfo, 'unit', zoom=zoom, save=outpath,wsize=n_samples)
 
 #FIX: Template seems like model?¿?¿?¿?
 # max_window = 0.3 #AG: TODO add to config file
@@ -533,6 +539,10 @@ while n_units >= n_final_clusters and not last:
     print_msg("It:%i - Rss sum: %.3e - # reassigned spikes: %s / %d" % (it, Rss_sum, n_changes,len(spike_labels)))
     print_msg("Number of clusters after iteration: %d"%len(units))
 
+    print_msg("Number of spikes in trace: %d"%SpikeInfo[this_unit_col].size)
+    print_msg("Number of good spikes: %d"%len(SpikeInfo.groupby(['good']).get_group(True)[this_unit_col]))
+    # print_msg("Number of bad spikes: %d"%len(SpikeInfo.groupby(['good']).get_group(False)[this_unit_col]))
+    print_msg("Number of clusters: %d"%len(units))
     it +=1
 
 
@@ -550,66 +560,17 @@ unit_column = last_unit_col
 #     SpikeInfo[unit_column] = SpikeInfo['unit']
 #     pass
 
-# reassigned_amplitude = Config.getboolean('posprocessing','reassign_amplitude')
-# print(Blk.segments[0].spiketrains[0].size)
-
-# if reassigned_amplitude:
-#     units = get_units(SpikeInfo,unit_column)
-#     amplitudes = get_units_amplitudes(Templates,SpikeInfo,unit_column,lim=10)
-
-#     spike_ids = SpikeInfo['id'].values    
-#     dict_units = {u:i for i,u in enumerate(units)}
-
-#     new_labels = copy.deepcopy(SpikeInfo[unit_column].values)
-
-#     for i, (spike_id,org_label) in enumerate(zip(spike_ids,SpikeInfo[unit_column])):
-#         if org_label == '-1':
-#             continue
-#         spike = Templates[:, spike_id].T
-#         ampl = max(spike)-min(spike)
-
-#         new_label = units[(dict_units[org_label]+1)%2]
-
-#         zoom = [st.times[spike_id]-0.3*pq.s,st.times[spike_id]+0.3*pq.s]
-
-#         fig, axes=plot_fitted_spikes(Seg, j, Models, SpikeInfo, this_unit_col, zoom=zoom, save=None,wsize=n_samples)
-#         axes[1].plot(st.times[spike_id],spike[spike.size//2],'.',markersize=10,color='r')
-
-#         #TODO: fix and analyze neighbours by idx not cluster ?
-#         sur_ampl = get_neighbours_amplitude(st,Templates,SpikeInfo,unit_column,org_label,idx=spike_id,n=3,ax=axes,id_=2)
-#         sur_ampl_new = get_neighbours_amplitude(st,Templates,SpikeInfo,unit_column,new_label,idx=spike_id,n=3,ax=axes,id_=3)
-
-#         print(ampl,sur_ampl,sur_ampl_new,st.times[spike_id])
-#         plt.show()
-#         if abs(ampl-sur_ampl) > abs(ampl-sur_ampl_new):
-#             new_labels[i] = new_label
-#             zoom = [st.times[spike_id]-0.3*pq.s,st.times[spike_id]+0.3*pq.s]
-
-#             print(ampl,sur_ampl,sur_ampl_new,st.times[spike_id])
-#             fig, axes=plot_fitted_spikes(Seg, j, Models, SpikeInfo, this_unit_col, zoom=zoom, save=None,wsize=n_samples)
-#             plt.show()
-
-#         # if st.times[spike_id] > 10.55 and st.times[spike_id] < 10.65:
-#             # print(ampl,sur_ampl,amplitudes,dict_units[org_label],st.times[spike_id])
-
-#         # if ampl > sur_ampl + 0.15 and amplitudes[dict_units[new_label]] > amplitudes[dict_units[org_label]]:
-#         #     # print(ampl,sur_ampl,amplitudes,dict_units[org_label],st.times[spike_id])
-#         #     # print("Changing unit from %c to %c"%(org_label,new_label))
-#         #     new_labels[i] = new_label
-
-#     print_msg("Num of final changes %d"%np.sum(~(SpikeInfo[unit_column]==new_labels).values))
-
-# SpikeInfo[unit_column] = new_labels
-
 # plot templates and models for last column
 outpath = plots_folder / ("Templates_%s%s" % (unit_column,fig_format))
 plot_templates(Templates, SpikeInfo, unit_column, save=outpath)
 outpath = plots_folder / ("Models_%s%s" % (unit_column,fig_format))
 plot_Models(Models, save=outpath)
 
+
 # Remove the smallest cluster (contains false positive spikes)
 # TODO change for smallest amplitude?
 if rm_smaller_cluster:
+    SpikeInfo['last_remove_save'] = copy.deepcopy(SpikeInfo[unit_column].values)
     remove_spikes(SpikeInfo,unit_column,'min')
     n_changes,Rss_sum,ScoresSum,units,AICs,n_units = eval_model(SpikeInfo,this_unit_col,prev_unit_col,Scores,Templates,ScoresSum,AICs)
 
@@ -618,6 +579,10 @@ if rm_smaller_cluster:
     plot_templates(Templates, SpikeInfo, unit_column, save=outpath)
     outpath = plots_folder / ("Models_final%s" % (fig_format))
     plot_Models(Models, save=outpath)
+
+    max_window = 0.3
+    plot_fitted_spikes_complete(Blk, Templates, SpikeInfo, [ 'last_remove_save',unit_column], max_window, plots_folder, fig_format,wsize=n_samples,extension='_last_remove',plot_function=plot_compared_fitted_spikes)
+
 
 
 
@@ -674,6 +639,14 @@ for i, seg in tqdm(enumerate(Blk.segments),desc="populating block for output"):
         frate.annotate(kind='frate_fast', unit=unit)
         asigs.append(frate)
     seg.analogsignals = asigs
+
+
+units = get_units(SpikeInfo,unit_column)
+print_msg("Number of spikes in trace: %d"%SpikeInfo[unit_column].size)
+print_msg("Number of bad spikes: %d"%len(SpikeInfo.groupby(['good']).get_group(True)[unit_column]))
+# print_msg("Number of good spikes: %d"%len(SpikeInfo.groupby(['good']).get_group(False)[unit_column]))
+print_msg("Number of clusters: %d"%len(units))
+
 
 # store SpikeInfo
 outpath = results_folder / 'SpikeInfo.csv'

@@ -287,25 +287,6 @@ def plot_compared_spike_events(Segment1,Segment2,thres=2,max_window=1,max_row=5,
     # return fig, axes
 
 
-def plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column,max_window, plots_folder, fig_format, unit_order=None, save=None, colors=None,wsize=40,extension=''):
-
-    for j, Seg in enumerate(Blk.segments):
-        seg_name = Path(Seg.annotations['filename']).stem
-
-        asig = Seg.analogsignals[0]
-        max_window = int(max_window*asig.sampling_rate) #FIX conversion from secs to points
-        n_plots = asig.shape[0]//max_window
-
-        for n_plot in range(0,n_plots):
-            outpath = plots_folder / (seg_name + '_fitted_spikes%s_%s_%d'%(extension,max_window,n_plot) + fig_format)
-            ini = n_plot*max_window + max_window
-            end = ini + max_window
-            end = min(end, Seg.analogsignals[0].shape[0])
-            zoom = [ini,end]/asig.sampling_rate
-
-            plot_fitted_spikes(Seg, j, Models, SpikeInfo, unit_column, zoom=zoom, save=outpath,wsize=wsize)
-
-
 def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=None, zoom=None, save=None, colors=None,wsize=40):
     """ plot to inspect fitted spikes """
     fig, axes =plt.subplots(nrows=2, sharex=True, sharey=True)
@@ -320,7 +301,7 @@ def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=No
     a_events = [max(a) for a in a_events]
     axes[1].plot(st.times,a_events,'.',markersize=1)
 
-    plot_by_unit(axes[1],st,asig, Models, SpikeInfo, unit_column, unit_order, colors,wsize=40)
+    plot_by_unit(axes[1],st,asig, Models, SpikeInfo, unit_column, unit_order, colors,wsize,j)
 
     if zoom is not None:
         for ax in axes:
@@ -338,7 +319,26 @@ def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=No
 
     return fig, axes
 
-def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, colors=None,wsize=40):
+
+def plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column,max_window, plots_folder, fig_format, unit_order=None, save=None, colors=None,wsize=40,extension='',plot_function=plot_fitted_spikes):
+
+    for j, Seg in enumerate(Blk.segments):
+        seg_name = Path(Seg.annotations['filename']).stem
+
+        asig = Seg.analogsignals[0]
+        max_window = int(max_window*asig.sampling_rate) #FIX conversion from secs to points
+        n_plots = asig.shape[0]//max_window
+
+        for n_plot in range(0,n_plots):
+            outpath = plots_folder / (seg_name + '_fitted_spikes%s_%s_%d'%(extension,max_window,n_plot) + fig_format)
+            ini = n_plot*max_window + max_window
+            end = ini + max_window
+            end = min(end, Seg.analogsignals[0].shape[0])
+            zoom = [ini,end]/asig.sampling_rate
+
+            plot_function(Seg, j, Models, SpikeInfo, unit_column, zoom=zoom, save=outpath,wsize=wsize)
+
+def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, colors=None,wsize=40,j=0):
     units = get_units(SpikeInfo,unit_column)
     if unit_order is not None:
         units = [units[i] for i in unit_order]
@@ -376,8 +376,14 @@ def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, co
                 pred_spikes = Templates[:,ix].T
 
             for i, spike in enumerate(pred_spikes):
-                # asig_recons[int(inds[i]-wsize/2):int(inds[i]+wsize/2)] = spike
-                asig_recons[int(inds[i]):int(inds[i]+wsize/2)] = spike[spike.size//2:]
+                try:
+                    asig_recons[int(inds[i]-wsize/2):int(inds[i]+wsize/2)] = spike[spike.size//2-wsize//2:spike.size//2+wsize//2]
+
+                except ValueError as e:
+                    print(e.args)
+                    # thrown when first or last spike smaller than reconstruction window
+                    continue
+                # asig_recons[int(inds[i]):int(inds[i]+wsize/2)] = spike[spike.size//2:]
 
             ax.plot(asig.times, asig_recons, lw=2.0, color=colors[unit], alpha=0.8)
 
@@ -385,7 +391,7 @@ def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, co
             # thrown when no spikes are present in this segment
             pass
 
-def plot_compared_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column1,unit_column2, unit_order=None, zoom=None, save=None, colors=None,wsize=40):
+def plot_compared_fitted_spikes(Segment, j, Models, SpikeInfo, unit_columns, unit_order=None, zoom=None, save=None, colors=None,wsize=40):
     """ plot to inspect fitted spikes """
     fig, axes =plt.subplots(nrows=2, sharex=True, sharey=True)
     
@@ -399,10 +405,10 @@ def plot_compared_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column1,unit
     a_events = [max(a) for a in a_events]
     axes[1].plot(st.times,a_events,'.',markersize=1)
 
-    plt.title(unit_column1)
-    plot_by_unit(axes[0],st,asig, Models, SpikeInfo, unit_column1, unit_order, colors,wsize=40)
-    plt.title(unit_column2)
-    plot_by_unit(axes[1],st,asig, Models, SpikeInfo, unit_column2, unit_order, colors,wsize=40)
+    plt.title(unit_columns[0])
+    plot_by_unit(axes[0],st,asig, Models, SpikeInfo, unit_columns[0], unit_order, colors,wsize)
+    plt.title(unit_columns[1])
+    plot_by_unit(axes[1],st,asig, Models, SpikeInfo, unit_columns[1], unit_order, colors,wsize)
 
     if zoom is not None:
         for ax in axes:
@@ -530,7 +536,7 @@ def plot_clustering(Templates, SpikeInfo, unit_column, n_components=5, N=300, sa
 
     return fig, axes
 
-def plot_averages(average_spikes,SpikeInfo,unit_column,colors=None):
+def plot_averages(average_spikes,SpikeInfo,unit_column,colors=None,title=None):
     fig, axes =plt.subplots(ncols=len(average_spikes), sharex=True, sharey=True)
 
     units = get_units(SpikeInfo,unit_column)
@@ -540,7 +546,10 @@ def plot_averages(average_spikes,SpikeInfo,unit_column,colors=None):
 
     for i,average_spike in enumerate(average_spikes):
         axes[i].plot(average_spike,color=colors[units[i]])
-        axes[i].set_title(units[i])
+        if title is None:
+            axes[i].set_title(units[i])
+        else:
+            axes[i].set_title(title[i])
 
     fig.suptitle("Average of clusters")
     fig.tight_layout()

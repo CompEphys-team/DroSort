@@ -256,6 +256,10 @@ def double_spike_detect(AnalogSignal, bounds_pos,bounds_neg, lowpass_freq=1000*p
     times_unique *= AnalogSignal.times.units
     waveforms = waveforms[:,sp.newaxis,sp.newaxis]
 
+    sortinds = times_unique.argsort()
+    times_unique = times_unique[sortinds]
+    waveforms = waveforms[sortinds]
+
     SpikeTrain = neo.core.SpikeTrain(times_unique,
                                      t_start=AnalogSignal.t_start,
                                      t_stop=AnalogSignal.t_stop,
@@ -267,7 +271,6 @@ def double_spike_detect(AnalogSignal, bounds_pos,bounds_neg, lowpass_freq=1000*p
 
 #TODO: do with Templates, updating SpikeInfo
 def reject_non_spikes(AnalogSignal,SpikeTrain,wsize,plot=False,verbose=False):
-
     to_remove = []
     for i,sp in enumerate(SpikeTrain):
         sp_id = int(sp*AnalogSignal.sampling_rate)
@@ -290,18 +293,23 @@ def reject_non_spikes(AnalogSignal,SpikeTrain,wsize,plot=False,verbose=False):
         #ignore spike when first point much smaller than last
         # and crosses mid point only once.
         # or amplitude is too small for a spike
-        non_spike_cond = (waveform[0] < waveform[-1]-ampl*0.2 and np.where(waveform[waveform.size//2:]<half)[0].size==0)
+        # non_spike_cond = (waveform[0] < waveform[-1]-ampl*0.2 and np.where(waveform[waveform.size//2:]<half)[0].size==0)
+
+        non_spike_cond = ((waveform[0] < waveform[-1]-ampl*0.2) and ~(waveform[waveform.size//2:]<half).any())
         if non_spike_cond or ampl < 0.25 or dur > 25:
             to_remove.append(i)
             # if sp > 2.25 and sp < 2.3:
-            #     print(sp,waveform[0] < waveform[-1]-ampl*0.2, np.where(waveform[waveform.size//2:]<half)[0].size==0, (ampl < 0.25),dur > 25)
-            #     print(waveform[0], waveform[-1],ampl*0.2, half, ampl ,dur)
-            #     plt.plot(waveform)
-            #     plt.plot(waveform.size//2,AnalogSignal.magnitude[sp_id],'.',color='k')
-            #     plt.plot(np.ones(waveform.shape)*half)
-            #     plt.plot(waveform[0],'.')
-            #     plt.plot(waveform.size,waveform[-1],'.')
-            #     plt.show()
+            # print('ini-end','back_down','back_down_any')
+            # print(sp,waveform[0] < waveform[-1]-ampl*0.2, np.where(waveform[waveform.size//2:]<half)[0].size==0,~(waveform[waveform.size//2:]<half).any())
+            # print('ampl','dur')
+            # print((ampl < 0.25),dur > 25)
+            # #     print(waveform[0], waveform[-1],ampl*0.2, half, ampl ,dur)
+            # plt.plot(waveform)
+            # plt.plot(waveform.size//2,AnalogSignal.magnitude[sp_id],'.',color='k')
+            # plt.plot(np.ones(waveform.shape)*half)
+            # plt.plot(waveform[0],'.')
+            # plt.plot(waveform.size,waveform[-1],'.')
+            # plt.show()
 
 
     if plot:
@@ -382,15 +390,31 @@ def get_all_peaks(Segments, lowpass_freq=1*pq.kHz,t_max=None):
 
 def get_Templates(data, inds, n_samples):
     """ slice windows of n_samples (symmetric) out of data at inds """
-    hwsize = sp.int32(n_samples/2)
+
+    if type(n_samples) is tuple:
+        wsizel = n_samples[0]
+        wsizer = n_samples[1]
+    else:
+        wsizel = n_samples//2
+        wsizer = n_samples//2
+    # hwsize = sp.int32(n_samples/2)
 
     # check for valid inds
     # N = data.shape[0]
     # inds = inds[sp.logical_and(inds > hwsize, inds < N-hwsize)]
 
-    Templates = sp.zeros((n_samples,inds.shape[0]))
+    # Templates = sp.zeros((n_samples,inds.shape[0]))
+    Templates = sp.zeros((wsizel+wsizer,inds.shape[0]))
     for i, ix in enumerate(inds):
-        Templates[:,i] = data[ix-hwsize:ix+hwsize]
+        ini = ix-wsizel
+        end = ix+wsizer
+        if ini < 0:
+            Templates[:,i] = np.concatenate(([data[0]]*(0-ini),data[0:end]))
+        elif end > data.size:
+            Templates[:,i] = np.concatenate((data[ini:data.size],np.array([data[-1]]*(end-data.size))))
+        else:
+            Templates[:,i] = data[ini:end]
+
 
     return Templates
 
@@ -413,6 +437,7 @@ def peak_reject(Templates, f=3):
     bad_inds = sp.logical_or(left > peak/f, right > peak/f)
     return bad_inds
 
+#TODO: not useful rejection. Review bad spikes influence
 def reject_spikes(Templates, SpikeInfo, unit_column, n_neighbors=80, verbose=False):
     """ reject bad spikes from Templates, updates SpikeInfo """
     units = get_units(SpikeInfo, unit_column)
@@ -424,7 +449,7 @@ def reject_spikes(Templates, SpikeInfo, unit_column, n_neighbors=80, verbose=Fal
         good_inds_unit = ~sp.logical_or(a,b)
 
         SpikeInfo.loc[ix,'good'] = good_inds_unit
-        
+
         if verbose:
             n_total = ix.shape[0]
             n_good = sp.sum(good_inds_unit)
@@ -863,12 +888,9 @@ def eval_model(SpikeInfo,this_unit_col,prev_unit_col,Scores,Templates,ScoresSum,
     return n_changes,Rss_sum,ScoresSum,units,AICs,n_units
 
 def distance_to_average(Templates,units,averages):
-    D_pw = sp.zeros((Templates.shape[1],len(units)))
+    D_pw = sp.zeros((len(units),Templates.shape[1]))
 
-    for spike_id,spike in enumerate(Templates.T):
-        for i,unit in enumerate(units):
-            # print(spike.shape)
-            # print(averages[i].shape)
-            D_pw[spike_id,i] = Rss(spike,averages[i])
- 
-    return D_pw
+    for i,unit in enumerate(units):
+        D_pw[i,:] = metrics.pairwise.euclidean_distances(Templates.T,averages[i].reshape(1,-1)).reshape(-1)
+    
+    return D_pw.T
