@@ -154,14 +154,14 @@ print_msg(' - getting templates - ')
 fs = Blk.segments[0].analogsignals[0].sampling_rate
 # n_samples = (wsize * fs).simplified.magnitude.astype('int32')
 
-n_samples = (20,20)
+w_samples = (20,70)
 
 templates = []
 for j, seg in enumerate(Blk.segments):
     data = seg.analogsignals[0].magnitude.flatten()
     inds = (seg.spiketrains[0].times * fs).simplified.magnitude.astype('int32')
 
-    templates.append(get_Templates(data, inds, n_samples))
+    templates.append(get_Templates(data, inds, w_samples))
 
 Templates = sp.concatenate(templates,axis=1)
 print(Templates.shape)
@@ -180,7 +180,7 @@ print(Templates.shape)
 ####    get average spikes
 #########################################################################################################
 
-n_samples = np.sum(n_samples)
+n_samples = np.sum(w_samples)
 
 # Get average shapes
 dt = Seg.analogsignals[0].times[1]-Seg.analogsignals[0].times[0]
@@ -224,8 +224,8 @@ for unit in units:
 # average_spikes=np.array(average_spikes)
 
 plot_templates(Templates, SpikeInfo, last_unit_col)
-plot_averages(average_spikes,SpikeInfo,last_unit_col)
-plt.show()
+# plot_averages(average_spikes,SpikeInfo,last_unit_col)
+# plt.show()
 
 # for i,spike in enumerate(Templates[:,ix].T):
 #     spike = align_spike(spike, width_ms,dt,spike_i,mode)
@@ -246,41 +246,134 @@ A = average_spikes[a_id]
 B = average_spikes[b_id]
 
 titles={a_id:'a',b_id:'b'}
+unit_titles={units[a_id]:'a',units[b_id]:'b'}
+title_units = {'a':units[a_id],'b':units[b_id]}
 
+print(titles)
+print(unit_titles)
 plot_averages(average_spikes,SpikeInfo,last_unit_col,title=titles)
 plt.show()
 
+
 combined_templates = []
 
+mode = 'end'
+dt_c = 2
+#Add AB templates
+combine_templates(combined_templates,A,B,dt_c,w_samples,mode)
+n = len(combined_templates)
+templates_labels = [['a','b']]*n
 
-for dt in np.arange(0,n_samples+n_samples//2,1):
-    long_a = np.concatenate(([A[0]]*(n_samples//2),A,[A[-1]]*(n_samples//2)))
-    if dt <= n_samples:
-        long_b = np.concatenate(([B[0]]*(n_samples-dt),B,[B[-1]]*dt))
-    else:
-        long_b = np.concatenate((B[dt%n_samples:],[B[-1]]*dt))
+#Add BA templates
+combine_templates(combined_templates,B,A,dt_c,w_samples,mode)
+n = len(combined_templates) -n
+templates_labels+=[['b','a']]*n
 
-    combined_templates.append(long_a+long_b)
+#Add sum of two
+comb_t =np.array(np.concatenate(([A[0]]*(n_samples//2),A,[A[-1]]*(n_samples//2)))+np.concatenate(([B[0]]*(n_samples//2),B,[B[-1]]*(n_samples//2))))
+combined_templates.append(np.array(align_to(comb_t,mode)))
+templates_labels.append(['c'])
 
-ncols = 10
+#Add simple A
+comb_t =np.array(np.concatenate(([A[0]]*(n_samples//2),A,[A[-1]]*(n_samples//2))))
+combined_templates.append(np.array(align_to(comb_t,mode)))
+templates_labels.append(['a'])
+
+#Add simple B
+comb_t =np.array(np.concatenate(([B[0]]*(n_samples//2),B,[B[-1]]*(n_samples//2))))
+combined_templates.append(np.array(align_to(comb_t,mode)))
+templates_labels.append(['b'])
+
+ncols = 9
 nrows = round(len(combined_templates)/ncols)
+print(nrows,ncols)
 
-fig, axes= plt.subplots(nrows=nrows,ncols=ncols, sharex=True, sharey=True,figsize=(ncols*2,nrows*2))
+fig, axes= plt.subplots(nrows=nrows,ncols=ncols, sharex=True, sharey=True,figsize=(ncols*3,nrows*2))
 
+print(len(templates_labels))
+print(len(combined_templates))
 for c,ct in enumerate(combined_templates):
-    axes[c//ncols,c%ncols].plot(ct)
-    plt.ylim(-2,0)
+    i,j = c//ncols,c%ncols
+
+    axes[i,j].plot(ct)
+
+    peak_inds = signal.argrelmax(ct)[0]
+    peak_inds = peak_inds[np.argsort(ct[peak_inds])[-len(templates_labels[c]):]]
+
+    axes[i,j].plot(peak_inds,ct[peak_inds],'.')
+    axes[i,j].text(0.25, 0.75,str(templates_labels[c]))
+    # plt.ylim(-2,0)
 
 plt.tight_layout()
 plt.show()
 
+#########################################################################################################
+####    compare spikes with templates
+#########################################################################################################
+#TODO align by mean
+# for long_templates
+#     for ct in combined_templates:
+#         d_mean = abs(np.mean(ct)-np.mean(long_templates))
+#         ct_a = align_to(ct,d_mean)
 
 
 
+long_templates = np.array([align_to(np.concatenate(([t[0]]*(n_samples//2),t,[t[-1]]*(n_samples//2))),mode) for t in Templates.T])
+distances=distance_to_average(long_templates.T,units,combined_templates)
+print(distances.shape)
 
+colors = get_colors(units)
 
+t_colors = [colors[unit] for unit in SpikeInfo[unit_column]]
 
+c_spikes = []
 
+for t_id,t in enumerate(long_templates):
+    peak = SpikeInfo['time'][t_id] 
+    next_peak = SpikeInfo['time'][t_id+1]
+
+    my_unit = SpikeInfo[unit_column][t_id]
+    next_unit = SpikeInfo[unit_column][t_id+1]
+    # print(next_peak,peak+(n_samples//2)/10000)
+    w_time = (n_samples//2)/10000
+    if next_peak < peak+w_time: #If close spikes
+
+        best_match = templates_labels[np.argmin(distances[t_id])]
+        print("guess:",best_match,distances[t_id,np.argmin(distances[t_id])])
+        print("current:",[unit_titles[my_unit],unit_titles[next_unit]])
+        print(best_match != [unit_titles[my_unit],unit_titles[next_unit]])
+      
+        fig, axes= plt.subplots(nrows=nrows,ncols=ncols, sharex=True, sharey=True,figsize=(ncols*2,nrows*2))
+
+        for c,ct in enumerate(combined_templates):
+            i,j = c//ncols,c%ncols
+            axes[i,j].plot(ct)
+            axes[i,j].plot(t,color=t_colors[t_id])
+            axes[i,j].text(0.25, 0.75,"%.3f"%distances[t_id,c])
+
+        plt.suptitle("spike %d from unit %s"%(t_id,unit_titles[SpikeInfo[unit_column][t_id]]))
+
+        zoom = [peak-0.3,peak+0.3]
+        fig, axes=plot_compared_fitted_spikes(Seg, 0, Templates, SpikeInfo, [unit_column, unit_column], zoom=zoom, save=None)
+        axes[0].plot([peak,next_peak],[1,1],'.',markersize=10)
+        axes[1].plot([peak,next_peak],[1,1],'.',markersize=10)
+        
+        plt.show()
+
+        if best_match != [unit_titles[my_unit],unit_titles[next_unit]]:
+            if best_match[0] == 'c':
+                c_spikes.append(t_id)
+                # SpikeInfo[unit_column][t_id] = units[0]
+                # SpikeInfo[unit_column][t_id] = units[1]
+                ##TODO add new peak in SpikeInfo, Templates, etc.
+            else:
+                SpikeInfo[unit_column][t_id] = title_units[best_match[0]]
+                if len(best_match) < 2:
+                    SpikeInfo[unit_column][t_id+1] = '-1'
+                else:
+                    SpikeInfo[unit_column][t_id+1] = title_units[best_match[1]]
+
+        
 
 
 #########################################################################################################
