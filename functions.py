@@ -708,53 +708,6 @@ def Score_spikes(Templates, SpikeInfo, unit_column, Models, score_metric=Rss, pe
     
 #     return Amplitudes
 
-def get_neighbors_amplitude(st,Templates,SpikeInfo,unit_column,unit,idx=0,t=0.3):
-    times_all = SpikeInfo['time']
-
-    idx_t = times_all.values[idx]
-
-    ini = idx_t - t
-    end = idx_t + t
-
-    times = times_all.index[np.where((times_all.values > ini) & (times_all.values < end) & (times_all.values != idx_t))]
-    neighbors = times[np.where(SpikeInfo.loc[times,unit_column].values==unit)]
-
-    T_b = Templates[:,neighbors].T
-    T_b = np.array([max(t[t.size//2:])-min(t[t.size//2:]) for t in T_b])
-
-    return sp.average(T_b)
-
-def get_duration(waveform):
-    ampl = (max(waveform)-min(waveform))
-    half = max(waveform)-(ampl)/3
-    try:
-        duration_vals = np.where(np.isclose(waveform, half,atol=0.06))[0]
-        dur = duration_vals[-1]-duration_vals[0]
-    except:
-        dur = -np.inf
-
-    return dur
-
-def get_neighbors_duration(st,Templates,SpikeInfo,unit_column,unit,idx=0,t=0.3):
-    times_all = SpikeInfo['time']
-
-    idx_t = times_all.values[idx]
-
-    ini = idx_t - t
-    end = idx_t + t
-
-    times = times_all.index[np.where((times_all.values > ini) & (times_all.values < end) & (times_all.values != idx_t))]
-    neighbors = times[np.where(SpikeInfo.loc[times,unit_column].values==unit)]
-
-    T_b = Templates[:,neighbors].T
-
-    durations = []
-
-    for waveform in T_b:
-        dur = get_duration(waveform)
-        durations.append(dur)
-
-    return sp.average(durations)
 
 
 def calculate_pairwise_distances(Templates, SpikeInfo, unit_column, n_comp=5):
@@ -851,6 +804,82 @@ def populate_block(Blk,SpikeInfo,unit_column,units):
     return Blk
 
 
+
+def eval_model(SpikeInfo,this_unit_col,prev_unit_col,Scores,Templates,ScoresSum,AICs):
+    #Re-eval model:
+    n_changes = sp.sum(~(SpikeInfo[this_unit_col] == SpikeInfo[prev_unit_col]).values)
+    
+    Rss_sum = sp.sum(np.min(Scores,axis=1)) / Templates.shape[1]
+    ScoresSum.append(Rss_sum)
+    units = get_units(SpikeInfo, this_unit_col)
+    AICs.append(len(units) - 2 * sp.log(Rss_sum))
+
+    n_units = len(units)
+
+    return n_changes,Rss_sum,ScoresSum,units,AICs,n_units
+
+
+"""
+ 
+ ########  ########   ######  ########  ########   #######   ######  ########  ######   ######  
+ ##     ## ##     ## ##    ## ##     ## ##     ## ##     ## ##    ## ##       ##    ## ##    ## 
+ ##     ## ##     ## ##       ##     ## ##     ## ##     ## ##       ##       ##       ##       
+ ########  ##     ##  ######  ########  ########  ##     ## ##       ######    ######   ######  
+ ##        ##     ##       ## ##        ##   ##   ##     ## ##       ##             ##       ## 
+ ##        ##     ## ##    ## ##        ##    ##  ##     ## ##    ## ##       ##    ## ##    ## 
+ ##        #########  ######  ##        ##     ##  #######   ######  ########  ######   ######  
+ 
+"""
+
+
+def get_neighbors_amplitude(st,Templates,SpikeInfo,unit_column,unit,idx=0,t=0.3):
+    times_all = SpikeInfo['time']
+
+    idx_t = times_all.values[idx]
+
+    ini = idx_t - t
+    end = idx_t + t
+
+    times = times_all.index[np.where((times_all.values > ini) & (times_all.values < end) & (times_all.values != idx_t))]
+    neighbors = times[np.where(SpikeInfo.loc[times,unit_column].values==unit)]
+
+    T_b = Templates[:,neighbors].T
+    T_b = np.array([max(t[t.size//2:])-min(t[t.size//2:]) for t in T_b])
+
+    return sp.average(T_b)
+
+def get_duration(waveform):
+    ampl = (max(waveform)-min(waveform))
+    half = max(waveform)-(ampl)/3
+    try:
+        duration_vals = np.where(np.isclose(waveform, half,atol=0.06))[0]
+        dur = duration_vals[-1]-duration_vals[0]
+    except:
+        dur = -np.inf
+
+    return dur
+
+def get_neighbors_duration(st,Templates,SpikeInfo,unit_column,unit,idx=0,t=0.3):
+    times_all = SpikeInfo['time']
+
+    idx_t = times_all.values[idx]
+
+    ini = idx_t - t
+    end = idx_t + t
+
+    times = times_all.index[np.where((times_all.values > ini) & (times_all.values < end) & (times_all.values != idx_t))]
+    neighbors = times[np.where(SpikeInfo.loc[times,unit_column].values==unit)]
+
+    T_b = Templates[:,neighbors].T
+
+    durations = []
+
+    for waveform in T_b:
+        dur = get_duration(waveform)
+        durations.append(dur)
+
+    return sp.average(durations)
+
 def remove_spikes(SpikeInfo,unit_column,criteria):
     if criteria == 'min':
         units = get_units(SpikeInfo, unit_column)
@@ -873,24 +902,26 @@ def remove_spikes(SpikeInfo,unit_column,criteria):
     # # from dataFrame
     # SpikeInfo = SpikeInfo.drop(index_names, inplace = True)
 
-
-def eval_model(SpikeInfo,this_unit_col,prev_unit_col,Scores,Templates,ScoresSum,AICs):
-    #Re-eval model:
-    n_changes = sp.sum(~(SpikeInfo[this_unit_col] == SpikeInfo[prev_unit_col]).values)
-    
-    Rss_sum = sp.sum(np.min(Scores,axis=1)) / Templates.shape[1]
-    ScoresSum.append(Rss_sum)
-    units = get_units(SpikeInfo, this_unit_col)
-    AICs.append(len(units) - 2 * sp.log(Rss_sum))
-
-    n_units = len(units)
-
-    return n_changes,Rss_sum,ScoresSum,units,AICs,n_units
-
+#TODO units argument not used anymore
 def distance_to_average(Templates,units,averages):
-    D_pw = sp.zeros((len(units),Templates.shape[1]))
+    D_pw = sp.zeros((len(averages),Templates.shape[1]))
 
-    for i,unit in enumerate(units):
-        D_pw[i,:] = metrics.pairwise.euclidean_distances(Templates.T,averages[i].reshape(1,-1)).reshape(-1)
+    for i,average in enumerate(averages):
+        D_pw[i,:] = metrics.pairwise.euclidean_distances(Templates.T,average.reshape(1,-1)).reshape(-1)
     
     return D_pw.T
+
+
+from superpos_functions import align_to
+def combine_templates(combined_templates,A,B,dt,w_samples,align_mode):
+    n_samples = np.sum(w_samples)
+    for dt in np.arange(0,np.sum(w_samples)+w_samples[0],dt):
+        long_a = np.concatenate(([A[0]]*(n_samples//2),A,[A[-1]]*(n_samples//2)))
+        if dt <= w_samples[0]:
+            long_b = np.concatenate(([B[0]]*(n_samples-dt),B,[B[-1]]*dt))
+        # else:
+        #     long_b = np.concatenate((B[dt%n_samples:],[B[-1]]*dt))
+
+        comb_t = np.array(long_a+long_b)
+        combined_templates.append(np.array(align_to(comb_t,align_mode)))
+
