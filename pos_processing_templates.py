@@ -258,7 +258,10 @@ plt.show()
 combined_templates = []
 
 mode = 'end'
-dt_c = 2
+dt_c = 1
+# ext_size = w_samples[1]
+ext_size = n_samples//2
+
 #Add AB templates
 combine_templates(combined_templates,A,B,dt_c,w_samples,mode)
 n = len(combined_templates)
@@ -270,21 +273,25 @@ n = len(combined_templates) -n
 templates_labels+=[['b','a']]*n
 
 #Add sum of two
+# comb_t =np.array(np.concatenate((A,[A[-1]]*ext_size))+np.concatenate((B,[B[-1]]*ext_size)))
 comb_t =np.array(np.concatenate(([A[0]]*(n_samples//2),A,[A[-1]]*(n_samples//2)))+np.concatenate(([B[0]]*(n_samples//2),B,[B[-1]]*(n_samples//2))))
 combined_templates.append(np.array(align_to(comb_t,mode)))
 templates_labels.append(['c'])
 
 #Add simple A
+# comb_t =np.array(np.concatenate((A,[A[-1]]*ext_size)))
 comb_t =np.array(np.concatenate(([A[0]]*(n_samples//2),A,[A[-1]]*(n_samples//2))))
 combined_templates.append(np.array(align_to(comb_t,mode)))
 templates_labels.append(['a'])
 
 #Add simple B
+# comb_t =np.array(np.concatenate((B,[B[-1]]*ext_size)))
 comb_t =np.array(np.concatenate(([B[0]]*(n_samples//2),B,[B[-1]]*(n_samples//2))))
 combined_templates.append(np.array(align_to(comb_t,mode)))
 templates_labels.append(['b'])
 
-ncols = 9
+#Plot templates
+ncols = 9 #fix fails when different templates
 nrows = round(len(combined_templates)/ncols)
 print(nrows,ncols)
 
@@ -310,16 +317,33 @@ plt.show()
 #########################################################################################################
 ####    compare spikes with templates
 #########################################################################################################
-#TODO align by mean
-# for long_templates
-#     for ct in combined_templates:
-#         d_mean = abs(np.mean(ct)-np.mean(long_templates))
-#         ct_a = align_to(ct,d_mean)
+mode = 'end'
 
+if mode == 'mean':
+    #TODO align by mean
+    long_waveforms = np.array([np.concatenate(([t[0]]*(n_samples//2),t,[t[-1]]*(n_samples//2))) for t in Templates.T])
 
+    aligned_templates=np.zeros((long_waveforms.shape[0],len(combined_templates),long_waveforms.shape[1]))
+    long_waveforms_align = np.zeros(long_waveforms.shape)
 
-long_templates = np.array([align_to(np.concatenate(([t[0]]*(n_samples//2),t,[t[-1]]*(n_samples//2))),mode) for t in Templates.T])
-distances=distance_to_average(long_templates.T,units,combined_templates)
+    D_pw = sp.zeros((long_waveforms_align.shape[0],aligned_templates.shape[1]))
+    print(aligned_templates.shape)
+    for t_i,t in enumerate(long_waveforms):
+        for ct_i,ct in enumerate(combined_templates):
+            d_mean = (np.mean(ct)-np.mean(t))**2
+            # print(d_mean)
+            ct_a = align_to(ct,d_mean)
+            t_a = align_to(t,d_mean)
+            long_waveforms_align[t_i] = t_a
+            aligned_templates[t_i,ct_i]= ct_a
+        D_pw[t_i,:] = metrics.pairwise.euclidean_distances(aligned_templates[t_i],t.reshape(1,-1)).reshape(-1)
+ 
+    distances = D_pw
+
+else:
+    # long_waveforms = np.array([align_to(np.concatenate(([t[0]]*(n_samples//2),t,[t[-1]]*(n_samples//2))),mode) for t in Templates.T])
+    long_waveforms = np.array([align_to(np.concatenate((t,[t[-1]]*(n_samples//2))),mode) for t in Templates.T])
+    distances=distance_to_average(long_waveforms.T,combined_templates)
 print(distances.shape)
 
 colors = get_colors(units)
@@ -328,7 +352,7 @@ t_colors = [colors[unit] for unit in SpikeInfo[unit_column]]
 
 c_spikes = []
 
-for t_id,t in enumerate(long_templates):
+for t_id,t in enumerate(long_waveforms):
     peak = SpikeInfo['time'][t_id] 
     next_peak = SpikeInfo['time'][t_id+1]
 

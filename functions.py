@@ -902,16 +902,14 @@ def remove_spikes(SpikeInfo,unit_column,criteria):
     # # from dataFrame
     # SpikeInfo = SpikeInfo.drop(index_names, inplace = True)
 
-#TODO units argument not used anymore
-def distance_to_average(Templates,units,averages):
+def distance_to_average(Templates,averages):
     D_pw = sp.zeros((len(averages),Templates.shape[1]))
 
     for i,average in enumerate(averages):
         D_pw[i,:] = metrics.pairwise.euclidean_distances(Templates.T,average.reshape(1,-1)).reshape(-1)
-    
     return D_pw.T
 
-
+#TODO fix restriction so spike gets longer on the left side (only begining and no end?)
 from superpos_functions import align_to
 def combine_templates(combined_templates,A,B,dt,w_samples,align_mode):
     n_samples = np.sum(w_samples)
@@ -925,3 +923,22 @@ def combine_templates(combined_templates,A,B,dt,w_samples,align_mode):
         comb_t = np.array(long_a+long_b)
         combined_templates.append(np.array(align_to(comb_t,align_mode)))
 
+
+def align_to(spike,mode='peak',dt=0.1,sec_wind=2.0):
+    if(spike.shape[0]!=0):
+        if type(mode) is not str:
+            mn = mode
+        elif mode == 'min':
+            mn = np.min(spike)
+        elif mode == 'peak':
+            mn = np.max(spike)
+        elif mode == 'end':
+            mn = spike[-1]
+        elif mode == 'ini':
+            mn = spike[0]
+        else:
+            print("fail")
+        if mn != 0:
+            spike = spike-mn
+    
+    return spike
