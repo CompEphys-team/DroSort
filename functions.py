@@ -94,6 +94,7 @@ def select_by_dict(objs, **selection):
     Returns:
         list: a list containing the subset of matching neo objects
     """
+    # print("Selection",selection.items())
     res = []
     for obj in objs:
         if selection.items() <= obj.annotations.items():
@@ -190,6 +191,7 @@ def spike_detect(AnalogSignal, bounds, lowpass_freq=1000*pq.Hz,wsize=40):
 
     return SpikeTrain
 
+#TODO: optimize time, save in negative detection "positive peak" and max?
 def double_spike_detect(AnalogSignal, bounds_pos,bounds_neg, lowpass_freq=1000*pq.Hz,wsize=40,plot=False,verbose=False):
     """
     detects all spikes in an AnalogSignal that fall within amplitude bounds
@@ -226,7 +228,7 @@ def double_spike_detect(AnalogSignal, bounds_pos,bounds_neg, lowpass_freq=1000*p
         if indexes[0].size == 0: #spike not found in positive trains detection
             pini_st_neg = st_neg_id - wsize//2
             pend_st_neg = min(st_neg_id + wsize//2,AnalogSignal.times.size-1)
-
+            
             neg_waveform = AnalogSignal.magnitude[pini_st_neg:st_neg_id]
             waveform = neg_waveform
 
@@ -242,12 +244,9 @@ def double_spike_detect(AnalogSignal, bounds_pos,bounds_neg, lowpass_freq=1000*p
             plt.plot(st_neg,1,'.',color='r')
             plt.plot(new_time,1,'.',color='b')
             plt.plot((AnalogSignal.times[pini_st_neg],AnalogSignal.times[pend_st_neg]),(1,1),'.',color='k')   
-            
+
             times_unique = np.append(times_unique,new_time)
             waveforms = np.append(waveforms,max(waveform).item())
-
-            # waveforms = np.append(waveforms,waveform,axis=1)
-
 
     if plot:
         plt.show()
@@ -256,6 +255,10 @@ def double_spike_detect(AnalogSignal, bounds_pos,bounds_neg, lowpass_freq=1000*p
 
     times_unique *= AnalogSignal.times.units
     waveforms = waveforms[:,sp.newaxis,sp.newaxis]
+
+    sortinds = times_unique.argsort()
+    times_unique = times_unique[sortinds]
+    waveforms = waveforms[sortinds]
 
     SpikeTrain = neo.core.SpikeTrain(times_unique,
                                      t_start=AnalogSignal.t_start,
@@ -266,28 +269,48 @@ def double_spike_detect(AnalogSignal, bounds_pos,bounds_neg, lowpass_freq=1000*p
 
     return SpikeTrain
 
+#TODO: do with Templates, updating SpikeInfo
 def reject_non_spikes(AnalogSignal,SpikeTrain,wsize,plot=False,verbose=False):
-
     to_remove = []
     for i,sp in enumerate(SpikeTrain):
         sp_id = int(sp*AnalogSignal.sampling_rate)
 
         waveform = AnalogSignal.magnitude[sp_id-wsize//2:sp_id+wsize//2]
-        end_waveform = AnalogSignal.magnitude[sp_id:sp_id+wsize//2]
-        ini_waveform = AnalogSignal.magnitude[sp_id-wsize//2:sp_id]
+        # end_waveform = AnalogSignal.magnitude[sp_id:sp_id+wsize//2]
+        # ini_waveform = AnalogSignal.magnitude[sp_id-wsize//2:sp_id]
 
-        half = max(waveform)-(max(waveform)-min(waveform))/3
         # half = (max(waveform)+min(waveform))/2
         ampl = (max(waveform)-min(waveform))
+        half = max(waveform)-(ampl)/3
+        # ampl = (max(waveform)-min(waveform))
+
+        try:
+            duration_vals = np.where(np.isclose(waveform, half,atol=0.06))[0]
+            dur = duration_vals[-1]-duration_vals[0]
+        except:
+            dur = -np.inf
 
         #ignore spike when first point much smaller than last
         # and crosses mid point only once.
         # or amplitude is too small for a spike
-        #TODO: review ampl*0.2 value
-        if (waveform[0] < waveform[-1]-ampl*0.2 and np.where(end_waveform<half)[0].size==0) or (ampl < 0.3):
+        # non_spike_cond = (waveform[0] < waveform[-1]-ampl*0.2 and np.where(waveform[waveform.size//2:]<half)[0].size==0)
+
+        non_spike_cond = ((waveform[0] < waveform[-1]-ampl*0.2) and ~(waveform[waveform.size//2:]<half).any())
+        if non_spike_cond or ampl < 0.25 or dur > 25:
             to_remove.append(i)
-            plt.plot(waveform)
-            plt.plot(np.arange(waveform.size),np.ones(waveform.shape)*half)
+            # if sp > 2.25 and sp < 2.3:
+            # print('ini-end','back_down','back_down_any')
+            # print(sp,waveform[0] < waveform[-1]-ampl*0.2, np.where(waveform[waveform.size//2:]<half)[0].size==0,~(waveform[waveform.size//2:]<half).any())
+            # print('ampl','dur')
+            # print((ampl < 0.25),dur > 25)
+            # #     print(waveform[0], waveform[-1],ampl*0.2, half, ampl ,dur)
+            # plt.plot(waveform)
+            # plt.plot(waveform.size//2,AnalogSignal.magnitude[sp_id],'.',color='k')
+            # plt.plot(np.ones(waveform.shape)*half)
+            # plt.plot(waveform[0],'.')
+            # plt.plot(waveform.size,waveform[-1],'.')
+            # plt.show()
+
 
     if plot:
         plt.show()
@@ -367,15 +390,31 @@ def get_all_peaks(Segments, lowpass_freq=1*pq.kHz,t_max=None):
 
 def get_Templates(data, inds, n_samples):
     """ slice windows of n_samples (symmetric) out of data at inds """
-    hwsize = sp.int32(n_samples/2)
+
+    if type(n_samples) is tuple:
+        wsizel = n_samples[0]
+        wsizer = n_samples[1]
+    else:
+        wsizel = n_samples//2
+        wsizer = n_samples//2
+    # hwsize = sp.int32(n_samples/2)
 
     # check for valid inds
     # N = data.shape[0]
     # inds = inds[sp.logical_and(inds > hwsize, inds < N-hwsize)]
 
-    Templates = sp.zeros((n_samples,inds.shape[0]))
+    # Templates = sp.zeros((n_samples,inds.shape[0]))
+    Templates = sp.zeros((wsizel+wsizer,inds.shape[0]))
     for i, ix in enumerate(inds):
-        Templates[:,i] = data[ix-hwsize:ix+hwsize]
+        ini = ix-wsizel
+        end = ix+wsizer
+        if ini < 0:
+            Templates[:,i] = np.concatenate(([data[0]]*(0-ini),data[0:end]))
+        elif end > data.size:
+            Templates[:,i] = np.concatenate((data[ini:data.size],np.array([data[-1]]*(end-data.size))))
+        else:
+            Templates[:,i] = data[ini:end]
+
 
     return Templates
 
@@ -398,6 +437,7 @@ def peak_reject(Templates, f=3):
     bad_inds = sp.logical_or(left > peak/f, right > peak/f)
     return bad_inds
 
+#TODO: not useful rejection. Review bad spikes influence
 def reject_spikes(Templates, SpikeInfo, unit_column, n_neighbors=80, verbose=False):
     """ reject bad spikes from Templates, updates SpikeInfo """
     units = get_units(SpikeInfo, unit_column)
@@ -409,7 +449,7 @@ def reject_spikes(Templates, SpikeInfo, unit_column, n_neighbors=80, verbose=Fal
         good_inds_unit = ~sp.logical_or(a,b)
 
         SpikeInfo.loc[ix,'good'] = good_inds_unit
-        
+
         if verbose:
             n_total = ix.shape[0]
             n_good = sp.sum(good_inds_unit)
@@ -649,88 +689,25 @@ def Score_spikes(Templates, SpikeInfo, unit_column, Models, score_metric=Rss, pe
  
 """
 
-# def distance_to_units(Templates,SpikeInfo,unit_column,lim=10):
-#     spike_ids = SpikeInfo['id'].values
-
+# def get_units_amplitudes(Templates,SpikeInfo,unit_column,lim=10):
 #     units = get_units(SpikeInfo, unit_column)
 #     n_units = len(units)
 
-#     n_spikes = spike_ids.shape[0]
-#     Distances = sp.zeros((n_spikes,n_units))
+#     # n_spikes = spike_ids.shape[0]
 #     Amplitudes = sp.zeros((n_units))
 
-#     # pca = PCA(n_components=5)
-#     # X = pca.fit_transform(Templates.T)
+#     for i, unit in enumerate(units):
+#         # the simulated data
+#         ix_b = SpikeInfo.groupby([unit_column, 'good']).get_group((unit, True))['id']
+#         T_b = Templates[:,ix_b].T
 
-#     for i, spike_id in enumerate(spike_ids):
-#         # spike = X[spike_id,:]
-#         spike = Templates[:, spike_id].T
-#         ampl = max(spike)-min(spike)
+#         T_b = np.array([max(t)-min(t) for t in T_b])
 
-#         for j, unit in enumerate(units):
-#             # the simulated data
-#             ix_b = SpikeInfo.groupby([unit_column, 'good']).get_group((unit, True))['id']
-#             # T_a = np.tile(ampl,(ix_b.shape[0],1))
-#             T_a = np.array([ampl])
-#             T_b = Templates[:,ix_b].T
-#             # print(T_b.shape)
-#             T_b = np.array([max(t)-min(t) for t in T_b])
-
-#             # T_b = [max(Templates,1)-min(Templates,1)]
-#             # T_b = X[ix_b,:]
-
-#             # print(T_a)
-#             # print(T_a.shape)
-#             # print(T_b.shape)
-
-#             D_pw = metrics.pairwise.euclidean_distances(T_a.reshape(1,-1),T_b.reshape(-1,1))
-#             # Distances[i,j] = np.sum(np.sum(D_pw,1)) #sum each component distance for this spike
-#             # Distances[i,j] = sp.average(np.sum(D_pw,1)) + sp.std(np.sum(D_pw,1))
-#             Distances[i,j] = sp.average(D_pw)
-            
-#             Amplitudes[j] = sp.average(T_b[:lim])
-
-#             # print(Distances[i,j])
-#             # Distances[i] = D_pw[0]
-
-#     Distances[sp.isnan(Distances)] = sp.inf
-#     # print(Distances)
-    
-#     return Distances,Amplitudes
-def get_units_amplitudes(Templates,SpikeInfo,unit_column,lim=10):
-    units = get_units(SpikeInfo, unit_column)
-    n_units = len(units)
-
-    # n_spikes = spike_ids.shape[0]
-    Amplitudes = sp.zeros((n_units))
-
-    for i, unit in enumerate(units):
-        # the simulated data
-        ix_b = SpikeInfo.groupby([unit_column, 'good']).get_group((unit, True))['id']
-        T_b = Templates[:,ix_b].T
-
-        T_b = np.array([max(t)-min(t) for t in T_b])
-
-        Amplitudes[i] = sp.average(T_b[:lim])
+#         Amplitudes[i] = sp.average(T_b[:lim])
 
     
-    return Amplitudes
+#     return Amplitudes
 
-def get_neighbours_amplitude(Templates,SpikeInfo,unit_column,unit,idx=0,n=5):
-    ix_b = SpikeInfo.groupby([unit_column, 'good']).get_group((unit, True))['id']
-
-    idx %= len(ix_b)
-
-    T_b = Templates[:,ix_b].T
-    T_b = Templates.T
-    T_b = [max(t)-min(t) for t in T_b]
-
-    ini = max(idx-n,0)
-    end = min(idx-n,len(T_b))
-
-    T_b = np.array(T_b[ini:idx]+T_b[idx+1:end])
-
-    return sp.average(T_b)
 
 
 def calculate_pairwise_distances(Templates, SpikeInfo, unit_column, n_comp=5):
@@ -827,6 +804,82 @@ def populate_block(Blk,SpikeInfo,unit_column,units):
     return Blk
 
 
+
+def eval_model(SpikeInfo,this_unit_col,prev_unit_col,Scores,Templates,ScoresSum,AICs):
+    #Re-eval model:
+    n_changes = sp.sum(~(SpikeInfo[this_unit_col] == SpikeInfo[prev_unit_col]).values)
+    
+    Rss_sum = sp.sum(np.min(Scores,axis=1)) / Templates.shape[1]
+    ScoresSum.append(Rss_sum)
+    units = get_units(SpikeInfo, this_unit_col)
+    AICs.append(len(units) - 2 * sp.log(Rss_sum))
+
+    n_units = len(units)
+
+    return n_changes,Rss_sum,ScoresSum,units,AICs,n_units
+
+
+"""
+ 
+ ########  ########   ######  ########  ########   #######   ######  ########  ######   ######  
+ ##     ## ##     ## ##    ## ##     ## ##     ## ##     ## ##    ## ##       ##    ## ##    ## 
+ ##     ## ##     ## ##       ##     ## ##     ## ##     ## ##       ##       ##       ##       
+ ########  ##     ##  ######  ########  ########  ##     ## ##       ######    ######   ######  
+ ##        ##     ##       ## ##        ##   ##   ##     ## ##       ##             ##       ## 
+ ##        ##     ## ##    ## ##        ##    ##  ##     ## ##    ## ##       ##    ## ##    ## 
+ ##        #########  ######  ##        ##     ##  #######   ######  ########  ######   ######  
+ 
+"""
+
+
+def get_neighbors_amplitude(st,Templates,SpikeInfo,unit_column,unit,idx=0,t=0.3):
+    times_all = SpikeInfo['time']
+
+    idx_t = times_all.values[idx]
+
+    ini = idx_t - t
+    end = idx_t + t
+
+    times = times_all.index[np.where((times_all.values > ini) & (times_all.values < end) & (times_all.values != idx_t))]
+    neighbors = times[np.where(SpikeInfo.loc[times,unit_column].values==unit)]
+
+    T_b = Templates[:,neighbors].T
+    T_b = np.array([max(t[t.size//2:])-min(t[t.size//2:]) for t in T_b])
+
+    return sp.average(T_b)
+
+def get_duration(waveform):
+    ampl = (max(waveform)-min(waveform))
+    half = max(waveform)-(ampl)/3
+    try:
+        duration_vals = np.where(np.isclose(waveform, half,atol=0.06))[0]
+        dur = duration_vals[-1]-duration_vals[0]
+    except:
+        dur = -np.inf
+
+    return dur
+
+def get_neighbors_duration(st,Templates,SpikeInfo,unit_column,unit,idx=0,t=0.3):
+    times_all = SpikeInfo['time']
+
+    idx_t = times_all.values[idx]
+
+    ini = idx_t - t
+    end = idx_t + t
+
+    times = times_all.index[np.where((times_all.values > ini) & (times_all.values < end) & (times_all.values != idx_t))]
+    neighbors = times[np.where(SpikeInfo.loc[times,unit_column].values==unit)]
+
+    T_b = Templates[:,neighbors].T
+
+    durations = []
+
+    for waveform in T_b:
+        dur = get_duration(waveform)
+        durations.append(dur)
+
+    return sp.average(durations)
+
 def remove_spikes(SpikeInfo,unit_column,criteria):
     if criteria == 'min':
         units = get_units(SpikeInfo, unit_column)
@@ -849,16 +902,43 @@ def remove_spikes(SpikeInfo,unit_column,criteria):
     # # from dataFrame
     # SpikeInfo = SpikeInfo.drop(index_names, inplace = True)
 
+def distance_to_average(Templates,averages):
+    D_pw = sp.zeros((len(averages),Templates.shape[1]))
 
-def eval_model(SpikeInfo,this_unit_col,prev_unit_col,Scores,Templates,ScoresSum,AICs):
-    #Re-eval model:
-    n_changes = sp.sum(~(SpikeInfo[this_unit_col] == SpikeInfo[prev_unit_col]).values)
+    for i,average in enumerate(averages):
+        D_pw[i,:] = metrics.pairwise.euclidean_distances(Templates.T,average.reshape(1,-1)).reshape(-1)
+    return D_pw.T
+
+#TODO fix restriction so spike gets longer on the left side (only begining and no end?)
+from superpos_functions import align_to
+def combine_templates(combined_templates,A,B,dt,w_samples,align_mode):
+    n_samples = np.sum(w_samples)
+    for dt in np.arange(0,np.sum(w_samples)+w_samples[0],dt):
+        long_a = np.concatenate(([A[0]]*(n_samples//2),A,[A[-1]]*(n_samples//2)))
+        if dt <= w_samples[0]:
+            long_b = np.concatenate(([B[0]]*(n_samples-dt),B,[B[-1]]*dt))
+        # else:
+        #     long_b = np.concatenate((B[dt%n_samples:],[B[-1]]*dt))
+
+        comb_t = np.array(long_a+long_b)
+        combined_templates.append(np.array(align_to(comb_t,align_mode)))
+
+
+def align_to(spike,mode='peak',dt=0.1,sec_wind=2.0):
+    if(spike.shape[0]!=0):
+        if type(mode) is not str:
+            mn = mode
+        elif mode == 'min':
+            mn = np.min(spike)
+        elif mode == 'peak':
+            mn = np.max(spike)
+        elif mode == 'end':
+            mn = spike[-1]
+        elif mode == 'ini':
+            mn = spike[0]
+        else:
+            print("fail")
+        if mn != 0:
+            spike = spike-mn
     
-    Rss_sum = sp.sum(np.min(Scores,axis=1)) / Templates.shape[1]
-    ScoresSum.append(Rss_sum)
-    units = get_units(SpikeInfo, this_unit_col)
-    AICs.append(len(units) - 2 * sp.log(Rss_sum))
-
-    n_units = len(units)
-
-    return n_changes,Rss_sum,ScoresSum,units,AICs,n_units
+    return spike
