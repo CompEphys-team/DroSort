@@ -276,7 +276,8 @@ def reject_non_spikes(AnalogSignal,SpikeTrain,wsize,plot=False,verbose=False):
         end_waveform = AnalogSignal.magnitude[sp_id:sp_id+wsize//2]
         ini_waveform = AnalogSignal.magnitude[sp_id-wsize//2:sp_id]
 
-        half = (max(waveform)+min(waveform))/2
+        half = max(waveform)-(max(waveform)-min(waveform))/3
+        # half = (max(waveform)+min(waveform))/2
         ampl = (max(waveform)-min(waveform))
 
         #ignore spike when first point much smaller than last
@@ -286,6 +287,7 @@ def reject_non_spikes(AnalogSignal,SpikeTrain,wsize,plot=False,verbose=False):
         if (waveform[0] < waveform[-1]-ampl*0.2 and np.where(end_waveform<half)[0].size==0) or (ampl < 0.3):
             to_remove.append(i)
             plt.plot(waveform)
+            plt.plot(np.arange(waveform.size),np.ones(waveform.shape)*half)
 
     if plot:
         plt.show()

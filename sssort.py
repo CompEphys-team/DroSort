@@ -81,6 +81,15 @@ print_msg('data read from %s' % data_path)
 mpl.rcParams['figure.dpi'] = Config.get('output','fig_dpi')
 fig_format = Config.get('output','fig_format')
 
+# try:
+#     ini = Config.getint('preprocessing','ini') // 1000
+#     end = Config.getint('preprocessing','end') // 1000
+# except configparser.NoOptionError as no_option:
+#     ini = 0
+#     end = -1
+# except:
+#     exit()
+
 """
  
  ########  ########  ######## ########  ########   #######   ######  ########  ######   ######  
@@ -97,6 +106,7 @@ print_msg(' - preprocessing - ')
 
 for seg in Blk.segments:
     seg.analogsignals[0].annotate(kind='original')
+    # seg.analogsignals[0] = seg.analogsignals[0][ini:end]
 
 # highpass filter
 freq = Config.getfloat('preprocessing','highpass_freq')
@@ -250,12 +260,6 @@ for j, seg in enumerate(Blk.segments):
 
 Templates = sp.concatenate(templates,axis=1)
 
-# min_ampl = 1
-# Templates = clean_by_amplitude(Templates,min_ampl)
-
-
-
-
 # templates to disk
 outpath = results_folder / 'Templates.npy'
 sp.save(outpath, Templates)
@@ -368,7 +372,7 @@ Seg = Blk.segments[0]
 outpath = plots_folder / (seg_name + '_fitted_spikes_init' + fig_format)
 plot_fitted_spikes(Seg, j, Models, SpikeInfo, 'unit', zoom=zoom, save=outpath,wsize=n_samples)
 
-#FIX: Template seems like model?¿?¿?¿?
+# #FIX: Template seems like model?¿?¿?¿?
 # max_window = 0.3 #AG: TODO add to config file
 # plot_fitted_spikes_complete(Blk, Templates, SpikeInfo, 'unit', max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates')
 
@@ -492,20 +496,23 @@ while n_units >= n_final_clusters and not last:
             print_msg("########merging: " + ' '.join(merge))
             ix = SpikeInfo.groupby(this_unit_col).get_group(merge[1])['id']
             SpikeInfo.loc[ix, this_unit_col] = merge[0]
+            
+            #reset merging parameters
             not_merge =0
+            it_merge = Config.getint('spike sort','it_merge')
+            it_no_merge = Config.getint('spike sort','it_no_merge')
         else:
             not_merge +=1
 
+    #Increase merge probability after n failed merges
     if not_merge > it_no_merge:
         clust_alpha +=0.1
 
         it_merge = max(it_merge-1,1)
         it_no_merge = max(it_no_merge-1,1)
+
         print_msg("%d failed merges. New alpha value: %f"%(not_merge,clust_alpha))
         not_merge = 0
-
-        it_merge = Config.getint('spike sort','it_merge')
-        it_no_merge = Config.getint('spike sort','it_no_merge')
 
     # Model eval
 
@@ -594,7 +601,6 @@ if reassigned_amplitude:
 
         if ampl > sur_ampl + 0.15 and amplitudes[dict_units[new_label]] > amplitudes[dict_units[org_label]]:
             # print(ampl,sur_ampl,amplitudes,dict_units[org_label],st.times[spike_id])
-            # print("Changing unit from %c to %c"%(org_label,new_label))
             new_labels[i] = new_label
 
     print_msg("Num of final changes %d"%np.sum(~(SpikeInfo[unit_column]==new_labels).values))
@@ -611,7 +617,6 @@ plot_Models(Models, save=outpath)
 # TODO change for smallest amplitude?
 if rm_smaller_cluster:
     remove_spikes(SpikeInfo,unit_column,'min')
->>>>>>> db6a992f9987ded7f48620e2387e08ccd6ebfdbb
     n_changes,Rss_sum,ScoresSum,units,AICs,n_units = eval_model(SpikeInfo,this_unit_col,prev_unit_col,Scores,Templates,ScoresSum,AICs)
 
     # plot templates and models for last column
@@ -754,6 +759,9 @@ plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column, max_window, plo
 
 max_window = 0.3 #AG: TODO add to config file
 plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column, max_window, plots_folder, fig_format,wsize=n_samples)
+
+max_window = 0.3 #AG: TODO add to config file
+plot_fitted_spikes_complete(Blk, Templates, SpikeInfo, unit_column, max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates')
 
 print_msg("plotting done")
 print_msg("all done - quitting")
