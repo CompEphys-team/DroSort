@@ -909,16 +909,14 @@ def distance_to_average(Templates,averages):
         D_pw[i,:] = metrics.pairwise.euclidean_distances(Templates.T,average.reshape(1,-1)).reshape(-1)
     return D_pw.T
 
-#TODO fix restriction so spike gets longer on the left side (only begining and no end?)
+#TODO superpos spikes needed????
 from superpos_functions import align_to
-def combine_templates(combined_templates,A,B,dt,w_samples,align_mode):
-    n_samples = np.sum(w_samples)
-    for dt in np.arange(0,np.sum(w_samples)+w_samples[0],dt):
-        long_a = np.concatenate(([A[0]]*(n_samples//2),A,[A[-1]]*(n_samples//2)))
-        if dt <= w_samples[0]:
-            long_b = np.concatenate(([B[0]]*(n_samples-dt),B,[B[-1]]*dt))
-        # else:
-        #     long_b = np.concatenate((B[dt%n_samples:],[B[-1]]*dt))
+def combine_templates(combined_templates,A,B,dt,max_len,align_mode):
+    # n_samples = np.sum(w_samples)
+    # max_len = w_samples[1]-1
+    for dt in np.arange(0,max_len,dt):
+        long_a = np.concatenate((A,[A[-1]]*(max_len)))
+        long_b = np.concatenate(([B[0]]*abs(max_len-dt),B,[B[-1]]*dt))
 
         comb_t = np.array(long_a+long_b)
         combined_templates.append(np.array(align_to(comb_t,align_mode)))

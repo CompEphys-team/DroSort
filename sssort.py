@@ -453,7 +453,7 @@ while n_units >= n_final_clusters and not last:
     this_unit_col = 'unit_%i' % it
     score = Rss
     
-    Scores_old, units = Score_spikes(Templates, SpikeInfo, prev_unit_col, Models, score_metric=score, penalty=penalty)
+    # Scores_old, units = Score_spikes(Templates, SpikeInfo, prev_unit_col, Models, score_metric=score, penalty=penalty)
 
     # update rates
     calc_update_frates(Blk.segments, SpikeInfo, prev_unit_col, kernel_fast, kernel_slow)
