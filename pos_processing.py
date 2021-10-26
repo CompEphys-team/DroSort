@@ -203,16 +203,16 @@ plot_templates(Templates, SpikeInfo, 'unit_pospro')
 plot_averages(average_spikes,SpikeInfo,'unit_pospro')
 plt.show()
 
-# for i,spike in enumerate(Templates[:,ix].T):
-#     spike = align_spike(spike, width_ms,dt,spike_i,mode)
-#     plot_averages_with_spike(spike,average_spikes,SpikeInfo,'unit_pospro',SpikeInfo['unit_pospro'][i])
-#     plt.show()
+for i,spike in enumerate(Templates[:,ix].T):
+    spike = align_spike(spike, width_ms,dt,spike_i,mode)
+    plot_averages_with_spike(spike,average_spikes,SpikeInfo,'unit_pospro',SpikeInfo['unit_pospro'][i])
+    plt.show()
 
 
 
 units = get_units(SpikeInfo,'unit_pospro')
-# distances = distance_to_average(Templates,units,average_spikes)
-distances = distance_to_average(aligned_spikes,units,average_spikes)
+# distances = distance_to_average(Templates,average_spikes)
+distances = distance_to_average(aligned_spikes,average_spikes)
 
 dict_units = {u:i for i,u in enumerate(units)}
 

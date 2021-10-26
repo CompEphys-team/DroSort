@@ -258,46 +258,46 @@ plt.show()
 combined_templates = []
 
 mode = 'end'
-dt_c = 1
+dt_c = 2
 # ext_size = w_samples[1]
 ext_size = n_samples//2
-
+max_len = w_samples[1]
 #Add AB templates
-combine_templates(combined_templates,A,B,dt_c,w_samples,mode)
+combine_templates(combined_templates,A,B,dt_c,max_len,mode)
 n = len(combined_templates)
 templates_labels = [['a','b']]*n
 
 #Add BA templates
-combine_templates(combined_templates,B,A,dt_c,w_samples,mode)
+combine_templates(combined_templates,B,A,dt_c,max_len,mode)
 n = len(combined_templates) -n
 templates_labels+=[['b','a']]*n
 
 #Add sum of two
-# comb_t =np.array(np.concatenate((A,[A[-1]]*ext_size))+np.concatenate((B,[B[-1]]*ext_size)))
-comb_t =np.array(np.concatenate(([A[0]]*(n_samples//2),A,[A[-1]]*(n_samples//2)))+np.concatenate(([B[0]]*(n_samples//2),B,[B[-1]]*(n_samples//2))))
+comb_t =np.array(np.concatenate((A,[A[-1]]*max_len))+np.concatenate((B,[B[-1]]*max_len)))
+# comb_t =np.array(np.concatenate(([A[0]]*(n_samples//2),A,[A[-1]]*(n_samples//2)))+np.concatenate(([B[0]]*(n_samples//2),B,[B[-1]]*(n_samples//2))))
 combined_templates.append(np.array(align_to(comb_t,mode)))
 templates_labels.append(['c'])
 
 #Add simple A
-# comb_t =np.array(np.concatenate((A,[A[-1]]*ext_size)))
-comb_t =np.array(np.concatenate(([A[0]]*(n_samples//2),A,[A[-1]]*(n_samples//2))))
+comb_t =np.array(np.concatenate((A,[A[-1]]*max_len)))
+# comb_t =np.array(np.concatenate(([A[0]]*(n_samples//2),A,[A[-1]]*(n_samples//2))))
 combined_templates.append(np.array(align_to(comb_t,mode)))
 templates_labels.append(['a'])
 
 #Add simple B
-# comb_t =np.array(np.concatenate((B,[B[-1]]*ext_size)))
-comb_t =np.array(np.concatenate(([B[0]]*(n_samples//2),B,[B[-1]]*(n_samples//2))))
+comb_t =np.array(np.concatenate((B,[B[-1]]*max_len)))
+# comb_t =np.array(np.concatenate(([B[0]]*(n_samples//2),B,[B[-1]]*(n_samples//2))))
 combined_templates.append(np.array(align_to(comb_t,mode)))
 templates_labels.append(['b'])
 
 #Plot templates
-ncols = 9 #fix fails when different templates
-nrows = round(len(combined_templates)/ncols)
+ncols = 5 
+nrows = int(np.ceil(len(combined_templates)/ncols))
 print(nrows,ncols)
 
 fig, axes= plt.subplots(nrows=nrows,ncols=ncols, sharex=True, sharey=True,figsize=(ncols*3,nrows*2))
 
-print(len(templates_labels))
+print(ncols,nrows)
 print(len(combined_templates))
 for c,ct in enumerate(combined_templates):
     i,j = c//ncols,c%ncols
@@ -313,6 +313,8 @@ for c,ct in enumerate(combined_templates):
 
 plt.tight_layout()
 plt.show()
+
+exit()
 
 #########################################################################################################
 ####    compare spikes with templates
@@ -341,8 +343,8 @@ if mode == 'mean':
     distances = D_pw
 
 else:
-    # long_waveforms = np.array([align_to(np.concatenate(([t[0]]*(n_samples//2),t,[t[-1]]*(n_samples//2))),mode) for t in Templates.T])
-    long_waveforms = np.array([align_to(np.concatenate((t,[t[-1]]*(n_samples//2))),mode) for t in Templates.T])
+    long_waveforms = np.array([align_to(np.concatenate(([t[0]]*(n_samples//2),t,[t[-1]]*(n_samples//2))),mode) for t in Templates.T])
+    # long_waveforms = np.array([align_to(np.concatenate((t,[t[-1]]*(n_samples//2))),mode) for t in Templates.T])
     distances=distance_to_average(long_waveforms.T,combined_templates)
 print(distances.shape)
 
@@ -376,21 +378,23 @@ for t_id,t in enumerate(long_waveforms):
             axes[i,j].text(0.25, 0.75,"%.3f"%distances[t_id,c])
 
         plt.suptitle("spike %d from unit %s"%(t_id,unit_titles[SpikeInfo[unit_column][t_id]]))
-
+       
         zoom = [peak-0.3,peak+0.3]
         fig, axes=plot_compared_fitted_spikes(Seg, 0, Templates, SpikeInfo, [unit_column, unit_column], zoom=zoom, save=None)
         axes[0].plot([peak,next_peak],[1,1],'.',markersize=10)
         axes[1].plot([peak,next_peak],[1,1],'.',markersize=10)
-        
-        plt.show()
-
+    
         if best_match != [unit_titles[my_unit],unit_titles[next_unit]]:
             if best_match[0] == 'c':
                 c_spikes.append(t_id)
+
+                plt.show()
+
                 # SpikeInfo[unit_column][t_id] = units[0]
                 # SpikeInfo[unit_column][t_id] = units[1]
                 ##TODO add new peak in SpikeInfo, Templates, etc.
             else:
+                plt.close()
                 SpikeInfo[unit_column][t_id] = title_units[best_match[0]]
                 if len(best_match) < 2:
                     SpikeInfo[unit_column][t_id+1] = '-1'
