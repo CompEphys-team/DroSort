@@ -81,6 +81,15 @@ print_msg('data read from %s' % data_path)
 mpl.rcParams['figure.dpi'] = Config.get('output','fig_dpi')
 fig_format = Config.get('output','fig_format')
 
+# try:
+#     ini = Config.getint('preprocessing','ini') // 1000
+#     end = Config.getint('preprocessing','end') // 1000
+# except configparser.NoOptionError as no_option:
+#     ini = 0
+#     end = -1
+# except:
+#     exit()
+
 """
  
  ########  ########  ######## ########  ########   #######   ######  ########  ######   ######  
@@ -97,6 +106,7 @@ print_msg(' - preprocessing - ')
 
 for seg in Blk.segments:
     seg.analogsignals[0].annotate(kind='original')
+    # seg.analogsignals[0] = seg.analogsignals[0][ini:end]
 
 # highpass filter
 freq = Config.getfloat('preprocessing','highpass_freq')
@@ -374,7 +384,7 @@ Seg = Blk.segments[0]
 outpath = plots_folder / (seg_name + '_fitted_spikes_init' + fig_format)
 plot_fitted_spikes(Seg, 0, Models, SpikeInfo, 'unit', zoom=zoom, save=outpath,wsize=n_samples)
 
-#FIX: Template seems like model?¿?¿?¿?
+# #FIX: Template seems like model?¿?¿?¿?
 # max_window = 0.3 #AG: TODO add to config file
 # plot_fitted_spikes_complete(Blk, Templates, SpikeInfo, 'unit', max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates')
 
@@ -429,7 +439,6 @@ spike_ids = SpikeInfo['id'].values
 
 it_no_merge = Config.getint('spike sort','it_no_merge')
 
-
 it =1
 not_merge =0
 
@@ -442,6 +451,9 @@ while n_units >= n_final_clusters and not last:
     # unit columns
     prev_unit_col = 'unit_%i' % (it-1)
     this_unit_col = 'unit_%i' % it
+    score = Rss
+    
+    Scores_old, units = Score_spikes(Templates, SpikeInfo, prev_unit_col, Models, score_metric=score, penalty=penalty)
 
     # update rates
     calc_update_frates(Blk.segments, SpikeInfo, prev_unit_col, kernel_fast, kernel_slow)
@@ -497,17 +509,21 @@ while n_units >= n_final_clusters and not last:
             print_msg("########merging: " + ' '.join(merge))
             ix = SpikeInfo.groupby(this_unit_col).get_group(merge[1])['id']
             SpikeInfo.loc[ix, this_unit_col] = merge[0]
+            
+            #reset merging parameters
             not_merge =0
             it_merge = Config.getint('spike sort','it_merge')
             it_no_merge = Config.getint('spike sort','it_no_merge')
         else:
             not_merge +=1
 
+    #Increase merge probability after n failed merges
     if not_merge > it_no_merge:
         clust_alpha +=0.1
 
         it_merge = max(it_merge-1,1)
         it_no_merge = max(it_no_merge-1,1)
+
         print_msg("%d failed merges. New alpha value: %f"%(not_merge,clust_alpha))
         not_merge = 0
 
@@ -525,6 +541,24 @@ while n_units >= n_final_clusters and not last:
         # populate_block(Blk,SpikeInfo,prev_unit_col,units)
         Blk = populate_block(Blk,SpikeInfo,this_unit_col,units)
         print(Blk.segments[0].spiketrains[0].size)
+
+        Seg = Blk.segments[0]
+
+        outpath = plots_folder / (seg_name + '_fitted_spikes_%d'%(it) + fig_format)
+        plot_fitted_spikes(Seg, j, Models, SpikeInfo, this_unit_col, zoom=zoom, save=outpath,wsize=n_samples)
+    except Exception as ex:
+        print(ex.args)
+        pass
+
+    try:
+        zoom = sp.array(Config.get('output','zoom').split(','),dtype='float32') / 1000
+        
+
+        # for j, Seg in enumerate(Blk.segments):
+        seg_name = Path(Seg.annotations['filename']).stem
+
+        # populate_block(Blk,SpikeInfo,prev_unit_col,units)
+        Blk = populate_block(Blk,SpikeInfo,this_unit_col,units)
 
         Seg = Blk.segments[0]
 
@@ -726,6 +760,9 @@ plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column, max_window, plo
 
 max_window = 0.3 #AG: TODO add to config file
 plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column, max_window, plots_folder, fig_format,wsize=n_samples)
+
+max_window = 0.3 #AG: TODO add to config file
+plot_fitted_spikes_complete(Blk, Templates, SpikeInfo, unit_column, max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates')
 
 print_msg("plotting done")
 print_msg("all done - quitting")
