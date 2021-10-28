@@ -134,6 +134,12 @@ def unassign_spikes(SpikeInfo, unit_column, min_good=5):
     return SpikeInfo
 
 
+def to_points(times,fs):
+    return time*fs
+
+def to_time(points,fs):
+    return points/fs
+
 """
  
   ######  ########  #### ##    ## ########    ########  ######## ######## ########  ######  ######## 
@@ -188,6 +194,70 @@ def spike_detect(AnalogSignal, bounds, lowpass_freq=1000*pq.Hz,wsize=40):
 
     # subset detected SpikeTrain by bounds
     SpikeTrain = bounded_threshold(SpikeTrain, bounds)
+
+    return SpikeTrain
+
+#TODO: optimize time, save in negative detection "positive peak" and max?
+def double_spike_detect_v2(AnalogSignal, bounds_pos,bounds_neg, lowpass_freq=1000*pq.Hz,wsize=40,plot=False,verbose=False):
+    """
+    detects all spikes in an AnalogSignal that fall within amplitude bounds
+    combines positive and negative peaks
+
+    Args:
+        AnalogSignal (neo.core.AnalogSignal): the waveform
+        bounds (quantities.Quantity): a Quantity of shape (2,) with
+            (lower,upper) bounds, unit [uV]
+        lowpass_freq (quantities.Quantity): cutoff frequency for a smoothing
+            step before spike detection, unit [Hz]
+
+    Returns:
+        neo.core.SpikeTrain: the resulting SpikeTrain
+    """
+    SpikeTrain_pos = spike_detect(AnalogSignal,bounds_pos, lowpass_freq)
+    SpikeTrain_neg = spike_detect(AnalogSignal*-1,bounds_neg, lowpass_freq)
+
+    #get positive peak from negative detection
+    fs = AnalogSignal.sampling_rate
+    neg_peak_inds = (SpikeTrain_neg.times*fs).simplified.magnitude.astype('int32')
+    
+    print_msg("Getting pos peaks")
+    w_back = wsize-10
+    neg_peak_inds = np.array([AnalogSignal.times[peak-w_back:peak][np.argmax(AnalogSignal.magnitude[peak-w_back:peak])]*fs for peak in neg_peak_inds[1:-1]])
+    neg_peak_inds = neg_peak_inds.astype(int)
+    # neg_peak_inds = np.array([AnalogSignal.times[peak-w_back:peak][np.argmax(SpikeTrain_neg.waveforms[peak]*-1)]*fs for peak in neg_peak_inds[1:-1]])
+
+    print_msg("Done pos peaks")
+
+    neg_peak_amps = AnalogSignal.magnitude[neg_peak_inds, :, sp.newaxis] * AnalogSignal.units
+    neg_peak_times =AnalogSignal.times[neg_peak_inds] * AnalogSignal.times.units
+
+    combined_times = np.append(SpikeTrain_pos.times,neg_peak_times)
+    waveforms = np.append(SpikeTrain_pos.waveforms,neg_peak_amps)
+
+    sortinds = combined_times.argsort()
+    combined_times = combined_times[sortinds]
+    waveforms = waveforms[sortinds]
+        
+    #Ignore spikes detected twice
+    diffs = [c2-c1 for c1,c2 in zip(combined_times[:-1],combined_times[1:])]
+    inds = np.where(diffs > ((wsize/3)/fs))[0]
+    times_unique = combined_times[inds] * AnalogSignal.times.units
+    waveforms = waveforms[inds]
+
+    SpikeTrain = neo.core.SpikeTrain(times_unique,
+                                     t_start=AnalogSignal.t_start,
+                                     t_stop=AnalogSignal.t_stop,
+                                     sampling_rate=AnalogSignal.sampling_rate,
+                                     waveforms=waveforms,
+                                     sort=True)
+
+    # plt.plot(AnalogSignal.times,AnalogSignal.magnitude)
+    # plt.plot(SpikeTrain_pos.times,SpikeTrain_pos.waveforms.reshape(SpikeTrain_pos.times.shape),'.',label='pos')
+    # plt.plot(SpikeTrain_neg.times,SpikeTrain_neg.waveforms.reshape(SpikeTrain_neg.times.shape)*-1,'.',label='neg')
+    # plt.plot(neg_peak_times,neg_peak_amps.reshape(neg_peak_times.shape),'.',label='neg_pos')
+    # plt.plot(SpikeTrain.times,SpikeTrain.waveforms.reshape(SpikeTrain.times.shape),'.',label='combined',alpha=0.7)
+    # plt.legend()
+    # plt.show()
 
     return SpikeTrain
 

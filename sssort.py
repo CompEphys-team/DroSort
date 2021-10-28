@@ -163,7 +163,7 @@ for i, seg in enumerate(Blk.segments):
 
     if Config.get('preprocessing','peak_mode') == 'double':
         # st = spike_detect(AnalogSignal, [0,sp.inf])
-        st = double_spike_detect(AnalogSignal, bounds, bounds_neg,wsize=n_samples)
+        st = double_spike_detect_v2(AnalogSignal, bounds, bounds_neg,wsize=n_samples)
     else:
         st = spike_detect(AnalogSignal, bounds,wsize=n_samples)
 
@@ -173,14 +173,17 @@ for i, seg in enumerate(Blk.segments):
         bad_segments.append(i)
     st.annotate(kind='all_spikes')
 
-    # remove bad detections
-    if r_non_spikes:
-        st = reject_non_spikes(AnalogSignal,st,n_samples,verbose=True,plot=False)
+    n_spikes = st.shape[0]
+    print_msg("number of spikes found: %s" % n_spikes)
   
     # remove border spikes
     wsize = Config.getfloat('spike detect', 'wsize') * pq.ms
     st_cut = st.time_slice(st.t_start + wsize/2, st.t_stop - wsize/2)
     st_cut.t_start = st.t_start
+
+    # remove bad detections
+    if r_non_spikes:
+        st_cut = reject_non_spikes(AnalogSignal,st_cut,n_samples,verbose=True,plot=False)
 
     seg.spiketrains.append(st_cut)
 
