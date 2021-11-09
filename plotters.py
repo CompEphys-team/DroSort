@@ -380,7 +380,7 @@ def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, co
                     asig_recons[int(inds[i]-wsize/2):int(inds[i]+wsize/2)] = spike[spike.size//2-wsize//2:spike.size//2+wsize//2]
 
                 except ValueError as e:
-                    print(e.args)
+                    print("In plot by unit exception:",e.args)
                     # thrown when first or last spike smaller than reconstruction window
                     continue
                 # asig_recons[int(inds[i]):int(inds[i]+wsize/2)] = spike[spike.size//2:]
