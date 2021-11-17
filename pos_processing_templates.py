@@ -25,7 +25,7 @@ print(results_folder)
 # results_folder = config_path.parent / exp_name / 'results'
 plots_folder = results_folder / 'plots'
 print(plots_folder)
-
+fig_format = '.png'
 
 Blk=get_data(sys.argv[1]+"/result.dill")
 
@@ -47,14 +47,6 @@ print_msg("Number of good spikes: %d"%len(SpikeInfo.groupby(['good']).get_group(
 # print_msg("Number of bad spikes: %d"%len(SpikeInfo.groupby(['good']).get_group(False)[unit_column]))
 print_msg("Number of clusters: %d"%len(units))
 
-################################################################
-##  
-##              Reassing by neighbor's amplitude
-##  
-################################################################
-
-# spike_ids = SpikeInfo['id'].values    
-# dict_units = {u:i for i,u in enumerate(units)}
 
 st = Blk.segments[0].spiketrains[0]
 Seg = Blk.segments[0]
@@ -70,74 +62,6 @@ print(neighbors_t)
 # #new column in SpikeInfo with changes
 # SpikeInfo['unit_pospro'] = new_labels
 # ids = []
-
-# for i, (spike_id,org_label) in enumerate(zip(spike_ids,SpikeInfo[unit_column])):
-#     if org_label == '-1':
-#         continue
-
-#     spike = Templates[:, spike_id].T
-#     # ampl = max(spike)-min(spike)
-#     ampl = max(spike)-min(spike[spike.size//2:]) #half spike to avoid noise
-
-#     new_label = units[(dict_units[org_label]+1)%2]
-
-#     sur_ampl = get_neighbors_amplitude(st,Templates,SpikeInfo,unit_column,org_label,idx=spike_id,t=neighbors_t)
-#     sur_ampl_new = get_neighbors_amplitude(st,Templates,SpikeInfo,unit_column,new_label,idx=spike_id,t=neighbors_t)
-
-#     dur = get_duration(spike)
-#     sur_dur = get_neighbors_amplitude(st,Templates,SpikeInfo,unit_column,org_label,idx=spike_id,t=neighbors_t)
-#     sur_dur_new = get_neighbors_amplitude(st,Templates,SpikeInfo,unit_column,new_label,idx=spike_id,t=neighbors_t)
-
-#     # if abs(ampl-sur_ampl) > abs(ampl-sur_ampl_new)+0.05 and abs(dur-sur_dur) > abs(dur-sur_dur_new):
-#     if abs(ampl-sur_ampl) > abs(ampl-sur_ampl_new):
-#         SpikeInfo['unit_pospro'][i] = new_label
-#         new_labels[i] = new_label
-#         ids.append(i)
-
-#         # if st.times[spike_id] > 6.2 and st.times[spike_id] < 6.5:
-#         # zoom = [st.times[spike_id]-neighbors_t*pq.s,st.times[spike_id]+neighbors_t*pq.s]
-#         # print(ampl,sur_ampl,sur_ampl_new,st.times[spike_id])
-#         # print(ampl,abs(ampl-sur_ampl),abs(ampl-sur_ampl_new),SpikeInfo[unit_column][i],SpikeInfo['unit_pospro'][i])
-#         # print(dur,sur_dur,sur_dur_new,st.times[spike_id])
-#         # print(dur,abs(dur-sur_dur),abs(dur-sur_ampl_new),SpikeInfo[unit_column][i],SpikeInfo['unit_pospro'][i])
-#         # fig, axes=plot_compared_fitted_spikes(Seg, 0, Templates, SpikeInfo, [unit_column, 'unit_pospro'], zoom=zoom, save=None,wsize=n_samples)
-
-#         # plt.show()  
-
-# print_msg("Num of final changes %d"%np.sum(~(SpikeInfo[unit_column]==new_labels).values))
-
-# # max_window=1.5
-
-# # for j, Seg in enumerate(Blk.segments):
-# #     seg_name = Path(Seg.annotations['filename']).stem
-
-# #     asig = Seg.analogsignals[0]
-# #     max_window = int(max_window*asig.sampling_rate) #FIX conversion from secs to points
-# #     n_plots = asig.shape[0]//max_window
-
-# #     for n_plot in range(0,n_plots):
-# #         # outpath = plots_folder / (seg_name + '_fitted_spikes%s_%s_%d'%(extension,max_window,n_plot) + fig_format)
-# #         ini = n_plot*max_window + max_window
-# #         end = ini + max_window
-# #         end = min(end, Seg.analogsignals[0].shape[0])
-# #         zoom = [ini,end]/asig.sampling_rate
-
-# #         plot_fitted_spikes(Seg, j, Templates, SpikeInfo, unit_column, zoom=zoom, save=None,wsize=n_samples)
-
-# # plt.show()
-# print(ids)
-# Blk = populate_block(Blk,SpikeInfo,'unit_pospro',units)
-# st = Blk.segments[0].spiketrains[0]
-
-# for i, (spike_id,org_label) in enumerate(zip(spike_ids,SpikeInfo['unit_pospro'])):
-#     if i in ids:
-#         zoom = [st.times[spike_id]-neighbors_t*pq.s,st.times[spike_id]+neighbors_t*pq.s]
-#         print(ampl,sur_ampl,sur_ampl_new,st.times[spike_id])
-#         fig, axes=plot_compared_fitted_spikes(Seg, 0, Templates, SpikeInfo, [unit_column, 'unit_pospro'], zoom=zoom, save=None,wsize=n_samples)
-#         axes[0].plot(st.times[spike_id],1,'.')
-#         axes[1].plot(st.times[spike_id],1,'.')
-#         plt.show()
-
 
 
 ################################################################
@@ -314,7 +238,7 @@ for c,ct in enumerate(combined_templates):
 plt.tight_layout()
 plt.show()
 
-exit()
+# exit()
 
 #########################################################################################################
 ####    compare spikes with templates
@@ -343,8 +267,8 @@ if mode == 'mean':
     distances = D_pw
 
 else:
-    long_waveforms = np.array([align_to(np.concatenate(([t[0]]*(n_samples//2),t,[t[-1]]*(n_samples//2))),mode) for t in Templates.T])
-    # long_waveforms = np.array([align_to(np.concatenate((t,[t[-1]]*(n_samples//2))),mode) for t in Templates.T])
+    # long_waveforms = np.array([align_to(np.concatenate(([t[0]]*(n_samples//2),t,[t[-1]]*(n_samples//2))),mode) for t in Templates.T])
+    long_waveforms = np.array([align_to(np.concatenate((t,[t[-1]]*max_len)),mode) for t in Templates.T])
     distances=distance_to_average(long_waveforms.T,combined_templates)
 print(distances.shape)
 
@@ -369,7 +293,7 @@ for t_id,t in enumerate(long_waveforms):
         print("current:",[unit_titles[my_unit],unit_titles[next_unit]])
         print(best_match != [unit_titles[my_unit],unit_titles[next_unit]])
       
-        fig, axes= plt.subplots(nrows=nrows,ncols=ncols, sharex=True, sharey=True,figsize=(ncols*2,nrows*2))
+        fig, axes= plt.subplots(nrows=nrows,ncols=ncols, sharex=True, sharey=True,figsize=(ncols*4,nrows*2))
 
         for c,ct in enumerate(combined_templates):
             i,j = c//ncols,c%ncols
@@ -379,14 +303,21 @@ for t_id,t in enumerate(long_waveforms):
 
         plt.suptitle("spike %d from unit %s"%(t_id,unit_titles[SpikeInfo[unit_column][t_id]]))
        
-        zoom = [peak-0.3,peak+0.3]
-        fig, axes=plot_compared_fitted_spikes(Seg, 0, Templates, SpikeInfo, [unit_column, unit_column], zoom=zoom, save=None)
-        axes[0].plot([peak,next_peak],[1,1],'.',markersize=10)
-        axes[1].plot([peak,next_peak],[1,1],'.',markersize=10)
     
         if best_match != [unit_titles[my_unit],unit_titles[next_unit]]:
+            outpath = plots_folder / ('spike_'+str(t_id)+'_templates_grid' + fig_format)
+            plt.savefig(outpath)
+
+            zoom = [peak-0.3,peak+0.3]
+            fig, axes=plot_compared_fitted_spikes(Seg, 0, Templates, SpikeInfo, [unit_column, unit_column], zoom=zoom, save=None)
+            axes[0].plot([peak,next_peak],[1,1],'.',markersize=10)
+            axes[1].plot([peak,next_peak],[1,1],'.',markersize=10)
+            outpath = plots_folder / ('changed_spike_'+str(t_id)+'_signal' + fig_format)
+            plt.savefig(outpath)
+
             if best_match[0] == 'c':
                 c_spikes.append(t_id)
+                print("spike %d from unit %s"%(t_id,unit_titles[SpikeInfo[unit_column][t_id]]))
 
                 plt.show()
 
@@ -401,7 +332,8 @@ for t_id,t in enumerate(long_waveforms):
                 else:
                     SpikeInfo[unit_column][t_id+1] = title_units[best_match[1]]
 
-        
+        else:
+            plt.close()
 
 
 #########################################################################################################

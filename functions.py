@@ -226,7 +226,7 @@ def double_spike_detect_v2(AnalogSignal, bounds_pos,bounds_neg, lowpass_freq=100
     neg_peak_inds = neg_peak_inds.astype(int)
     # neg_peak_inds = np.array([AnalogSignal.times[peak-w_back:peak][np.argmax(SpikeTrain_neg.waveforms[peak]*-1)]*fs for peak in neg_peak_inds[1:-1]])
 
-    print_msg("Done pos peaks")
+    print_msg("Finished getting pos peaks")
 
     neg_peak_amps = AnalogSignal.magnitude[neg_peak_inds, :, sp.newaxis] * AnalogSignal.units
     neg_peak_times =AnalogSignal.times[neg_peak_inds] * AnalogSignal.times.units
@@ -366,8 +366,23 @@ def reject_non_spikes(AnalogSignal,SpikeTrain,wsize,plot=False,verbose=False):
         # non_spike_cond = (waveform[0] < waveform[-1]-ampl*0.2 and np.where(waveform[waveform.size//2:]<half)[0].size==0)
 
         non_spike_cond = ((waveform[0] < waveform[-1]-ampl*0.2) and ~(waveform[waveform.size//2:]<half).any())
-        if non_spike_cond or ampl < 0.25 or dur > 25:
+        if non_spike_cond or (ampl < 0.25) or (dur > 27):
             to_remove.append(i)
+            # print(sp,"ini much smaller",(waveform[0] < waveform[-1]-ampl*0.2))
+            # print("not going down",~(waveform[waveform.size//2:]<half).any())
+            # print("amplitude < 0.25",(ampl < 0.25))
+            # print("duration > 25",(dur > 27))
+            # print(dur)
+            # if sp > 20.45 and sp < 20.5:
+            #     plt.plot(AnalogSignal.times, AnalogSignal.data, color='k', lw=1)
+            #     plt.plot(sp,1,'.',markersize=10)
+            #     plt.plot(SpikeTrain.times,SpikeTrain.waveforms,'.')
+            #     plt.xlim((sp-0.3*pq.s,sp+0.3*pq.s))
+            #     plt.show()
+
+            # outpath = plots_folder / ('removed_spike_'+str(t_id)+'_signal' + fig_format)
+
+
             # if sp > 2.25 and sp < 2.3:
             # print('ini-end','back_down','back_down_any')
             # print(sp,waveform[0] < waveform[-1]-ampl*0.2, np.where(waveform[waveform.size//2:]<half)[0].size==0,~(waveform[waveform.size//2:]<half).any())

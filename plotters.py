@@ -154,7 +154,7 @@ def plot_segment(Seg, units, sigma=0.05, zscore=False, save=None, colors=None):
     return fig, axes
 
 #TODO reduce complexity and combine to plot_compare spike events
-def plot_spike_events(Segment,thres=2,max_window=1,max_row=5,save=None,save_format='.png',show=False):
+def plot_spike_events(Segment,thres=2,max_window=1,max_row=5,save=None,save_format='.png',show=False,st=None):
     plt.rcParams.update({'font.size': 5})
     for asig in Segment.analogsignals:  
         max_window = int(max_window*asig.sampling_rate) #FIX conversion from secs to points
@@ -179,7 +179,9 @@ def plot_spike_events(Segment,thres=2,max_window=1,max_row=5,save=None,save_form
                 axes[idx].plot(asig.times[ini:end],asig.data[ini:end],linewidth=1,color='k')
 
                 #plot spike events
-                st = Segment.spiketrains[0] #get spike trains (assuming there's only one spike train)
+                if st is None:
+                    st = Segment.spiketrains[0] #get spike trains (assuming there's only one spike train)
+
                 t_ini = asig.times[ini]; t_end = asig.times[end]
                 #get events in this chunk
                 t_events = st.times[np.where((st.times > t_ini) & (st.times < t_end))]
@@ -299,7 +301,7 @@ def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=No
     #get events amplitude value (spike)
     a_events = st.waveforms
     a_events = [max(a) for a in a_events]
-    axes[1].plot(st.times,a_events,'.',markersize=1)
+    axes[1].plot(st.times,np.ones(st.times.shape),'|',markersize=1)
 
     plot_by_unit(axes[1],st,asig, Models, SpikeInfo, unit_column, unit_order, colors,wsize,j)
 
@@ -425,6 +427,38 @@ def plot_compared_fitted_spikes(Segment, j, Models, SpikeInfo, unit_columns, uni
         plt.close(fig)
 
     return fig, axes
+
+
+# def plot_compared_traces(AnalogSignal,SpikeTrains, zoom=None, save=None):
+#     """ plot to inspect fitted spikes """
+#     fig, axes =plt.subplots(nrows=2, sharex=True, sharey=True)
+    
+#     # try:
+#     asig = AnalogSignal
+#     axes[0].plot(asig.times, asig.data, color='k', lw=1)
+#     axes[1].plot(asig.times, asig.data, color='k', lw=1)
+
+#     st = SpikeTrains #get all spike trains (assuming there's only one spike train)
+#     #get events amplitude value (spike)
+#     a_events = st.waveforms
+#     a_events = [max(a) for a in a_events]
+#     axes[1].plot(st.times,a_events,'.',markersize=1)
+
+#     if zoom is not None:
+#         for ax in axes:
+#             ax.set_xlim(zoom)
+            
+#     stim_name = Path(Segment.annotations['filename']).stem
+#     fig.suptitle(stim_name)
+#     fig.tight_layout()
+#     fig.subplots_adjust(top=0.9)
+#     sns.despine(fig)
+
+#     if save is not None:
+#         fig.savefig(save)
+#         plt.close(fig)
+
+#     return fig, axes
 
 
 

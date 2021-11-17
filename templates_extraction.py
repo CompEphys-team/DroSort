@@ -146,7 +146,8 @@ for i, seg in enumerate(Blk.segments):
 
     if Config.get('preprocessing','peak_mode') == 'double':
         # st = spike_detect(AnalogSignal, [0,sp.inf])
-        st = double_spike_detect_v2(AnalogSignal, bounds, bounds_neg,wsize=n_samples)
+        # st = double_spike_detect_v2(AnalogSignal, bounds, bounds_neg,wsize=n_samples)
+        st = double_spike_detect(AnalogSignal, bounds, bounds_neg,wsize=n_samples)
     else:
         st = spike_detect(AnalogSignal, bounds,wsize=n_samples)
 
@@ -178,7 +179,7 @@ print_msg("total number of spikes found: %s" % n_spikes)
 #Plot detected spikes
 for i,seg in enumerate(Blk.segments):
     namepath = plots_folder / ("first_spike_detection_%d"%i)
-    plot_spike_events(seg,thres=MAD(AnalogSignal)*mad_thresh,save=namepath,save_format=fig_format,show=False)
+    plot_spike_events(seg,thres=MAD(AnalogSignal)*mad_thresh,save=namepath,save_format=fig_format,show=False,max_window=1,max_row=3)
 
 print_msg("detected spikes plotted")
 
@@ -255,11 +256,10 @@ print(Templates.shape)
 # Templates = clean_by_amplitude(Templates,min_ampl)
 
 
-
 #Save events and plot
 
 # templates to disk
-outpath = results_folder / 'Templates.npy'
+outpath = results_folder / 'Templates_ini.npy'
 sp.save(outpath, Templates)
 print_msg("saving Templates to %s" % outpath)
 
