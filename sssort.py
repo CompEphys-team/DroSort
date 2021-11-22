@@ -68,6 +68,7 @@ os.chdir(config_path.parent / exp_name)
 
 spikes_path = config_path.parent / results_folder / "spikes_result.dill"
 templates_path = config_path.parent / results_folder / "Templates_ini.npy"
+rej_spikes_path = config_path.parent / results_folder / "rejected_spikes.npy"
 
 #TODO: add question!!
 # os.system("rm %s/*"%plots_folder)
@@ -87,6 +88,11 @@ print_msg('spikes read from %s' % spikes_path)
 
 Templates= np.load(templates_path)
 print_msg('templates read from %s' % templates_path)
+
+# try:
+rej_spikes = np.load(rej_spikes_path)
+# except:
+#     rej_spikes = None
 
 
 # Data info
@@ -206,7 +212,7 @@ Blk = populate_block(Blk,SpikeInfo,'unit',units)
 
 Seg = Blk.segments[0]
 outpath = plots_folder / (seg_name + '_fitted_spikes_init' + fig_format)
-plot_fitted_spikes(Seg, 0, Models, SpikeInfo, 'unit', zoom=zoom, save=outpath,wsize=n_samples)
+plot_fitted_spikes(Seg, 0, Models, SpikeInfo, 'unit', zoom=zoom, save=outpath,wsize=n_samples,rejs=rej_spikes)
 
 # #FIX: Template seems like model?¿?¿?¿?
 # max_window = 0.3 #AG: TODO add to config file
@@ -368,7 +374,7 @@ while n_units >= n_final_clusters and not last:
         Seg = Blk.segments[0]
 
         outpath = plots_folder / (seg_name + '_fitted_spikes_%d'%(it) + fig_format)
-        plot_fitted_spikes(Seg, 0, Models, SpikeInfo, this_unit_col, zoom=zoom, save=outpath,wsize=n_samples)
+        plot_fitted_spikes(Seg, 0, Models, SpikeInfo, this_unit_col, zoom=zoom, save=outpath,wsize=n_samples,rejs=rej_spikes)
     except Exception as ex:
         print(ex.args)
         pass
@@ -420,7 +426,7 @@ if rm_smaller_cluster:
     plot_Models(Models, save=outpath)
 
     max_window = 0.3
-    plot_fitted_spikes_complete(Blk, Templates, SpikeInfo, [ 'last_remove_save',unit_column], max_window, plots_folder, fig_format,wsize=n_samples,extension='_last_remove',plot_function=plot_compared_fitted_spikes)
+    plot_fitted_spikes_complete(Blk, Templates, SpikeInfo, [ 'last_remove_sae',unit_column], max_window, plots_folder, fig_format,wsize=n_samples,extension='_last_remove',plot_function=plot_compared_fitted_spikes,rejs=rej_spikes)
 
 
 
@@ -567,7 +573,7 @@ for j, Seg in enumerate(Blk.segments):
 # plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column, max_window, plots_folder, fig_format,wsize=n_samples)
 
 max_window = 0.3 #AG: TODO add to config file
-plot_fitted_spikes_complete(Blk, Templates, SpikeInfo, unit_column, max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates')
+plot_fitted_spikes_complete(Blk, Templates, SpikeInfo, unit_column, max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates',rejs=rej_spikes)
 
 print_msg("plotting done")
 print_msg("all done - quitting")

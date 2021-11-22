@@ -167,7 +167,7 @@ for i, seg in enumerate(Blk.segments):
 
     # remove bad detections
     if r_non_spikes:
-        st_cut = reject_non_spikes(AnalogSignal,st_cut,n_samples,verbose=True,plot=False)
+        st_cut,rejs = reject_non_spikes(AnalogSignal,st_cut,n_samples,verbose=True,plot=False)
 
     seg.spiketrains.append(st_cut)
 
@@ -179,7 +179,7 @@ print_msg("total number of spikes found: %s" % n_spikes)
 #Plot detected spikes
 for i,seg in enumerate(Blk.segments):
     namepath = plots_folder / ("first_spike_detection_%d"%i)
-    plot_spike_events(seg,thres=MAD(AnalogSignal)*mad_thresh,save=namepath,save_format=fig_format,show=False,max_window=1,max_row=3)
+    plot_spike_events(seg,thres=MAD(AnalogSignal)*mad_thresh,save=namepath,save_format=fig_format,show=False,max_window=0.4,max_row=3,rejs=rejs)
 
 print_msg("detected spikes plotted")
 
@@ -262,6 +262,11 @@ print(Templates.shape)
 outpath = results_folder / 'Templates_ini.npy'
 sp.save(outpath, Templates)
 print_msg("saving Templates to %s" % outpath)
+
+# templates to disk
+outpath = results_folder / 'rejected_spikes.npy'
+sp.save(outpath, rejs)
+print_msg("saving rejected_spikes to %s" % outpath)
 
 zoom = sp.array(Config.get('output','zoom').split(','),dtype='float32') / 1000
 for j,Seg in enumerate(Blk.segments):
