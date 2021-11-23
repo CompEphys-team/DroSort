@@ -179,6 +179,11 @@ plot_averages(average_spikes,SpikeInfo,last_unit_col,title=titles)
 plt.show()
 
 
+outpath = results_folder / 'template_a.npy'
+sp.save(outpath, A)
+outpath = results_folder / 'template_b.npy'
+sp.save(outpath, B)
+
 combined_templates = []
 
 mode = 'end'
