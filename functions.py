@@ -181,9 +181,21 @@ def spike_detect(AnalogSignal, bounds, lowpass_freq=1000*pq.Hz,wsize=40):
     # find relative maxima / minima
     peak_inds = signal.argrelmax(AnalogSignal)[0]
 
+    print_msg("Getting pos peaks")
+
+    peak_mins = [min(AnalogSignal.magnitude[peak-10:peak]) for peak in peak_inds[1:]]
+    peak_mins = np.append(AnalogSignal.magnitude[peak_inds[0]],peak_mins)
+    print_msg("Finished getting pos peaks")
+
     # to data structure
     # SAVES MAX AND NOT SIGNAL!!!
     peak_amps = AnalogSignal.magnitude[peak_inds, :, sp.newaxis] * AnalogSignal.units
+
+    #TODO: in progress --> save min and max for each spike
+    peak_amps_mins = peak_mins[:, sp.newaxis, sp.newaxis] * AnalogSignal.units
+
+    peak_amps = np.append(peak_amps,peak_amps_mins,axis=1)* AnalogSignal.units
+
 
     tvec = AnalogSignal.times
     SpikeTrain = neo.core.SpikeTrain(tvec[peak_inds],
@@ -285,9 +297,9 @@ def double_spike_detect(AnalogSignal, bounds_pos,bounds_neg, lowpass_freq=1000*p
     times_unique = copy.deepcopy(SpikeTrain_pos.times)
     waveforms = copy.deepcopy(SpikeTrain_pos.waveforms)
 
-    plt.plot(AnalogSignal.times,AnalogSignal.magnitude)
-    plt.plot(SpikeTrain_neg.times,-1*SpikeTrain_neg.waveforms.reshape(SpikeTrain_neg.waveforms.shape[0]),'x')
-    plt.plot(SpikeTrain_pos.times,SpikeTrain_pos.waveforms.reshape(SpikeTrain_pos.waveforms.shape[0]),'x')
+    # plt.plot(AnalogSignal.times,AnalogSignal.magnitude)
+    # plt.plot(SpikeTrain_neg.times,-1*SpikeTrain_neg.waveforms.reshape(SpikeTrain_neg.waveforms.shape[0]),'x')
+    # plt.plot(SpikeTrain_pos.times,SpikeTrain_pos.waveforms.reshape(SpikeTrain_pos.waveforms.shape[0]),'x')
     
     #For all spikes in negative file
     for i,st_neg in enumerate(SpikeTrain_neg):
@@ -417,13 +429,15 @@ def reject_non_spikes(AnalogSignal,SpikeTrain,wsize,plot=False,verbose=False):
     new_waveforms = new_waveforms[:,np.newaxis,np.newaxis]
 
 
-    SpikeTrain = neo.core.SpikeTrain(new_times*AnalogSignal.times.units,
+    new_SpikeTrain = neo.core.SpikeTrain(new_times*AnalogSignal.times.units,
                                      t_start=AnalogSignal.t_start,
                                      t_stop=AnalogSignal.t_stop,
                                      sampling_rate=AnalogSignal.sampling_rate,
                                      waveforms=new_waveforms,
                                      sort=True)
-    return SpikeTrain
+
+
+    return new_SpikeTrain,SpikeTrain.times[to_remove]
 
 
 def bounded_threshold(SpikeTrain, bounds):

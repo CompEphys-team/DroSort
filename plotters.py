@@ -154,7 +154,7 @@ def plot_segment(Seg, units, sigma=0.05, zscore=False, save=None, colors=None):
     return fig, axes
 
 #TODO reduce complexity and combine to plot_compare spike events
-def plot_spike_events(Segment,thres=2,max_window=1,max_row=5,save=None,save_format='.png',show=False,st=None):
+def plot_spike_events(Segment,thres=2,max_window=1,max_row=5,save=None,save_format='.png',show=False,st=None,rejs=None):
     plt.rcParams.update({'font.size': 5})
     for asig in Segment.analogsignals:  
         max_window = int(max_window*asig.sampling_rate) #FIX conversion from secs to points
@@ -189,6 +189,9 @@ def plot_spike_events(Segment,thres=2,max_window=1,max_row=5,save=None,save_form
                 a_events = st.waveforms[np.where((st.times > t_ini) & (st.times < t_end))] 
                 a_events = [max(a) for a in a_events]
 
+                if rejs is not None:
+                    chunk_r = rejs[np.where((rejs > t_ini) & (rejs < t_end))]
+                    axes[idx].plot(chunk_r,np.ones(chunk_r.shape),'|',markersize=1,color='r')
                 axes[idx].plot(t_events,a_events,'.',markersize=1)
                 axes[idx].plot(asig.times[ini:end],np.ones(asig.times[ini:end].shape)*thres,linewidth=0.5)
 
@@ -289,7 +292,7 @@ def plot_compared_spike_events(Segment1,Segment2,thres=2,max_window=1,max_row=5,
     # return fig, axes
 
 
-def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=None, zoom=None, save=None, colors=None,wsize=40):
+def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=None, zoom=None, save=None, colors=None,wsize=40,rejs=None):
     """ plot to inspect fitted spikes """
     fig, axes =plt.subplots(nrows=2, sharex=True, sharey=True)
     
@@ -301,7 +304,9 @@ def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=No
     #get events amplitude value (spike)
     a_events = st.waveforms
     a_events = [max(a) for a in a_events]
-    axes[1].plot(st.times,np.ones(st.times.shape),'|',markersize=1)
+    axes[1].plot(st.times,np.ones(st.times.shape),'|',markersize=1,label="spike_time_ref")
+    if rejs is not None:
+        axes[1].plot(rejs,np.ones(rejs.shape),'|',markersize=1,color='r',label="rejected_spike")
 
     plot_by_unit(axes[1],st,asig, Models, SpikeInfo, unit_column, unit_order, colors,wsize,j)
 
@@ -314,6 +319,8 @@ def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=No
     fig.tight_layout()
     fig.subplots_adjust(top=0.9)
     sns.despine(fig)
+    
+    fig.legend()
 
     if save is not None:
         fig.savefig(save)
@@ -322,7 +329,7 @@ def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=No
     return fig, axes
 
 
-def plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column,max_window, plots_folder, fig_format, unit_order=None, save=None, colors=None,wsize=40,extension='',plot_function=plot_fitted_spikes):
+def plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column,max_window, plots_folder, fig_format, unit_order=None, save=None, colors=None,wsize=40,extension='',plot_function=plot_fitted_spikes,rejs=None):
 
     for j, Seg in enumerate(Blk.segments):
         seg_name = Path(Seg.annotations['filename']).stem
@@ -338,7 +345,7 @@ def plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column,max_window, 
             end = min(end, Seg.analogsignals[0].shape[0])
             zoom = [ini,end]/asig.sampling_rate
 
-            plot_function(Seg, j, Models, SpikeInfo, unit_column, zoom=zoom, save=outpath,wsize=wsize)
+            plot_function(Seg, j, Models, SpikeInfo, unit_column, zoom=zoom, save=outpath,wsize=wsize, rejs=rejs)
 
 def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, colors=None,wsize=40,j=0):
     units = get_units(SpikeInfo,unit_column)
