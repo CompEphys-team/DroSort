@@ -66,6 +66,9 @@ plots_folder = results_folder / 'plots'
 os.makedirs(plots_folder, exist_ok=True)
 os.chdir(config_path.parent / exp_name)
 
+spikes_path = config_path.parent / results_folder / "spikes_result.dill"
+templates_path = config_path.parent / results_folder / "Templates_ini.npy"
+
 #TODO: add question!!
 # os.system("rm %s/*"%plots_folder)
 
@@ -73,9 +76,24 @@ os.chdir(config_path.parent / exp_name)
 shutil.copyfile(config_path, config_path.parent / exp_name / config_path.name)
 
 # read data
-Blk = sssio.get_data(data_path)
-Blk.name = exp_name
-print_msg('data read from %s' % data_path)
+try:
+    Blk = sssio.get_data(spikes_path)
+    Blk.name = exp_name
+except FileNotFoundError:
+    print_msg("Spike file not found, run templates_extraction.py first")
+    exit()
+Seg = Blk.segments[0]
+print_msg('spikes read from %s' % spikes_path)
+
+Templates= np.load(templates_path)
+print_msg('templates read from %s' % templates_path)
+
+
+# Data info
+wsize = Config.getfloat('spike detect', 'wsize') * pq.ms
+fs = Blk.segments[0].analogsignals[0].sampling_rate
+n_samples = (wsize * fs).simplified.magnitude.astype('int32')
+
 
 # plotting
 mpl.rcParams['figure.dpi'] = Config.get('output','fig_dpi')
@@ -89,200 +107,6 @@ fig_format = Config.get('output','fig_format')
 #     end = -1
 # except:
 #     exit()
-
-"""
- 
- ########  ########  ######## ########  ########   #######   ######  ########  ######   ######  
- ##     ## ##     ## ##       ##     ## ##     ## ##     ## ##    ## ##       ##    ## ##    ## 
- ##     ## ##     ## ##       ##     ## ##     ## ##     ## ##       ##       ##       ##       
- ########  ########  ######   ########  ########  ##     ## ##       ######    ######   ######  
- ##        ##   ##   ##       ##        ##   ##   ##     ## ##       ##             ##       ## 
- ##        ##    ##  ##       ##        ##    ##  ##     ## ##    ## ##       ##    ## ##    ## 
- ##        ##     ## ######## ##        ##     ##  #######   ######  ########  ######   ######  
- 
-"""
-
-print_msg(' - preprocessing - ')
-
-for seg in Blk.segments:
-    seg.analogsignals[0].annotate(kind='original')
-    # seg.analogsignals[0] = seg.analogsignals[0][ini:end]
-
-# highpass filter
-freq = Config.getfloat('preprocessing','highpass_freq')
-print_msg("highpass filtering data at %.2f Hz" % freq)
-for i, seg in enumerate(Blk.segments):
-    seg.analogsignals[0] = ele.signal_processing.butter(seg.analogsignals[0], highpass_freq=freq)
-    if 'filename' not in seg.annotations:
-        seg.annotations['filename']= 'segment_'+str(i)
-
-# invert if peaks are negative
-if Config.get('preprocessing','peak_mode') == 'negative':
-    print_msg("inverting signal")
-    for seg in Blk.segments:
-        seg.analogsignals[0] *= -1
-
-if Config.getboolean('preprocessing','z_trials'):
-    print_msg("z-scoring analogsignals for each trial")
-    for seg in Blk.segments:
-        seg.analogsignals = [ele.signal_processing.zscore(seg.analogsignals)]
-
-"""
- 
-  ######  ########  #### ##    ## ########    ########  ######## ######## ########  ######  ######## 
- ##    ## ##     ##  ##  ##   ##  ##          ##     ## ##          ##    ##       ##    ##    ##    
- ##       ##     ##  ##  ##  ##   ##          ##     ## ##          ##    ##       ##          ##    
-  ######  ########   ##  #####    ######      ##     ## ######      ##    ######   ##          ##    
-       ## ##         ##  ##  ##   ##          ##     ## ##          ##    ##       ##          ##    
- ##    ## ##         ##  ##   ##  ##          ##     ## ##          ##    ##       ##    ##    ##    
-  ######  ##        #### ##    ## ########    ########  ########    ##    ########  ######     ##    
-
-"""
-
-print_msg('- spike detect - ')
-
-# detecting all spikes by MAD thresholding
-mad_thresh = Config.getfloat('spike detect', 'mad_thresh')
-wsize = Config.getfloat('spike detect', 'wsize') * pq.ms
-
-try:
-    r_non_spikes = Config.getboolean('spike detect','non_spikes')
-except Exception as e:
-    r_non_spikes = True
-
-bad_segments = []
-for i, seg in enumerate(Blk.segments):
-    AnalogSignal, = select_by_dict(seg.analogsignals, kind='original')
-    bounds = [MAD(AnalogSignal)*mad_thresh, sp.inf] * AnalogSignal.units
-    bounds_neg = [MAD(AnalogSignal)*(mad_thresh-2), sp.inf] * AnalogSignal.units #TODO hardcode mad_thresh lower
-    # bounds_neg = [-sp.inf,-MAD(AnalogSignal)*(mad_thresh-2)] * AnalogSignal.units #TODO hardcode mad_thresh lower
-
-
-    fs = Blk.segments[0].analogsignals[0].sampling_rate
-    n_samples = (wsize * fs).simplified.magnitude.astype('int32')
-
-    if Config.get('preprocessing','peak_mode') == 'double':
-        # st = spike_detect(AnalogSignal, [0,sp.inf])
-        st = double_spike_detect(AnalogSignal, bounds, bounds_neg,wsize=n_samples)
-    else:
-        st = spike_detect(AnalogSignal, bounds,wsize=n_samples)
-
-    if st.times.shape[0] == 0:
-        stim_name = Path(seg.annotations['filename']).stem
-        print_msg("no spikes found for segment %i:%s" % (i,stim_name))
-        bad_segments.append(i)
-    st.annotate(kind='all_spikes')
-
-    # remove bad detections
-    if r_non_spikes:
-        st = reject_non_spikes(AnalogSignal,st,n_samples,verbose=True,plot=False)
-  
-    # remove border spikes
-    wsize = Config.getfloat('spike detect', 'wsize') * pq.ms
-    st_cut = st.time_slice(st.t_start + wsize/2, st.t_stop - wsize/2)
-    st_cut.t_start = st.t_start
-
-    seg.spiketrains.append(st_cut)
-
-
-n_spikes = sp.sum([seg.spiketrains[0].shape[0] for seg in Blk.segments])
-print_msg("total number of spikes found: %s" % n_spikes)
-
-
-#Plot detected spikes
-for i,seg in enumerate(Blk.segments):
-    namepath = plots_folder / ("first_spike_detection_%d"%i)
-    plot_spike_events(seg,thres=MAD(AnalogSignal)*mad_thresh,save=namepath,save_format=fig_format,show=False)
-
-print_msg("detected spikes plotted")
-
-#Detect bad segments based on norm probability distribution
-
-if Config.getboolean('preprocessing', 'sd_reject'):
-    stim_onset = Config.getfloat('preprocessing', 'stim_onset') * pq.s
-    alpha = Config.getfloat('preprocessing', 'sd_reject_alpha')
-    sd_rej_fac = stats.distributions.norm.isf(alpha) # hardcoded
-
-    Peaks = []
-    for i, Seg in enumerate(Blk.segments):
-        peaks = get_all_peaks([Seg], lowpass_freq=1*pq.kHz, t_max=stim_onset)
-        Peaks.append(peaks)
-
-    mus = sp.array([sp.average(peaks) for peaks in Peaks])
-    sigs = sp.array([sp.std(peaks) for peaks in Peaks])
-    grand_mu = sp.average([sp.average(peaks) for peaks in Peaks])
-    grand_sig = sp.std([sp.average(peaks) for peaks in Peaks])
-
-    bad_trials = sp.logical_or(mus < (grand_mu - sd_rej_fac * grand_sig), mus > (grand_mu + sd_rej_fac * grand_sig))
-    [bad_segments.append(i) for i in sp.where(bad_trials)[0]]
-    print_msg("rejecting %i out of %i trials" % (sum(bad_trials), bad_trials.shape[0]))
-
-if len(bad_segments) > 0:
-    good_segments = []
-    for i, seg in enumerate(Blk.segments):
-        if i not in bad_segments:
-            good_segments.append(seg)
-        else:
-            stim_name = Path(Blk.segments[i].annotations['filename']).stem
-            print_msg("rejecting: %i:%s" % (i,stim_name))
-
-    Blk_all = Blk.segments
-    Blk.segments = good_segments
-
-    n_spikes = sp.sum([seg.spiketrains[0].shape[0] for seg in Blk.segments])
-    print_msg("total number of spikes left: %s" % n_spikes)
-
-
-    #Plot detected spikes after rejection
-    for i,(seg_all,seg_good) in enumerate(zip(Blk.segments,Blk_all)):
-        namepath = plots_folder / ("first_spike_detection_%d"%i)
-        plot_compared_spike_events(seg_all,seg_good,thres=MAD(AnalogSignal)*mad_thresh,save=namepath,save_format=fig_format,show=True)
-
-    print_msg("detected spikes plotted")
-
-
-"""
- 
- ######## ######## ##     ## ########  ##          ###    ######## ########  ######  
-    ##    ##       ###   ### ##     ## ##         ## ##      ##    ##       ##    ## 
-    ##    ##       #### #### ##     ## ##        ##   ##     ##    ##       ##       
-    ##    ######   ## ### ## ########  ##       ##     ##    ##    ######    ######  
-    ##    ##       ##     ## ##        ##       #########    ##    ##             ## 
-    ##    ##       ##     ## ##        ##       ##     ##    ##    ##       ##    ## 
-    ##    ######## ##     ## ##        ######## ##     ##    ##    ########  ######  
- 
-"""
-
-print_msg(' - getting templates - ')
-
-fs = Blk.segments[0].analogsignals[0].sampling_rate
-n_samples = (wsize * fs).simplified.magnitude.astype('int32')
-
-templates = []
-for j, seg in enumerate(Blk.segments):
-    data = seg.analogsignals[0].magnitude.flatten()
-    inds = (seg.spiketrains[0].times * fs).simplified.magnitude.astype('int32')
-    templates.append(get_Templates(data, inds, n_samples))
-
-Templates = sp.concatenate(templates,axis=1)
-print(Templates.shape)
-# min_ampl = 1
-# Templates = clean_by_amplitude(Templates,min_ampl)
-
-
-
-
-# templates to disk
-outpath = results_folder / 'Templates.npy'
-sp.save(outpath, Templates)
-print_msg("saving Templates to %s" % outpath)
-
-zoom = sp.array(Config.get('output','zoom').split(','),dtype='float32') / 1000
-for j,Seg in enumerate(Blk.segments):
-    outpath = plots_folder / ("templates_in_signal_init"+fig_format)
-    plot_templates_on_trace(Seg, j, Templates, save=outpath,wsize=n_samples,zoom=zoom)
-
-
 
 """
  
@@ -453,7 +277,7 @@ while n_units >= n_final_clusters and not last:
     this_unit_col = 'unit_%i' % it
     score = Rss
     
-    Scores_old, units = Score_spikes(Templates, SpikeInfo, prev_unit_col, Models, score_metric=score, penalty=penalty)
+    # Scores_old, units = Score_spikes(Templates, SpikeInfo, prev_unit_col, Models, score_metric=score, penalty=penalty)
 
     # update rates
     calc_update_frates(Blk.segments, SpikeInfo, prev_unit_col, kernel_fast, kernel_slow)
@@ -537,25 +361,6 @@ while n_units >= n_final_clusters and not last:
 
         # for j, Seg in enumerate(Blk.segments):
         seg_name = Path(Seg.annotations['filename']).stem
-        print(Blk.segments[0].spiketrains[0].size)
-        # populate_block(Blk,SpikeInfo,prev_unit_col,units)
-        Blk = populate_block(Blk,SpikeInfo,this_unit_col,units)
-        print(Blk.segments[0].spiketrains[0].size)
-
-        Seg = Blk.segments[0]
-
-        outpath = plots_folder / (seg_name + '_fitted_spikes_%d'%(it) + fig_format)
-        plot_fitted_spikes(Seg, j, Models, SpikeInfo, this_unit_col, zoom=zoom, save=outpath,wsize=n_samples)
-    except Exception as ex:
-        print(ex.args)
-        pass
-
-    try:
-        zoom = sp.array(Config.get('output','zoom').split(','),dtype='float32') / 1000
-        
-
-        # for j, Seg in enumerate(Blk.segments):
-        seg_name = Path(Seg.annotations['filename']).stem
 
         # populate_block(Blk,SpikeInfo,prev_unit_col,units)
         Blk = populate_block(Blk,SpikeInfo,this_unit_col,units)
@@ -563,7 +368,7 @@ while n_units >= n_final_clusters and not last:
         Seg = Blk.segments[0]
 
         outpath = plots_folder / (seg_name + '_fitted_spikes_%d'%(it) + fig_format)
-        plot_fitted_spikes(Seg, j, Models, SpikeInfo, this_unit_col, zoom=zoom, save=outpath,wsize=n_samples)
+        plot_fitted_spikes(Seg, 0, Models, SpikeInfo, this_unit_col, zoom=zoom, save=outpath,wsize=n_samples)
     except Exception as ex:
         print(ex.args)
         pass
@@ -753,13 +558,13 @@ for j, Seg in enumerate(Blk.segments):
 # plot all sorted spikes
 # zoom = sp.array(Config.get('output','zoom').split(','),dtype='float32') / 1000
 
-max_window = 4 #AG: TODO add to config file
-unit_column = last_unit_col
+# max_window = 4 #AG: TODO add to config file
+# unit_column = last_unit_col
 
-plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column, max_window, plots_folder, fig_format,wsize=n_samples)
+# plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column, max_window, plots_folder, fig_format,wsize=n_samples)
 
-max_window = 0.3 #AG: TODO add to config file
-plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column, max_window, plots_folder, fig_format,wsize=n_samples)
+# max_window = 0.3 #AG: TODO add to config file
+# plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column, max_window, plots_folder, fig_format,wsize=n_samples)
 
 max_window = 0.3 #AG: TODO add to config file
 plot_fitted_spikes_complete(Blk, Templates, SpikeInfo, unit_column, max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates')

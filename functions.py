@@ -134,6 +134,12 @@ def unassign_spikes(SpikeInfo, unit_column, min_good=5):
     return SpikeInfo
 
 
+def to_points(times,fs):
+    return time*fs
+
+def to_time(points,fs):
+    return points/fs
+
 """
  
   ######  ########  #### ##    ## ########    ########  ######## ######## ########  ######  ######## 
@@ -192,6 +198,72 @@ def spike_detect(AnalogSignal, bounds, lowpass_freq=1000*pq.Hz,wsize=40):
     return SpikeTrain
 
 #TODO: optimize time, save in negative detection "positive peak" and max?
+def double_spike_detect_v2(AnalogSignal, bounds_pos,bounds_neg, lowpass_freq=1000*pq.Hz,wsize=40,plot=False,verbose=False):
+    """
+    detects all spikes in an AnalogSignal that fall within amplitude bounds
+    combines positive and negative peaks
+
+    Args:
+        AnalogSignal (neo.core.AnalogSignal): the waveform
+        bounds (quantities.Quantity): a Quantity of shape (2,) with
+            (lower,upper) bounds, unit [uV]
+        lowpass_freq (quantities.Quantity): cutoff frequency for a smoothing
+            step before spike detection, unit [Hz]
+
+    Returns:
+        neo.core.SpikeTrain: the resulting SpikeTrain
+    """
+    SpikeTrain_pos = spike_detect(AnalogSignal,bounds_pos, lowpass_freq)
+    SpikeTrain_neg = spike_detect(AnalogSignal*-1,bounds_neg, lowpass_freq)
+
+    #get positive peak from negative detection
+    fs = AnalogSignal.sampling_rate
+    neg_peak_inds = (SpikeTrain_neg.times*fs).simplified.magnitude.astype('int32')
+    
+    #TODO: optimize this detection --> save pos and neg peak on "spike_detect" ?
+    print_msg("Getting pos peaks")
+    w_back = wsize-10
+    neg_peak_inds = np.array([AnalogSignal.times[peak-w_back:peak][np.argmax(AnalogSignal.magnitude[peak-w_back:peak])]*fs for peak in neg_peak_inds[1:-1]])
+    neg_peak_inds = neg_peak_inds.astype(int)
+    # neg_peak_inds = np.array([AnalogSignal.times[peak-w_back:peak][np.argmax(SpikeTrain_neg.waveforms[peak]*-1)]*fs for peak in neg_peak_inds[1:-1]])
+
+    print_msg("Finished getting pos peaks")
+
+    neg_peak_amps = AnalogSignal.magnitude[neg_peak_inds, :, sp.newaxis] * AnalogSignal.units
+    neg_peak_times =AnalogSignal.times[neg_peak_inds] * AnalogSignal.times.units
+
+    combined_times = np.append(SpikeTrain_pos.times,neg_peak_times)
+    waveforms = np.append(SpikeTrain_pos.waveforms,neg_peak_amps)
+
+    sortinds = combined_times.argsort()
+    combined_times = combined_times[sortinds]
+    waveforms = waveforms[sortinds]
+        
+    #Ignore spikes detected twice 
+    #TODO: fix misses spikes that are in the range. 
+    diffs = [c2-c1 for c1,c2 in zip(combined_times[:-1],combined_times[1:])]
+    inds = np.where(diffs > ((wsize/3)/fs))[0]
+    times_unique = combined_times[inds] * AnalogSignal.times.units
+    waveforms = waveforms[inds]
+
+    SpikeTrain = neo.core.SpikeTrain(times_unique,
+                                     t_start=AnalogSignal.t_start,
+                                     t_stop=AnalogSignal.t_stop,
+                                     sampling_rate=AnalogSignal.sampling_rate,
+                                     waveforms=waveforms,
+                                     sort=True)
+
+    # plt.plot(AnalogSignal.times,AnalogSignal.magnitude)
+    # plt.plot(SpikeTrain_pos.times,SpikeTrain_pos.waveforms.reshape(SpikeTrain_pos.times.shape),'.',label='pos')
+    # plt.plot(SpikeTrain_neg.times,SpikeTrain_neg.waveforms.reshape(SpikeTrain_neg.times.shape)*-1,'.',label='neg')
+    # plt.plot(neg_peak_times,neg_peak_amps.reshape(neg_peak_times.shape),'.',label='neg_pos')
+    # plt.plot(SpikeTrain.times,SpikeTrain.waveforms.reshape(SpikeTrain.times.shape),'.',label='combined',alpha=0.7)
+    # plt.legend()
+    # plt.show()
+
+    return SpikeTrain
+
+#TODO: optimize time, save in negative detection "positive peak" and max?
 def double_spike_detect(AnalogSignal, bounds_pos,bounds_neg, lowpass_freq=1000*pq.Hz,wsize=40,plot=False,verbose=False):
     """
     detects all spikes in an AnalogSignal that fall within amplitude bounds
@@ -217,18 +289,21 @@ def double_spike_detect(AnalogSignal, bounds_pos,bounds_neg, lowpass_freq=1000*p
     plt.plot(SpikeTrain_neg.times,-1*SpikeTrain_neg.waveforms.reshape(SpikeTrain_neg.waveforms.shape[0]),'x')
     plt.plot(SpikeTrain_pos.times,SpikeTrain_pos.waveforms.reshape(SpikeTrain_pos.waveforms.shape[0]),'x')
     
+    #For all spikes in negative file
     for i,st_neg in enumerate(SpikeTrain_neg):
         st_neg_id = int(st_neg*AnalogSignal.sampling_rate)
 
         size = wsize/2/AnalogSignal.sampling_rate
         size.units = pq.s
         
+        #Check if spike is in positive detection 
         indexes = np.where((SpikeTrain_pos > st_neg-size) & (SpikeTrain_pos < st_neg+size))
 
         if indexes[0].size == 0: #spike not found in positive trains detection
             pini_st_neg = st_neg_id - wsize//2
             pend_st_neg = min(st_neg_id + wsize//2,AnalogSignal.times.size-1)
             
+            # get waveform to find positive reference 
             neg_waveform = AnalogSignal.magnitude[pini_st_neg:st_neg_id]
             waveform = neg_waveform
 
@@ -296,8 +371,23 @@ def reject_non_spikes(AnalogSignal,SpikeTrain,wsize,plot=False,verbose=False):
         # non_spike_cond = (waveform[0] < waveform[-1]-ampl*0.2 and np.where(waveform[waveform.size//2:]<half)[0].size==0)
 
         non_spike_cond = ((waveform[0] < waveform[-1]-ampl*0.2) and ~(waveform[waveform.size//2:]<half).any())
-        if non_spike_cond or ampl < 0.25 or dur > 25:
+        if non_spike_cond or (ampl < 0.25) or (dur > 27):
             to_remove.append(i)
+            # print(sp,"ini much smaller",(waveform[0] < waveform[-1]-ampl*0.2))
+            # print("not going down",~(waveform[waveform.size//2:]<half).any())
+            # print("amplitude < 0.25",(ampl < 0.25))
+            # print("duration > 25",(dur > 27))
+            # print(dur)
+            # if sp > 20.45 and sp < 20.5:
+            #     plt.plot(AnalogSignal.times, AnalogSignal.data, color='k', lw=1)
+            #     plt.plot(sp,1,'.',markersize=10)
+            #     plt.plot(SpikeTrain.times,SpikeTrain.waveforms,'.')
+            #     plt.xlim((sp-0.3*pq.s,sp+0.3*pq.s))
+            #     plt.show()
+
+            # outpath = plots_folder / ('removed_spike_'+str(t_id)+'_signal' + fig_format)
+
+
             # if sp > 2.25 and sp < 2.3:
             # print('ini-end','back_down','back_down_any')
             # print(sp,waveform[0] < waveform[-1]-ampl*0.2, np.where(waveform[waveform.size//2:]<half)[0].size==0,~(waveform[waveform.size//2:]<half).any())
@@ -909,16 +999,14 @@ def distance_to_average(Templates,averages):
         D_pw[i,:] = metrics.pairwise.euclidean_distances(Templates.T,average.reshape(1,-1)).reshape(-1)
     return D_pw.T
 
-#TODO fix restriction so spike gets longer on the left side (only begining and no end?)
-from superpos_functions import align_to
-def combine_templates(combined_templates,A,B,dt,w_samples,align_mode):
-    n_samples = np.sum(w_samples)
-    for dt in np.arange(0,np.sum(w_samples)+w_samples[0],dt):
-        long_a = np.concatenate(([A[0]]*(n_samples//2),A,[A[-1]]*(n_samples//2)))
-        if dt <= w_samples[0]:
-            long_b = np.concatenate(([B[0]]*(n_samples-dt),B,[B[-1]]*dt))
-        # else:
-        #     long_b = np.concatenate((B[dt%n_samples:],[B[-1]]*dt))
+#TODO superpos spikes needed????
+#from superpos_functions import align_to
+def combine_templates(combined_templates,A,B,dt,max_len,align_mode):
+    # n_samples = np.sum(w_samples)
+    # max_len = w_samples[1]-1
+    for dt in np.arange(0,max_len,dt):
+        long_a = np.concatenate((A,[A[-1]]*(max_len)))
+        long_b = np.concatenate(([B[0]]*abs(max_len-dt),B,[B[-1]]*dt))
 
         comb_t = np.array(long_a+long_b)
         combined_templates.append(np.array(align_to(comb_t,align_mode)))
