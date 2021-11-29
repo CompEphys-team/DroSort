@@ -400,7 +400,8 @@ def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, co
             # thrown when no spikes are present in this segment
             pass
 
-def plot_compared_fitted_spikes(Segment, j, Models, SpikeInfo, unit_columns, unit_order=None, zoom=None, save=None, colors=None,wsize=40):
+#TODO add "rej" spikes in function
+def plot_compared_fitted_spikes(Segment, j, Models, SpikeInfo, unit_columns, unit_order=None, zoom=None, save=None, colors=None,wsize=40,rejs=None):
     """ plot to inspect fitted spikes """
     fig, axes =plt.subplots(nrows=2, sharex=True, sharey=True)
     
@@ -616,3 +617,23 @@ def plot_averages_with_spike(spike,average_spikes,SpikeInfo,unit_column,unit,col
     fig.tight_layout()
 
     return fig,axes
+
+
+def plot_means(means,units,template_a,template_b,asigs,outpath=None,show=False,colors=None):
+    fig, axes = plt.subplots(ncols=len(units), figsize=[len(units)*3,4])
+
+    if colors is None:
+        colors = {'A':'b','B':'g','?':'r'}
+    
+    for i,(mean,unit) in enumerate(zip(means,units)):
+        axes[i].plot(mean,label=unit,color='k',linewidth=0.7)
+        axes[i].plot(mean,color=colors[asigs[unit]],alpha=0.3,linewidth=5)
+        axes[i].plot(template_a,label="A",color=colors['A'],linewidth=0.7)
+        axes[i].plot(template_b,label="B",color=colors['B'],linewidth=0.7)
+        axes[i].legend()
+
+    plt.tight_layout()
+    if outpath is not None:
+        plt.savefig(outpath)
+    if show:
+        plt.show()

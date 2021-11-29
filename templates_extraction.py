@@ -45,7 +45,7 @@ if not data_path.is_absolute():
 
 exp_name = Config.get('path','experiment_name')
 results_folder = config_path.parent / exp_name / 'results'
-plots_folder = results_folder / 'plots'
+plots_folder = results_folder / 'plots' / 'spike_detection'
 os.makedirs(plots_folder, exist_ok=True)
 os.chdir(config_path.parent / exp_name)
 
@@ -251,12 +251,14 @@ for j, seg in enumerate(Blk.segments):
     templates.append(get_Templates(data, inds, n_samples))
 
 Templates = sp.concatenate(templates,axis=1)
-print(Templates.shape)
-# min_ampl = 1
-# Templates = clean_by_amplitude(Templates,min_ampl)
-
 
 #Save events and plot
+plt.close()
+zoom = sp.array(Config.get('output','zoom').split(','),dtype='float32') / 1000
+for j,Seg in enumerate(Blk.segments):
+    outpath = plots_folder / ("templates_in_signal_init_%d"%j+fig_format)
+    plot_templates_on_trace(Seg, j, Templates, save=outpath,wsize=n_samples,zoom=zoom)
+
 
 # templates to disk
 outpath = results_folder / 'Templates_ini.npy'
@@ -267,12 +269,6 @@ print_msg("saving Templates to %s" % outpath)
 outpath = results_folder / 'rejected_spikes.npy'
 sp.save(outpath, rejs)
 print_msg("saving rejected_spikes to %s" % outpath)
-
-zoom = sp.array(Config.get('output','zoom').split(','),dtype='float32') / 1000
-for j,Seg in enumerate(Blk.segments):
-    outpath = plots_folder / ("templates_in_signal_init"+fig_format)
-    plot_templates_on_trace(Seg, j, Templates, save=outpath,wsize=n_samples,zoom=zoom)
-
 
 # store Block
 outpath = results_folder / 'spikes_result.dill'
