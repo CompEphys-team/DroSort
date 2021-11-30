@@ -1013,20 +1013,21 @@ def distance_to_average(Templates,averages):
         D_pw[i,:] = metrics.pairwise.euclidean_distances(Templates.T,average.reshape(1,-1)).reshape(-1)
     return D_pw.T
 
-#TODO superpos spikes needed????
-#from superpos_functions import align_to
-def combine_templates(combined_templates,A,B,dt,max_len,align_mode):
-    # n_samples = np.sum(w_samples)
-    # max_len = w_samples[1]-1
-    for dt in np.arange(0,max_len,dt):
-        long_a = np.concatenate((A,[A[-1]]*(max_len)))
-        long_b = np.concatenate(([B[0]]*abs(max_len-dt),B,[B[-1]]*dt))
+# #TODO superpos spikes needed????
+# #from superpos_functions import align_to
+# def combine_templates(combined_templates,A,B,dt,max_len,align_mode):
+#     # n_samples = np.sum(w_samples)
+#     # max_len = w_samples[1]-1
+#     for dt in np.arange(0,max_len,dt):
+#         long_a = np.concatenate((A,[A[-1]]*(max_len)))
+#         long_b = np.concatenate(([B[0]]*abs(max_len-dt),B,[B[-1]]*dt))
 
-        comb_t = np.array(long_a+long_b)
-        combined_templates.append(np.array(align_to(comb_t,align_mode)))
+#         comb_t = np.array(long_a+long_b)
+#         combined_templates.append(np.array(align_to(comb_t,align_mode)))
 
 
-def align_to(spike,mode='peak',dt=0.1,sec_wind=2.0):
+# def align_to(spike,mode='peak',dt=0.1,sec_wind=2.0):
+def align_to(spike,mode='peak'):
     if(spike.shape[0]!=0):
         if type(mode) is not str:
             mn = mode

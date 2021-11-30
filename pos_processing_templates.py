@@ -5,6 +5,7 @@ from plotters import *
 from functions import *
 from sys import path
 from superpos_functions import align_spike
+from posprocessing_functions import *
 
 # path = sys.argv[1]
 
@@ -33,13 +34,19 @@ SpikeInfo = pd.read_csv(sys.argv[1]+"/SpikeInfo.csv")
 
 print(SpikeInfo.keys())
 
-last_unit_col = [col for col in SpikeInfo.columns if col.startswith('unit')][-1]
-unit_column = last_unit_col
-SpikeInfo = SpikeInfo.astype({last_unit_col: str})
+unit_column = [col for col in SpikeInfo.columns if col.startswith('unit')][-1]
+# unit_column = last_unit_col
+SpikeInfo = SpikeInfo.astype({unit_column: str})
 units = get_units(SpikeInfo,unit_column)
+Templates= np.load(sys.argv[1]+"/Templates_ini.npy")
 
-Templates= np.load(sys.argv[1]+"/Templates.npy")
 
+#third cluster fix
+if '-2' in units:
+    units.remove('-2') 
+if len(units) > 2:
+    print_msg("Too many units: %s. Try run cluster_identification.py first"%units)
+    exit()
 
 
 print_msg("Number of spikes in trace: %d"%SpikeInfo[unit_column].size)
@@ -53,12 +60,15 @@ Seg = Blk.segments[0]
 
 
 # new_labels = copy.deepcopy(SpikeInfo[unit_column].values)
-n_neighbors = 3 #TODO add to config file
+n_neighbors = 6 #TODO add to config file
 n_samples = Templates[:,0].size *5
 
-#Time of one spike * number of spikes * 2 (approximate isis)
-neighbors_t = (n_samples/1000)*n_neighbors 
-print(neighbors_t)
+# #Time of one spike * number of spikes * 2 (approximate isis)
+# neighbors_t = (n_samples/1000)*n_neighbors 
+# print(neighbors_t)
+
+neighbors_t = get_neighbors_time(Seg.analogsignals[0],st,n_samples,n_neighbors)
+
 # #new column in SpikeInfo with changes
 # SpikeInfo['unit_pospro'] = new_labels
 # ids = []
@@ -109,55 +119,36 @@ n_samples = np.sum(w_samples)
 # Get average shapes
 dt = Seg.analogsignals[0].times[1]-Seg.analogsignals[0].times[0]
 dt = dt.item()
-width_ms = (n_samples/1000)
+width_ms = (n_samples/10000)
 mode = 'peak'
 
 ### align spikes
 
-average_spikes = []
-aligned_spikes = []
-for spike_i,spike in enumerate(Templates.T):
-    spike = align_spike(spike, width_ms,dt,spike_i,mode)
-    # spike = align_to(spike, mode,dt,width_ms)
-    if spike == []:
-        continue
+# average_spikes = []
+# aligned_spikes = []
+# for spike_i,spike in enumerate(Templates.T):
+#     spike = align_spike(spike, width_ms,dt,spike_i,mode)
+#     # spike = align_to(spike, mode,dt,width_ms)
+#     if spike == []:
+#         continue
 
-    if spike != []:
-        aligned_spikes.append(spike)
+#     if spike != []:
+#         aligned_spikes.append(spike)
+# aligned_spikes = np.array(aligned_spikes).T
 
-aligned_spikes = np.array(aligned_spikes).T
+# aligned_spikes = np.array([align_to(spike, mode,dt,width_ms) for spike in Templates.T]).T
+aligned_spikes = align_spikes(Templates,mode)
 
 print(aligned_spikes.shape)
 print(Templates.shape)
 
-for unit in units:
-    ix = SpikeInfo.groupby(last_unit_col).get_group(unit)['id']
-    # ix_u = SpikeInfo.groupby('unit_pospro').get_group(unit)['id']
-    # ix = SpikeInfo['id'][np.where((SpikeInfo['time'][ix] > 6.5) & (SpikeInfo['time'][ix] < 6.9))[0]]
-    # ix = SpikeInfo['id'][np.where((SpikeInfo['time'][ix] < 1))[0]]
+average_spikes = get_averages_from_units(aligned_spikes,units,SpikeInfo,unit_column)
 
-    # print(len(ix))
-
-    templates = aligned_spikes[:,ix].T
-
-    print_msg("Averaging %d spikes for cluster %c"%(len(templates),unit))
-
-    average_spike = np.average(templates, axis=0)
-
-    average_spikes.append(average_spike)
-
-# average_spikes=np.array(average_spikes)
-
-plot_templates(Templates, SpikeInfo, last_unit_col)
-# plot_averages(average_spikes,SpikeInfo,last_unit_col)
+# plot_templates(Templates, SpikeInfo, unit_column)
+# plot_averages(average_spikes,SpikeInfo,unit_column)
 # plt.show()
 
-# for i,spike in enumerate(Templates[:,ix].T):
-#     spike = align_spike(spike, width_ms,dt,spike_i,mode)
-#     plot_averages_with_spike(spike,average_spikes,SpikeInfo,'unit_pospro',SpikeInfo['unit_pospro'][i])
-#     plt.show()
-
-
+# exit()
 #########################################################################################################
 ####    get template combinations
 #########################################################################################################
@@ -176,8 +167,8 @@ title_units = {'a':units[a_id],'b':units[b_id]}
 
 print(titles)
 print(unit_titles)
-plot_averages(average_spikes,SpikeInfo,last_unit_col,title=titles)
-plt.show()
+# plot_averages(average_spikes,SpikeInfo,unit_column,title=titles)
+# plt.show()
 
 
 outpath = results_folder / 'template_a.npy'
@@ -192,33 +183,10 @@ dt_c = 2
 # ext_size = w_samples[1]
 ext_size = n_samples//2
 max_len = w_samples[1]
-#Add AB templates
-combine_templates(combined_templates,A,B,dt_c,max_len,mode)
-n = len(combined_templates)
-templates_labels = [['a','b']]*n
-
-#Add BA templates
-combine_templates(combined_templates,B,A,dt_c,max_len,mode)
-n = len(combined_templates) -n
-templates_labels+=[['b','a']]*n
-
-#Add sum of two
-comb_t =np.array(np.concatenate((A,[A[-1]]*max_len))+np.concatenate((B,[B[-1]]*max_len)))
-# comb_t =np.array(np.concatenate(([A[0]]*(n_samples//2),A,[A[-1]]*(n_samples//2)))+np.concatenate(([B[0]]*(n_samples//2),B,[B[-1]]*(n_samples//2))))
-combined_templates.append(np.array(align_to(comb_t,mode)))
-templates_labels.append(['c'])
-
-#Add simple A
-comb_t =np.array(np.concatenate((A,[A[-1]]*max_len)))
-# comb_t =np.array(np.concatenate(([A[0]]*(n_samples//2),A,[A[-1]]*(n_samples//2))))
-combined_templates.append(np.array(align_to(comb_t,mode)))
-templates_labels.append(['a'])
-
-#Add simple B
-comb_t =np.array(np.concatenate((B,[B[-1]]*max_len)))
-# comb_t =np.array(np.concatenate(([B[0]]*(n_samples//2),B,[B[-1]]*(n_samples//2))))
-combined_templates.append(np.array(align_to(comb_t,mode)))
-templates_labels.append(['b'])
+####################################
+##get_combined_templates
+combined_templates,templates_labels = get_combined_templates([A,B],dt_c,max_len,mode)
+####################################
 
 #Plot templates
 ncols = 5 
@@ -250,10 +218,11 @@ plt.show()
 ####    compare spikes with templates
 #########################################################################################################
 mode = 'end'
+mode = 'neighbors'
 
 #Get distances
 
-#Mode 1 align each combinatio to the mean and computes distances
+#Mode 1 align each combination to the mean and computes distances
 if mode == 'mean':
     #TODO align by mean
     long_waveforms = np.array([np.concatenate(([t[0]]*(n_samples//2),t,[t[-1]]*(n_samples//2))) for t in Templates.T])
@@ -274,6 +243,44 @@ if mode == 'mean':
         D_pw[t_i,:] = metrics.pairwise.euclidean_distances(aligned_templates[t_i],t.reshape(1,-1)).reshape(-1)
  
     distances = D_pw
+
+elif mode == 'neighbors':
+    long_waveforms = np.array([np.concatenate(([t[0]]*(n_samples//2),t,[t[-1]]*(n_samples//2))) for t in Templates.T])
+    aligned_templates=np.zeros((long_waveforms.shape[0],len(combined_templates),long_waveforms.shape[1]))
+    long_waveforms_align = np.zeros(long_waveforms.shape)
+
+    D_pw = sp.zeros((long_waveforms_align.shape[0],aligned_templates.shape[1]))
+
+    # for each spike
+    for t_i,t in enumerate(long_waveforms):
+        spike_id = SpikeInfo['id'][t_i]
+        # get neighbors
+        # get ids from time reference 
+        neighbors_ids = get_spikes_ids(t_i,neighbors_t,SpikeInfo,st)
+
+        zoom = [st.times[spike_id]-neighbors_t*pq.s,st.times[spike_id]+neighbors_t*pq.s]
+        fig, axes=plot_compared_fitted_spikes(Seg, 0, Templates, SpikeInfo, [unit_column, unit_column], zoom=zoom, save=None,wsize=n_samples)
+        plt.show()
+
+        # get long_templates from id 
+        # long_neighbors = long_waveforms[neighbors_ids,:]
+
+        # get average template
+        aligned_waveforms = align_spikes(long_waveforms,mode='peak')
+        # print(SpikeInfo.loc[neighbors_ids])
+        #TODO: get spikes from short template, not long version
+        average_spikes = get_averages_from_units(aligned_waveforms.T,units,SpikeInfo.loc[neighbors_ids],unit_column)
+
+        plot_averages(average_spikes,SpikeInfo,unit_column)
+        plt.show()
+
+
+        # get combined templates for the new averages
+        combined_templates[t_i] = get_combined_templates(average_spikes)
+
+        # align both by mean
+        # get distances
+        # for ct_i,ct in enumerate(combined_templates):
 
 else:
     # long_waveforms = np.array([align_to(np.concatenate(([t[0]]*(n_samples//2),t,[t[-1]]*(n_samples//2))),mode) for t in Templates.T])
