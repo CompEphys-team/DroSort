@@ -12,7 +12,7 @@ sd_reject_alpha = 0.05 //alpha value for norm distribution => rejection factor
 
 [spike detect]
 mad_thresh = 4 //threshold detection higher value ignores noise (might loose shortest ones)
-wsize = 4 //Window to remove border spikes (value of spike ?)
+wsize = 4 //Window size for spikes waveforms in ***ms***
 
 [spike sort]
 iterations = 24 //deprecated
