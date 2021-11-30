@@ -68,7 +68,7 @@ Seg = Blk.segments[0]
 n_samples = Templates[:,0].size 
 
 new_labels = copy.deepcopy(SpikeInfo[unit_column].values)
-n_neighbors = 3 #TODO add to config file
+n_neighbors = 6 #TODO add to config file
 
 # #Time of one spike * number of spikes * 2 (approximate isis)
 # neighbors_t = (n_samples/1000)*n_neighbors 
@@ -79,9 +79,20 @@ n_neighbors = 3 #TODO add to config file
 # neighbors_t = (n_samples*dt)*n_neighbors 
 # print(neighbors_t)
 
-#Calculate neighbors time as n first spikes + ISIs time
-neighbors_t = st.times[n_neighbors].item()
+# #Calculate neighbors time as n first spikes + ISIs time
+# neighbors_t = st.times[n_neighbors].item()
+
+# Calculate neighbors time as spike time * n_spikes + isi mean time
+dt = Seg.analogsignals[0].times[1]-Seg.analogsignals[0].times[0]
+dt = dt.item()
+spike_time = n_samples*dt
+isis = [ b-a for a,b in zip(st.times[:-1],st.times[1:])]
+# print(np.mean(isis),spike_time)
+neighbors_t = spike_time*n_neighbors + np.mean(isis)
+# print(neighbors_t)
 print_msg("Surrounding time for neighbors: %f"%neighbors_t)
+#Note: neighbors_t is a fixed time, when checking n neighbours ignoring time, 
+#       the distance between spikes could be too high.
 
 #new column in SpikeInfo with changes
 SpikeInfo['unit_amplitude'] = new_labels
