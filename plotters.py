@@ -413,7 +413,7 @@ def plot_compared_fitted_spikes(Segment, j, Models, SpikeInfo, unit_columns, uni
     #get events amplitude value (spike)
     a_events = st.waveforms
     a_events = [max(a) for a in a_events]
-    axes[1].plot(st.times,a_events,'.',markersize=1)
+    axes[1].plot(st.times,np.ones(st.times.shape),'|',markersize=2)
 
     plt.title(unit_columns[0])
     plot_by_unit(axes[0],st,asig, Models, SpikeInfo, unit_columns[0], unit_order, colors,wsize)

@@ -131,3 +131,14 @@ dmypy.json
 config_files/
 examples/
 images/
+SSR examples.zip
+SSR examples/
+errors_examples/
+python-neo/
+run/
+run_org/
+spike_detection/
+test_examples/
+test_examples_pos/
+test_examples_v2/
+
