@@ -62,7 +62,7 @@ if not data_path.is_absolute():
 
 exp_name = Config.get('path','experiment_name')
 results_folder = config_path.parent / exp_name / 'results'
-plots_folder = results_folder / 'plots'
+plots_folder = results_folder / 'plots' / 'sssort'
 os.makedirs(plots_folder, exist_ok=True)
 os.chdir(config_path.parent / exp_name)
 
@@ -89,10 +89,10 @@ print_msg('spikes read from %s' % spikes_path)
 Templates= np.load(templates_path)
 print_msg('templates read from %s' % templates_path)
 
-# try:
-rej_spikes = np.load(rej_spikes_path)
-# except:
-#     rej_spikes = None
+try:
+    rej_spikes = np.load(rej_spikes_path)
+except:
+    rej_spikes = None
 
 
 # Data info

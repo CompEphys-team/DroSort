@@ -232,6 +232,7 @@ def double_spike_detect_v2(AnalogSignal, bounds_pos,bounds_neg, lowpass_freq=100
     fs = AnalogSignal.sampling_rate
     neg_peak_inds = (SpikeTrain_neg.times*fs).simplified.magnitude.astype('int32')
     
+    #TODO: optimize this detection --> save pos and neg peak on "spike_detect" ?
     print_msg("Getting pos peaks")
     w_back = wsize-10
     neg_peak_inds = np.array([AnalogSignal.times[peak-w_back:peak][np.argmax(AnalogSignal.magnitude[peak-w_back:peak])]*fs for peak in neg_peak_inds[1:-1]])
@@ -250,7 +251,8 @@ def double_spike_detect_v2(AnalogSignal, bounds_pos,bounds_neg, lowpass_freq=100
     combined_times = combined_times[sortinds]
     waveforms = waveforms[sortinds]
         
-    #Ignore spikes detected twice
+    #Ignore spikes detected twice 
+    #TODO: fix misses spikes that are in the range. 
     diffs = [c2-c1 for c1,c2 in zip(combined_times[:-1],combined_times[1:])]
     inds = np.where(diffs > ((wsize/3)/fs))[0]
     times_unique = combined_times[inds] * AnalogSignal.times.units
@@ -299,18 +301,21 @@ def double_spike_detect(AnalogSignal, bounds_pos,bounds_neg, lowpass_freq=1000*p
     # plt.plot(SpikeTrain_neg.times,-1*SpikeTrain_neg.waveforms.reshape(SpikeTrain_neg.waveforms.shape[0]),'x')
     # plt.plot(SpikeTrain_pos.times,SpikeTrain_pos.waveforms.reshape(SpikeTrain_pos.waveforms.shape[0]),'x')
     
+    #For all spikes in negative file
     for i,st_neg in enumerate(SpikeTrain_neg):
         st_neg_id = int(st_neg*AnalogSignal.sampling_rate)
 
         size = wsize/2/AnalogSignal.sampling_rate
         size.units = pq.s
         
+        #Check if spike is in positive detection 
         indexes = np.where((SpikeTrain_pos > st_neg-size) & (SpikeTrain_pos < st_neg+size))
 
         if indexes[0].size == 0: #spike not found in positive trains detection
             pini_st_neg = st_neg_id - wsize//2
             pend_st_neg = min(st_neg_id + wsize//2,AnalogSignal.times.size-1)
             
+            # get waveform to find positive reference 
             neg_waveform = AnalogSignal.magnitude[pini_st_neg:st_neg_id]
             waveform = neg_waveform
 
@@ -1009,7 +1014,7 @@ def distance_to_average(Templates,averages):
     return D_pw.T
 
 #TODO superpos spikes needed????
-from superpos_functions import align_to
+#from superpos_functions import align_to
 def combine_templates(combined_templates,A,B,dt,max_len,align_mode):
     # n_samples = np.sum(w_samples)
     # max_len = w_samples[1]-1

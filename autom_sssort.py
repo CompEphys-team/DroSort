@@ -30,7 +30,9 @@ for file in smr_files:
 
 	#run sorting
 	os.system("python3 templates_extraction.py %s/model.ini"%d)
-	os.system("python3 sssort.py %s/model.ini"%d)
+	# os.system("python3 sssort.py %s/model.ini"%d)
+
+	# os.system("python3 cluster_identification.py %s/%s/results/"%(d,file_name))
 	
 	# os.system("rm %s/model.ini"%d)
 
