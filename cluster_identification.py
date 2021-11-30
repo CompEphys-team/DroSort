@@ -29,7 +29,6 @@ import sssio
 
  
 
-
 #Load file
 
 results_folder = Path(os.path.abspath(sys.argv[1]))
@@ -50,6 +49,12 @@ last_unit_col = [col for col in SpikeInfo.columns if col.startswith('unit')][-1]
 unit_column = last_unit_col
 SpikeInfo = SpikeInfo.astype({last_unit_col: str})
 units = get_units(SpikeInfo,unit_column)
+
+if len(units) != 3:
+	print("Three units needed, only %d found in SpikeInfo"%len(units))
+	exit()
+
+
 
 Waveforms= np.load(sys.argv[1]+"/Templates_ini.npy")
 
@@ -83,26 +88,18 @@ for unit in units:
 	plt.ylim(-1,1)
 	plt.show()
 
-	# distances_a = metrics.pairwise.euclidean_distances(waveforms.T,template_a.reshape(1,-1)).reshape(-1)
-	# distances_b = metrics.pairwise.euclidean_distances(waveforms.T,template_b.reshape(1,-1)).reshape(-1)
-
-	# print(unit,np.mean(distances_a),np.mean(distances_b))
-
 	mean_waveforms = np.average(waveforms.T,axis=0)
-
-	print(mean_waveforms.shape)
-	print(template_a.shape)
 
 	distances_a.append(metrics.pairwise.euclidean_distances(mean_waveforms.reshape(1,-1),template_a.reshape(1,-1)).reshape(-1))
 	distances_b.append(metrics.pairwise.euclidean_distances(mean_waveforms.reshape(1,-1),template_b.reshape(1,-1)).reshape(-1))
-
-	print(unit,distances_a,distances_b)
 
 a_unit = units[np.argmin(distances_a)]
 b_unit = units[np.argmin(distances_b)]
 
 non_unit = [x for x in units if a_unit not in x and b_unit not in x][0]
 
+print(distances_a,distances_b)
+print("A B ?")
 print(a_unit,b_unit,non_unit)
 
 
@@ -112,4 +109,4 @@ SpikeInfo['unit_labeled'] = copy.deepcopy(SpikeInfo[unit_column].values)
 Df = SpikeInfo.groupby('unit_labeled').get_group(non_unit)
 SpikeInfo.loc[Df.index, 'unit_labeled'] = '-2'
 
-# print(SpikeInfo[(unit_column,'unit_labeled')])
+#TODO: save SpikeInfo

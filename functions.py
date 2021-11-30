@@ -181,20 +181,20 @@ def spike_detect(AnalogSignal, bounds, lowpass_freq=1000*pq.Hz,wsize=40):
     # find relative maxima / minima
     peak_inds = signal.argrelmax(AnalogSignal)[0]
 
-    print_msg("Getting pos peaks")
+    # print_msg("Getting pos peaks")
 
-    peak_mins = [min(AnalogSignal.magnitude[peak-10:peak]) for peak in peak_inds[1:]]
-    peak_mins = np.append(AnalogSignal.magnitude[peak_inds[0]],peak_mins)
-    print_msg("Finished getting pos peaks")
+    # peak_mins = [min(AnalogSignal.magnitude[peak-10:peak]) for peak in peak_inds[1:]]
+    # peak_mins = np.append(AnalogSignal.magnitude[peak_inds[0]],peak_mins)
+    # print_msg("Finished getting pos peaks")
 
     # to data structure
     # SAVES MAX AND NOT SIGNAL!!!
     peak_amps = AnalogSignal.magnitude[peak_inds, :, sp.newaxis] * AnalogSignal.units
 
-    #TODO: in progress --> save min and max for each spike
-    peak_amps_mins = peak_mins[:, sp.newaxis, sp.newaxis] * AnalogSignal.units
+    # #TODO: in progress --> save min and max for each spike
+    # peak_amps_mins = peak_mins[:, sp.newaxis, sp.newaxis] * AnalogSignal.units
 
-    peak_amps = np.append(peak_amps,peak_amps_mins,axis=1)* AnalogSignal.units
+    # peak_amps = np.append(peak_amps,peak_amps_mins,axis=1)* AnalogSignal.units
 
 
     tvec = AnalogSignal.times
