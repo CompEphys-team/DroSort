@@ -4,7 +4,7 @@ from sssio import *
 from plotters import *
 from functions import *
 from sys import path
-from superpos_functions import *
+from superpos_functions import align_spike
 
 # path = sys.argv[1]
 
@@ -118,6 +118,7 @@ average_spikes = []
 aligned_spikes = []
 for spike_i,spike in enumerate(Templates.T):
     spike = align_spike(spike, width_ms,dt,spike_i,mode)
+    # spike = align_to(spike, mode,dt,width_ms)
     if spike == []:
         continue
 
@@ -250,6 +251,9 @@ plt.show()
 #########################################################################################################
 mode = 'end'
 
+#Get distances
+
+#Mode 1 align each combinatio to the mean and computes distances
 if mode == 'mean':
     #TODO align by mean
     long_waveforms = np.array([np.concatenate(([t[0]]*(n_samples//2),t,[t[-1]]*(n_samples//2))) for t in Templates.T])
@@ -277,6 +281,13 @@ else:
     distances=distance_to_average(long_waveforms.T,combined_templates)
 print(distances.shape)
 
+isis = [ b-a for a,b in zip(SpikeInfo['time'][:-1],SpikeInfo['time'][1:])]
+
+plt.hist(isis,bins=3,width=0.2)
+plt.show()
+
+
+#Compare all templates
 colors = get_colors(units)
 
 t_colors = [colors[unit] for unit in SpikeInfo[unit_column]]
@@ -284,16 +295,22 @@ t_colors = [colors[unit] for unit in SpikeInfo[unit_column]]
 c_spikes = []
 
 for t_id,t in enumerate(long_waveforms):
+    #Get this peak and next one
     peak = SpikeInfo['time'][t_id] 
     next_peak = SpikeInfo['time'][t_id+1]
 
     my_unit = SpikeInfo[unit_column][t_id]
     next_unit = SpikeInfo[unit_column][t_id+1]
+
     # print(next_peak,peak+(n_samples//2)/10000)
+
+    #Reasonable distance to next spike
     w_time = (n_samples//2)/10000
-    if next_peak < peak+w_time: #If close spikes
+
+    if next_peak < peak+w_time: #If spikes are close enough
 
         best_match = templates_labels[np.argmin(distances[t_id])]
+
         print("guess:",best_match,distances[t_id,np.argmin(distances[t_id])])
         print("current:",[unit_titles[my_unit],unit_titles[next_unit]])
         print(best_match != [unit_titles[my_unit],unit_titles[next_unit]])
@@ -307,8 +324,8 @@ for t_id,t in enumerate(long_waveforms):
             axes[i,j].text(0.25, 0.75,"%.3f"%distances[t_id,c])
 
         plt.suptitle("spike %d from unit %s"%(t_id,unit_titles[SpikeInfo[unit_column][t_id]]))
-       
-    
+        
+        #guess different to assignation
         if best_match != [unit_titles[my_unit],unit_titles[next_unit]]:
             outpath = plots_folder / ('spike_'+str(t_id)+'_templates_grid' + fig_format)
             plt.savefig(outpath)
@@ -339,6 +356,11 @@ for t_id,t in enumerate(long_waveforms):
 
         else:
             plt.close()
+
+
+#Remove spikes from templates
+#Get new spikes 
+
 
 
 #########################################################################################################
