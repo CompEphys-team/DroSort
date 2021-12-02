@@ -37,8 +37,6 @@ def get_averages_from_units(aligned_spikes,units,SpikeInfo,unit_column):
 	average_spikes = []
 	for unit in units:
 	    ix = SpikeInfo.groupby(unit_column).get_group(unit)['id']
-	    print(SpikeInfo)
-	    print(ix)
 
 	    templates = aligned_spikes[:,ix].T
 	    print_msg("Averaging %d spikes for cluster %s"%(len(templates),unit))
@@ -94,3 +92,24 @@ def combine_templates(combined_templates,A,B,dt,max_len,align_mode):
 
         comb_t = np.array(long_a+long_b)
         combined_templates.append(np.array(align_to(comb_t,align_mode)))
+
+def plot_combined_templates(combined_templates,templates_labels,ncols=5):
+	# ncols = 5 
+	nrows = int(np.ceil(len(combined_templates)/ncols))
+
+	# fig, axes= plt.subplots(nrows=nrows,ncols=ncols, sharex=True, sharey=True,figsize=(ncols*3,nrows*2))
+	fig, axes= plt.subplots(nrows=nrows,ncols=ncols, sharex=True, sharey=True)
+
+	for c,ct in enumerate(combined_templates):
+	    i,j = c//ncols,c%ncols
+
+	    axes[i,j].plot(ct)
+
+	    peak_inds = signal.argrelmax(ct)[0]
+	    peak_inds = peak_inds[np.argsort(ct[peak_inds])[-len(templates_labels[c]):]]
+
+	    axes[i,j].plot(peak_inds,ct[peak_inds],'.')
+	    axes[i,j].text(0.25, 0.75,str(templates_labels[c]))
+	    # plt.ylim(-2,0)
+
+	plt.tight_layout()

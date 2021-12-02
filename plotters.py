@@ -578,10 +578,10 @@ def plot_clustering(Templates, SpikeInfo, unit_column, n_components=5, N=300, sa
 
     return fig, axes
 
-def plot_averages(average_spikes,SpikeInfo,unit_column,colors=None,title=None):
+def plot_averages(average_spikes,SpikeInfo,unit_column,units,colors=None,title=None):
     fig, axes =plt.subplots(ncols=len(average_spikes), sharex=True, sharey=True)
 
-    units = get_units(SpikeInfo,unit_column)
+    # units = get_units(SpikeInfo,unit_column)
     
     if colors is None:
         colors = get_colors(units)
