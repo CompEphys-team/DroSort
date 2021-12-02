@@ -23,20 +23,15 @@ mpl.rcParams['figure.dpi'] = 300
 
 results_folder = Path(os.path.abspath(sys.argv[1]))
 
-print(results_folder)
 # results_folder = config_path.parent / exp_name / 'results'
 plots_folder = results_folder / 'plots'
-print(plots_folder)
+
 fig_format = '.png'
 
 Blk=get_data(sys.argv[1]+"/result.dill")
-
 SpikeInfo = pd.read_csv(sys.argv[1]+"/SpikeInfo.csv")
 
-print(SpikeInfo.keys())
-
 unit_column = [col for col in SpikeInfo.columns if col.startswith('unit')][-1]
-# unit_column = last_unit_col
 SpikeInfo = SpikeInfo.astype({unit_column: str})
 units = get_units(SpikeInfo,unit_column)
 Templates= np.load(sys.argv[1]+"/Templates_ini.npy")
@@ -63,10 +58,6 @@ Seg = Blk.segments[0]
 # new_labels = copy.deepcopy(SpikeInfo[unit_column].values)
 n_neighbors = 6 #TODO add to config file
 n_samples = Templates[:,0].size *5
-
-# #Time of one spike * number of spikes * 2 (approximate isis)
-# neighbors_t = (n_samples/1000)*n_neighbors 
-# print(neighbors_t)
 
 neighbors_t = get_neighbors_time(Seg.analogsignals[0],st,n_samples,n_neighbors)
 
@@ -99,17 +90,11 @@ for j, seg in enumerate(Blk.segments):
     templates.append(get_Templates(data, inds, w_samples))
 
 Templates = sp.concatenate(templates,axis=1)
-print(Templates.shape)
 
 # print(SpikeInfo['time'].values)
 # print(np.where((SpikeInfo['time'].values > 6.5) & (SpikeInfo['time'].values < 6.9)))
 # ix = SpikeInfo['id'][np.where((SpikeInfo['time'].values > 6.5) & (SpikeInfo['time'].values < 6.9))[0]]
 # Templates = Templates[:,ix]
-
-print(Templates.shape)
-
-
-# Templates = np.array([t[t.size//2-10:t.size//2+10] for t in Templates.T]).T
 
 #########################################################################################################
 ####    get average spikes
@@ -123,25 +108,7 @@ dt = dt.item()
 width_ms = (n_samples/10000)
 mode = 'peak'
 
-### align spikes
-
-# average_spikes = []
-# aligned_spikes = []
-# for spike_i,spike in enumerate(Templates.T):
-#     spike = align_spike(spike, width_ms,dt,spike_i,mode)
-#     # spike = align_to(spike, mode,dt,width_ms)
-#     if spike == []:
-#         continue
-
-#     if spike != []:
-#         aligned_spikes.append(spike)
-# aligned_spikes = np.array(aligned_spikes).T
-
-# aligned_spikes = np.array([align_to(spike, mode,dt,width_ms) for spike in Templates.T]).T
 aligned_spikes = align_spikes(Templates,mode)
-
-print(aligned_spikes.shape)
-print(Templates.shape)
 
 average_spikes = get_averages_from_units(aligned_spikes,units,SpikeInfo,unit_column)
 
@@ -149,7 +116,6 @@ average_spikes = get_averages_from_units(aligned_spikes,units,SpikeInfo,unit_col
 # plot_averages(average_spikes,SpikeInfo,unit_column)
 # plt.show()
 
-# exit()
 #########################################################################################################
 ####    get template combinations
 #########################################################################################################
@@ -183,21 +149,14 @@ sp.save(outpath, B)
 ##get_combined_templates
 mode = 'end'
 dt_c = 2
-# ext_size = w_samples[1]
-# ext_size = n_samples//2
 max_len = n_samples
 # max_len = w_samples[1]
-
-print(A.shape, B.shape)
-print(max_len)
 
 combined_templates,templates_labels = get_combined_templates([A,B],dt_c,max_len,mode)
 
 #Plot templates
 # plot_combined_templates(combined_templates,templates_labels,ncols=5)
 # plt.show()
-
-# exit()
 
 #########################################################################################################
 ####    compare spikes with templates
@@ -218,7 +177,7 @@ if mode == 'mean':
     for t_i,t in enumerate(long_waveforms):
         for ct_i,ct in enumerate(combined_templates):
             d_mean = (np.mean(ct)-np.mean(t))**2
-            # print(d_mean)
+
             ct_a = align_to(ct,d_mean)
             t_a = align_to(t,d_mean)
 
@@ -248,21 +207,11 @@ elif mode == 'neighbors':
         neighbors_ids = get_spikes_ids(t_i,neighbors_t,SpikeInfo,st)[0]
 
         zoom = [st.times[spike_id]-neighbors_t*pq.s,st.times[spike_id]+neighbors_t*pq.s]
-        # fig, axes=plot_compared_fitted_spikes(Seg, 0, Templates, SpikeInfo, [unit_column, unit_column], zoom=zoom, save=None,wsize=n_samples)
         fig, axes=plot_compared_fitted_spikes(Seg, 0, Templates[:short_size,:], SpikeInfo, [unit_column, unit_column], zoom=zoom, save=None,wsize=short_size)
         plt.show()
 
-        # get long_templates from id 
-
-        # long_neighbors = spikes[neighbors_ids,:]
-        # plt.plot(short_aligned_spikes[:,neighbors_ids])
-        # plt.show()
-
-
         # get average template
-        # aligned_waveforms = align_spikes(spikes,mode='peak')
-        # print(SpikeInfo.loc[neighbors_ids])
-        #TODO: get spikes from short template, not long version
+        # get spikes from short template, not long version by changing short_size value
         average_spikes = get_averages_from_units(short_aligned_spikes,units,SpikeInfo.loc[neighbors_ids],unit_column)
 
         plot_averages(average_spikes,SpikeInfo,unit_column,units)
@@ -291,11 +240,6 @@ else:
     long_waveforms = np.array([align_to(np.concatenate((t,[t[-1]]*max_len)),mode) for t in Templates.T])
     distances=distance_to_average(long_waveforms.T,combined_templates)
 print(distances.shape)
-
-# isis = [ b-a for a,b in zip(SpikeInfo['time'][:-1],SpikeInfo['time'][1:])]
-
-# plt.hist(isis,bins=3,width=0.2)
-# plt.show()
 
 
 #Compare all templates
@@ -344,14 +288,6 @@ for t_id,t in enumerate(long_waveforms):
         print("current:",[unit_titles[my_unit],unit_titles[next_unit]])
         print(best_match != [unit_titles[my_unit],unit_titles[next_unit]])
       
-        # fig, axes= plt.subplots(nrows=nrows,ncols=ncols, sharex=True, sharey=True,figsize=(ncols*4,nrows*2))
-
-        # for c,ct in enumerate(combined_templates):
-        #     i,j = c//ncols,c%ncols
-        #     axes[i,j].plot(ct)
-        #     axes[i,j].plot(t,color=t_colors[t_id])
-        #     axes[i,j].text(0.25, 0.75,"%.3f"%distances[t_id,c])
-
         plot_combined_templates(combined_templates,templates_labels,ncols=5)
 
         plt.suptitle("spike %d from unit %s"%(t_id,unit_titles[SpikeInfo[unit_column][t_id]]))
