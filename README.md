@@ -1,23 +1,92 @@
-# SSSort
-A spike sorting algorithm for single sensillum recordings
- 
-## Author
-Georg Raiser, PhD, Champalimaud Research, grg2rsr@gmail.com
- 
-## Summary
-_SSSort_ is a spike sorting algorithm for single sensillum recordings (SSR). _SSSort_ is the successor of [_SeqPeelSort_](https://github.com/grg2rsr/SeqPeelSort). Both algorithms have been designed to sort spikes from SSR into units, adressing the challenge that spike shape in SSR can change quite a lot, depending on the unit's firing rate. However, the core of both algorithms is quite different. While _SeqPeelSort_ tries to estimate the distribution of possible spike shapes and attempts to template match many different spike shapes drawn from those estimated distributions, _SSSort_ forms an explicit model on how the firing rate impacts the spike shape. Although developed for data from insect single sensillum recordings, _SSSort_ can probably be used for any type of recordings in which spike shape changes as a function of firing rate, however currently only single electrode recordings are implemented.
- 
-## Installation and Usage
-A more in depth guide is coming soon, but following the instructions from [SeqPeelSort](https://github.com/grg2rsr/SeqPeelSort) will do.
- 
-## Algorithm details
-_SSSort_ detects all spiky deviations within a recording (the _spikes_) and performs an initial clustering (k means). As now each spike belongs to a cluster grouping them into units, the local firing rates can be estimated. This gives a single value of the local firing rate at each timepoint of a spike. This in turn allows us to construct a model on how the shape of the spikes from a given unit depends on the unit's firing rate. Spikes are then scored and assigned to units in an iterative manner, where after each iteration new models are formed from the labels of the last iteration, firing rates are estimated, and again spikes are scored.
- 
-More details coming soon.
+# Drosophila Spike Sorting
+***Based on SSSort by Georg Raiser***
+## Authors
+**Alicia Garrido Peña**
 
-## Quickstart
-Try
-```console
-$ python sssort.py example_config.ini
-```
-for a typical run on example data from a Drosophila ab3 sensillum taken by Lydia Ellison at Sussex University.
+**Thomas Nowotny**
+## Description
+## 0. Variables type
+### Elephant
+- Block
+- Segment
+	+ Analog signal
+	+ Spike train
+		* Time
+		* waveforms
+
+### SpikeInfo
+Dataframe saving info for each spike detected. Columns:
+* 'id' --> spike reference
+* 'time' --> spike time in s
+* 'segment' --> segment where the spike is
+* 'unit' --> first unit cluster assignation
+* 'good', 
+* 'frate_fast'
+* 'frate_from_n'
+* 'unit_n'
+* 'unit_labeled' --> changed spikes from "cluster_identification.py"
+* 'unit_amplitude'--> changed spikes from "pos_processing_amplitude.py"
+* 'unit_templates'--> changed spikes from "pos_processing_templates.py"
+### Templates
+
+
+## 1. Spike detection
+Detects spikes, reject non-spikes and saves templates in the ws form. 
+
+- Positive: gets spikes based on a threshold 
+- Negative: gets spikes based on a threshold from inverse signal
+- Double: gets spikes combining positive and negative detection. 
+
+Spike rejection:
+
+
+## 2. Spike sorting by clustering
+## 3. Pos-processing
+### 3.1 Cluster identification
+Identifies clusters from a loaded template. Necessary to distinguis between a cluster, b cluster and unknown cluster. 
+Assigns a '-2' value to unknown cluster in a new unit column in SpikeInfo.
+
+### 3.2 Reassign by amplitude
+### 3.3 Reassign by composed spikes
+### 3.4 Reassign by neighbors
+
+
+## Use
+Create config file with parameters from template: model.ini. Then run run_all.py script as:
+	
+	python3 run_all.py a_path/model.ini
+
+That will run the following scripts in order:
+python3 run 
+
+
+## TODO
+1. Spike detection:
+	- Missing spikes !!!!!^
+	- "double" detection super slow: 
+		
+		a. save min and max at detection
+		
+		b. use positive with low threshold
+	- Review spike rejection... Parameters hardcoded
+	
+2. Spike sort:
+
+	- Unused spike rejection --> -1 spikes complicated.
+	- Remove small cluster tricky
+
+2. Cluster identification
+
+	- See possible -1 unit.
+3. Posprocessing amplitude
+4. Posprocessing templates
+	- General template
+		1. Add -2 unit alternative
+		2. Review outcome
+		3. Analyze single spikes too???
+	- Neighbors
+		1. Spike templates in b spike have a spike... ?!?!?!
+
+
+	
+

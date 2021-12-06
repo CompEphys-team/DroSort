@@ -23,7 +23,7 @@ from superpos_functions import *
 results_folder = Path(os.path.abspath(sys.argv[1]))
 
 # results_folder = config_path.parent / exp_name / 'results'
-plots_folder = results_folder / 'plots' / 'pos_processing'
+plots_folder = results_folder / 'plots' / 'pos_processing' / 'amplitude'
 os.makedirs(plots_folder, exist_ok=True)
 
 fig_format='.png'

@@ -291,6 +291,7 @@ def double_spike_detect(AnalogSignal, bounds_pos,bounds_neg, lowpass_freq=1000*p
     Returns:
         neo.core.SpikeTrain: the resulting SpikeTrain
     """
+    #detect from both modes
     SpikeTrain_pos = spike_detect(AnalogSignal,bounds_pos, lowpass_freq)
     SpikeTrain_neg = spike_detect(AnalogSignal*-1,bounds_neg, lowpass_freq)
 
@@ -301,7 +302,7 @@ def double_spike_detect(AnalogSignal, bounds_pos,bounds_neg, lowpass_freq=1000*p
     # plt.plot(SpikeTrain_neg.times,-1*SpikeTrain_neg.waveforms.reshape(SpikeTrain_neg.waveforms.shape[0]),'x')
     # plt.plot(SpikeTrain_pos.times,SpikeTrain_pos.waveforms.reshape(SpikeTrain_pos.waveforms.shape[0]),'x')
     
-    #For all spikes in negative file
+    #For all spikes in negative detection
     for i,st_neg in enumerate(SpikeTrain_neg):
         st_neg_id = int(st_neg*AnalogSignal.sampling_rate)
 
@@ -380,6 +381,7 @@ def reject_non_spikes(AnalogSignal,SpikeTrain,wsize,plot=False,verbose=False):
         #ignore spike when first point much smaller than last
         # and crosses mid point only once.
         # or amplitude is too small for a spike
+        # or duration is too short for a spike
         # non_spike_cond = (waveform[0] < waveform[-1]-ampl*0.2 and np.where(waveform[waveform.size//2:]<half)[0].size==0)
 
         non_spike_cond = ((waveform[0] < waveform[-1]-ampl*0.2) and ~(waveform[waveform.size//2:]<half).any())
