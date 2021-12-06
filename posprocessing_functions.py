@@ -99,7 +99,7 @@ def combine_templates(combined_templates,A,B,dt,max_len,align_mode):
         comb_t = np.array(long_a+long_b)
         combined_templates.append(np.array(align_to(comb_t,align_mode)))
 
-def plot_combined_templates(combined_templates,templates_labels,ncols=5):
+def plot_combined_templates(combined_templates,templates_labels,ncols=5,org_spike=[],distances=None,title='',save=None):
     # ncols = 5 
     nrows = int(np.ceil(len(combined_templates)/ncols))
 
@@ -109,13 +109,97 @@ def plot_combined_templates(combined_templates,templates_labels,ncols=5):
     for c,ct in enumerate(combined_templates):
         i,j = c//ncols,c%ncols
 
+        axes[i,j].plot(org_spike,color='k')
         axes[i,j].plot(ct)
 
         peak_inds = signal.argrelmax(ct)[0]
         peak_inds = peak_inds[np.argsort(ct[peak_inds])[-len(templates_labels[c]):]]
 
         axes[i,j].plot(peak_inds,ct[peak_inds],'.')
-        axes[i,j].text(0.25, 0.75,str(templates_labels[c]))
+        x = combined_templates.shape[1] * 0.75
+
+        axes[i,j].text(x, 0.75,str(templates_labels[c]))
+
+        if distances is not None:
+            if distances[c] == min(distances) or distances[c] == np.sort(distances)[1]:
+                color='r'
+                change_ax_color(axes[i,j],color)
+            else:
+                color='k'
+            # print(combined_templates.shape)
+
+            x = combined_templates.shape[1] * 0.75
+            y = -0.75
+            axes[i,j].text(x, y,"%.3f"%distances[c],color=color)
+
         # plt.ylim(-2,0)
 
+    plt.suptitle(title)
     plt.tight_layout()
+
+    if save is not None:
+        plt.savefig(save)
+        plt.close()
+
+
+
+def plot_combined_templates_bests(combined_templates,templates_labels,org_spike,distances,n_bests=2,title='',save=None):
+
+    fig, axes= plt.subplots(nrows=1,ncols=n_bests, sharex=True, sharey=True)
+    # fig, axes= plt.subplots(nrows=nrows,ncols=ncols, sharex=True, sharey=True)
+
+    inds = np.argsort(distances)[:2]
+
+    for i,ind in enumerate(inds):
+        axes[i].plot(org_spike,color='k')
+        axes[i].plot(combined_templates[ind])
+
+        x = combined_templates.shape[1] * 0.75
+        y = -0.5
+        axes[i].text(x, 0.75,str(templates_labels[ind]))
+        axes[i].text(x, y,"%.3f"%distances[ind],color='k')
+
+    plt.suptitle(title)
+    plt.tight_layout()
+
+    if save is not None:
+        plt.savefig(save)
+        plt.close()
+
+
+    # for c,ct in enumerate(combined_templates):
+    #     i,j = c//ncols,c%ncols
+
+    #     axes[i,j].plot(org_spike,color='k')
+    #     axes[i,j].plot(ct)
+
+    #     peak_inds = signal.argrelmax(ct)[0]
+    #     peak_inds = peak_inds[np.argsort(ct[peak_inds])[-len(templates_labels[c]):]]
+
+    #     axes[i,j].plot(peak_inds,ct[peak_inds],'.')
+    #     x = combined_templates.shape[1] * 0.75
+
+    #     axes[i,j].text(x, 0.75,str(templates_labels[c]))
+
+    #     if distances is not None:
+    #         if distances[c] == min(distances) or distances[c] == np.sort(distances)[1]:
+    #             color='r'
+    #             change_ax_color(axes[i,j],color)
+    #         else:
+    #             color='k'
+    #         # print(combined_templates.shape)
+
+    #         x = combined_templates.shape[1] * 0.75
+    #         y = -0.75
+    #         axes[i,j].text(x, y,"%.3f"%distances[c],color=color)
+
+    #     # plt.ylim(-2,0)
+
+    # plt.tight_layout()
+
+
+def change_ax_color(ax,color):
+    ax.spines['left'].set_color(color)        
+    ax.spines['top'].set_color(color) 
+    ax.spines['right'].set_color(color)        
+    ax.spines['bottom'].set_color(color)    

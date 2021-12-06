@@ -19,7 +19,7 @@ from posprocessing_functions import *
 ##              Load clustering result
 ##
 ################################################################
-# mpl.rcParams['figure.dpi'] = 300
+mpl.rcParams['figure.dpi'] = 300
 
 results_folder = Path(os.path.abspath(sys.argv[1]))
 
@@ -56,7 +56,7 @@ Seg = Blk.segments[0]
 
 
 # new_labels = copy.deepcopy(SpikeInfo[unit_column].values)
-n_neighbors = 12#TODO add to config file
+n_neighbors = 15#TODO add to config file
 n_samples = Templates[:,0].size *5
 
 neighbors_t = get_neighbors_time(Seg.analogsignals[0],st,n_samples,n_neighbors)
@@ -91,7 +91,6 @@ for j, seg in enumerate(Blk.segments):
     templates.append(get_Templates(data, inds, w_samples))
 
 Templates = sp.concatenate(templates,axis=1)
-
 # print(SpikeInfo['time'].values)
 # print(np.where((SpikeInfo['time'].values > 6.5) & (SpikeInfo['time'].values < 6.9)))
 # ix = SpikeInfo['id'][np.where((SpikeInfo['time'].values > 6.5) & (SpikeInfo['time'].values < 6.9))[0]]
@@ -110,7 +109,6 @@ width_ms = (n_samples/10000)
 mode = 'peak'
 
 aligned_spikes = align_spikes(Templates,mode)
-
 average_spikes = get_averages_from_units(aligned_spikes,units,SpikeInfo,unit_column)
 
 # plot_templates(Templates, SpikeInfo, unit_column)
@@ -134,8 +132,8 @@ titles={a_id:'a',b_id:'b'}
 unit_titles={units[a_id]:'a',units[b_id]:'b'}
 title_units = {'a':units[a_id],'b':units[b_id]}
 
-print(titles)
-print(unit_titles)
+# print(titles)
+print_msg("Labeled units %s"%unit_titles)
 # plot_averages(average_spikes,SpikeInfo,unit_column,title=titles)
 # plt.show()
 
@@ -151,6 +149,7 @@ sp.save(outpath, B)
 mode = 'end'
 dt_c = 2
 max_len = n_samples
+# max_len = 30
 # max_len = w_samples[1]
 
 combined_templates,templates_labels = get_combined_templates([A,B],dt_c,max_len,mode)
@@ -191,10 +190,21 @@ if mode == 'mean':
     distances = D_pw
 
 elif mode == 'neighbors':
-    long_waveforms = np.array([np.concatenate(([t[0]]*(n_samples//2),t,[t[-1]]*(n_samples//2))) for t in Templates.T])
-    aligned_templates=np.zeros((long_waveforms.shape[0],len(combined_templates),long_waveforms.shape[1]))
-    long_waveforms_align = np.zeros(long_waveforms.shape)
+    # long_waveforms = np.array([np.concatenate((t,[t[-1]]*max_len)) for t in Templates.T])
+    long_waveforms = get_Templates(data, inds, (w_samples[0],w_samples[1]+max_len)).T
+    print(long_waveforms.shape)
+    # long_waveforms = align_spikes(long_waveforms,'min')
+    print(long_waveforms.shape)
+    lim = 120
+
+    aligned_templates=np.zeros((long_waveforms.shape[0],len(combined_templates),long_waveforms.shape[1]))[:,:,:120]
+    long_waveforms_align = np.zeros(long_waveforms.shape)[:,:120]
     all_combined_templates=np.zeros((long_waveforms.shape[0],len(combined_templates),long_waveforms.shape[1]))
+
+
+    print(aligned_templates.shape)
+    print(long_waveforms_align.shape)
+    print(all_combined_templates.shape)
 
     D_pw = sp.zeros((long_waveforms_align.shape[0],aligned_templates.shape[1]))
 
@@ -224,26 +234,29 @@ elif mode == 'neighbors':
         # get combined templates for the new averages
         all_combined_templates[t_i],templates_labels = get_combined_templates(average_spikes,dt_c,max_len,mode='end')
 
-        # plot_combined_templates(combined_templates[t_i],templates_labels,ncols=5)
-        # plt.show()
-
         # align both by mean
-        for ct_i,ct in enumerate(all_combined_templates[t_i]):
+        for ct_i,ct in enumerate(all_combined_templates[t_i][:lim]):
             d_mean = (np.mean(ct)-np.mean(t))**2
             # print(d_mean)
-            ct_a = align_to(ct,d_mean)
-            t_a = align_to(t,d_mean)
-            long_waveforms_align[t_i] = t_a
-            aligned_templates[t_i,ct_i]= ct_a
+            # ct_a = align_to(ct,d_mean)
+            # t_a = align_to(t,d_mean)
+            ct_a = align_to(ct,'peak')
+            t_a = align_to(t,'peak')
+            long_waveforms_align[t_i] = t_a[:lim]
+            aligned_templates[t_i,ct_i]= ct_a[:lim]
+
 
         # get distances
-        D_pw[t_i,:] = metrics.pairwise.euclidean_distances(aligned_templates[t_i],t.reshape(1,-1)).reshape(-1)
+        D_pw[t_i,:] = metrics.pairwise.euclidean_distances(aligned_templates[t_i],long_waveforms_align[t_i].reshape(1,-1)).reshape(-1)
+
+        # plot_combined_templates(all_combined_templates[t_i],templates_labels,ncols=5,org_spike=long_waveforms_align[t_i],distances=D_pw[t_i])
+        # plt.show()
+
     distances = D_pw
 else:
     # long_waveforms = np.array([align_to(np.concatenate(([t[0]]*(n_samples//2),t,[t[-1]]*(n_samples//2))),mode) for t in Templates.T])
     long_waveforms = np.array([align_to(np.concatenate((t,[t[-1]]*max_len)),mode) for t in Templates.T])
     distances=distance_to_average(long_waveforms.T,combined_templates)
-print(distances.shape)
 
 
 #Compare all templates
@@ -258,6 +271,12 @@ t_colors = [colors[unit] for unit in SpikeInfo[unit_column]]
 
 c_spikes = []
 non_spikes = []
+to_change = []
+small_diff = []
+
+new_labels = copy.deepcopy(SpikeInfo[unit_column].values)
+new_column = 'unit_templates'
+SpikeInfo[new_column] = new_labels
 
 for t_id,t in enumerate(long_waveforms):
     #Get this peak and next one
@@ -274,11 +293,6 @@ for t_id,t in enumerate(long_waveforms):
     # TODO: fix -1 spikes!!!
     if int(my_unit) < 0 or int(next_unit) < 0:
         continue
-        # zoom = [peak-0.3,peak+0.3]
-        # fig, axes=plot_compared_fitted_spikes(Seg, 0, Templates, SpikeInfo, [unit_column, unit_column], zoom=zoom, save=None)
-        # axes[0].plot([peak,next_peak],[1,1],'.',markersize=10)
-        # axes[1].plot([peak,next_peak],[1,1],'.',markersize=10)
-        # plt.show()
     # print(next_peak,peak+(n_samples//2)/10000)
 
     #Reasonable distance to next spike
@@ -286,60 +300,125 @@ for t_id,t in enumerate(long_waveforms):
 
     # if next_peak < peak+w_time: #If spikes are close enough
 
-    best_match = templates_labels[np.argmin(distances[t_id])]
+    # best_match = templates_labels[np.argmin(distances[t_id])]
+    best_match_ids = np.argsort(distances[t_id])[:2]
+
+    # print(distances[t_id][best_match_ids[0]]-distances[t_id][best_match_ids[1]])
+
+    if abs(distances[t_id][best_match_ids[0]]-distances[t_id][best_match_ids[1]]) < 0.01:
+
+        best_match_dis = [len(dis) for dis in np.array(templates_labels)[best_match_ids]]
+        best_match = templates_labels[best_match_ids[np.argmax(best_match_dis)]]
+        small_diff.append(t_id)
+        # print("Distance values so close %.3f %.3f, changing match from %s to %s"%(distances[t_id][best_match_ids[0]],distances[t_id][best_match_ids[1]],templates_labels[np.argmin(distances[t_id])],best_match))
+
+    else:
+        best_match = templates_labels[np.argmin(distances[t_id])]
+
     curr_match = [unit_titles[my_unit],unit_titles[next_unit]]
 
-    print("guess:",best_match,distances[t_id,np.argmin(distances[t_id])])
-    print("current:",curr_match)
-    print(best_match != [unit_titles[my_unit],unit_titles[next_unit]])
-    
+    # print("guess:",best_match,distances[t_id,np.argmin(distances[t_id])])
+    # print("current:",curr_match)
+    # print(best_match != [unit_titles[my_unit],unit_titles[next_unit]])
+
+
+    diff = (to_points(next_peak,fs)+w_samples[1]) - (to_points(peak,fs)-w_samples[0])
+    # print(diff,n_samples)
+
+    #TODO: warning change long_waveforms from signal and not a extension or keep this restriction.
+    # if diff > Templates.shape[0]:
+    if diff > n_samples*2-20:
+
+        best_match = best_match[0]
+        curr_match = best_match[0]
+
+        # print("Spike not close enough, comparing single template")
+
+
     #guess different to assignation
     if best_match != curr_match:
-        # try:
-        # plot_combined_templates(all_combined_templates[t_id],templates_labels,ncols=5)
-        # # except:
-        # #     plot_combined_templates(combined_templates,templates_labels,ncols=5)
+        # print("#############CHANGING",t_id)
 
-        # plt.suptitle("spike %d from unit %s"%(t_id,unit_titles[SpikeInfo[unit_column][t_id]]))
-
-        # outpath = plots_folder / ('spike_'+str(t_id)+'_templates_grid' + fig_format)
-        # plt.savefig(outpath)
-
-        zoom = [peak- neighbors_t ,peak+neighbors_t]
-        fig, axes=plot_compared_fitted_spikes(Seg, 0, Templates, SpikeInfo, [unit_column, unit_column], zoom=zoom, save=None)
-        axes[0].plot([peak,next_peak],[1,1],'.',markersize=10)
-        axes[1].plot([peak,next_peak],[1,1],'.',markersize=10)
-        outpath = plots_folder / ('changed_spike_'+str(t_id)+'_signal' + fig_format)
-        plt.savefig(outpath)
+        # print("spike %d from unit %s"%(t_id,unit_titles[SpikeInfo[unit_column][t_id]]))
 
         if best_match == ['b'] and curr_match == ['b','b']:
-            print("Skiping b match",best_match)
+            # print("Skiping b match",best_match)
             continue
 
-        if best_match[0] == 'c':
-            c_spikes.append(t_id)
+        # if best_match == ['a'] and curr_match == ['a','b'] and next_peak < peak+w_time: #If spikes are close enough
+        if best_match == ['a'] and curr_match == ['a','b']:
             non_spikes.append(t_id+1)
 
-            print("spike %d from unit %s"%(t_id,unit_titles[SpikeInfo[unit_column][t_id]]))
-
-            # plt.show()
-
-            # SpikeInfo[unit_column][t_id] = units[0]
-            # SpikeInfo[unit_column][t_id] = units[1]
-            ##TODO add new peak in SpikeInfo, Templates, etc.
+        elif best_match[0] == 'c':
+            c_spikes.append(t_id)
+            non_spikes.append(t_id+1)
         else:
-            # plt.close()
-            SpikeInfo[unit_column][t_id] = title_units[best_match[0]]
+            SpikeInfo[new_column][t_id] = title_units[best_match[0]]
+            to_change.append(t_id) 
             # if len(best_match) < 2: #when match is only a 
-            if best_match == ['a'] and next_peak < peak+w_time: #If spikes are close enough
-                non_spikes.append(t_id+1)
                 # SpikeInfo[unit_column][t_id+1] = '-1'
             # elif best_match >:
             #     print(SpikeInfo[unit_column][t_id+1])
             #     print(title_units[best_match[1]])
             #     SpikeInfo[unit_column][t_id+1] = title_units[best_match[1]]
 
-print(c_spikes,non_spikes)
+print(c_spikes,non_spikes,to_change)
+
+SpikeInfo[new_column].iloc[non_spikes] = '-1'
+SpikeInfo[new_column].iloc[c_spikes] = title_units['a']
+
+# for t_id in to_change:
+for t_id in non_spikes:
+    peak = SpikeInfo['time'][t_id] 
+    t = long_waveforms_align[t_id-1].T
+
+    zoom = [peak- neighbors_t ,peak+neighbors_t]
+    print(t_id)
+    fig, axes=plot_compared_fitted_spikes(Seg, 0, Templates[:40,:], SpikeInfo, [unit_column, new_column], zoom=zoom, save=None)
+    axes[0].plot([peak,next_peak],[1,1],'.',markersize=5,color='r')
+    axes[1].plot([peak,next_peak],[1,1],'.',markersize=5,color='r')
+    outpath = plots_folder / ('changed_spike_'+str(t_id)+'_signal' + fig_format)
+    plt.savefig(outpath)
+    plt.close()
+
+    # title = "spike %d from unit %s"%(t_id,unit_titles[SpikeInfo[unit_column][t_id]])
+    # outpath = plots_folder / ('spike_'+str(t_id)+'_templates_grid_all' + fig_format)
+    # plot_combined_templates(aligned_templates[t_id-1],templates_labels,ncols=8,org_spike=t,distances=distances[t_id-1],title=title,save=outpath)
+    # #TODO change when combined templates is general not working
+    # #     plot_combined_templates(combined_templates,templates_labels,ncols=5)
+
+    title = "spike %d from unit %s"%(t_id,unit_titles[SpikeInfo[unit_column][t_id]])
+    outpath = plots_folder / ('spike_'+str(t_id)+'_templates_grid' + fig_format)
+    plot_combined_templates_bests(aligned_templates[t_id-1][:lim,:],templates_labels,org_spike=t[:lim],distances=distances[t_id-1],title=title,save=outpath)
+
+
+# for t_id in to_change:
+for t_id in to_change:
+    peak = SpikeInfo['time'][t_id] 
+    t = long_waveforms_align[t_id].T
+
+    zoom = [peak- neighbors_t ,peak+neighbors_t]
+    print(t_id)
+    fig, axes=plot_compared_fitted_spikes(Seg, 0, Templates[:40,:], SpikeInfo, [unit_column, new_column], zoom=zoom, save=None)
+    axes[0].plot([peak,next_peak],[1,1],'.',markersize=5,color='r')
+    axes[1].plot([peak,next_peak],[1,1],'.',markersize=5,color='r')
+    outpath = plots_folder / ('changed_spike_'+str(t_id)+'_signal' + fig_format)
+    plt.savefig(outpath)
+    plt.close()
+
+    # title = "spike %d from unit %s"%(t_id,unit_titles[SpikeInfo[unit_column][t_id]])
+    # outpath = plots_folder / ('spike_'+str(t_id)+'_templates_grid_all' + fig_format)
+    # plot_combined_templates(aligned_templates[t_id],templates_labels,ncols=8,org_spike=t,distances=distances[t_id],title=title,save=outpath)
+    # #TODO change when combined templates is general not working
+    # #     plot_combined_templates(combined_templates,templates_labels,ncols=5)
+
+    title = "spike %d from unit %s"%(t_id,unit_titles[SpikeInfo[unit_column][t_id]])
+    outpath = plots_folder / ('spike_'+str(t_id)+'_templates_grid' + fig_format)
+    plot_combined_templates_bests(aligned_templates[t_id][:lim,:],templates_labels,org_spike=t[:lim],distances=distances[t_id],title=title,save=outpath)
+
+
+
+
         # else:
         #     plt.close()
 

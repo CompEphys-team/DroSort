@@ -415,6 +415,10 @@ def plot_compared_fitted_spikes(Segment, j, Models, SpikeInfo, unit_columns, uni
     a_events = [max(a) for a in a_events]
     axes[1].plot(st.times,np.ones(st.times.shape),'|',markersize=2)
 
+    if '-1' in SpikeInfo[unit_columns[1]]:
+        removed = SpikeInfo.groupby(unit_columns[1]).get_group('-1')['time']
+        axes[1].plot(removed,np.ones(removed.shape),'|',markersize=3,color='r')
+
     plt.title(unit_columns[0])
     plot_by_unit(axes[0],st,asig, Models, SpikeInfo, unit_columns[0], unit_order, colors,wsize)
     plt.title(unit_columns[1])
@@ -435,6 +439,7 @@ def plot_compared_fitted_spikes(Segment, j, Models, SpikeInfo, unit_columns, uni
         plt.close(fig)
 
     return fig, axes
+
 
 
 # def plot_compared_traces(AnalogSignal,SpikeTrains, zoom=None, save=None):

@@ -135,7 +135,9 @@ def unassign_spikes(SpikeInfo, unit_column, min_good=5):
 
 
 def to_points(times,fs):
-    return time*fs
+    fs = fs.simplified.magnitude.astype('int32')
+
+    return times*fs
 
 def to_time(points,fs):
     return points/fs
