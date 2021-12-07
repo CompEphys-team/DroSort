@@ -44,7 +44,8 @@ def get_averages_from_units(aligned_spikes,units,SpikeInfo,unit_column,verbose=F
                print_msg("Averaging %d spikes for cluster %s"%(len(templates),unit))
            average_spike = np.average(templates, axis=0)
         except Exception as e:
-            print_msg("Exception in averaging"+str(e.args)+" generating zeros average for %.3f s"%SpikeInfo['time'].iloc[len(SpikeInfo)//2])
+            if verbose:
+                print_msg("Exception in averaging"+str(e.args)+" generating zeros average for %.3f s"%SpikeInfo['time'].iloc[len(SpikeInfo)//2])
             average_spike = np.zeros(aligned_spikes.shape[0])
 
         average_spikes.append(average_spike)

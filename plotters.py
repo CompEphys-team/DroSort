@@ -389,7 +389,7 @@ def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, co
                     asig_recons[int(inds[i]-wsize/2):int(inds[i]+wsize/2)] = spike[spike.size//2-wsize//2:spike.size//2+wsize//2]
 
                 except ValueError as e:
-                    print("In plot by unit exception:",e.args)
+                    # print("In plot by unit exception:",e.args)
                     # thrown when first or last spike smaller than reconstruction window
                     continue
                 # asig_recons[int(inds[i]):int(inds[i]+wsize/2)] = spike[spike.size//2:]
@@ -406,6 +406,15 @@ def plot_compared_fitted_spikes(Segment, j, Models, SpikeInfo, unit_columns, uni
     fig, axes =plt.subplots(nrows=2, sharex=True, sharey=True)
     
     asig = Segment.analogsignals[0]
+    # print(to_points(zoom[0],asig.sampling_rate))
+    asig = asig[int(to_points(zoom[0],asig.sampling_rate)):int(to_points(zoom[1],asig.sampling_rate))]
+    # print(Models.shape)
+    Models = Models[:,SpikeInfo['id'][np.logical_and(SpikeInfo['time']<zoom[1],SpikeInfo['time']>zoom[0])]]
+    print(SpikeInfo.size)
+    
+    SpikeInfo = SpikeInfo[np.logical_and(SpikeInfo['time']<zoom[1],SpikeInfo['time']>zoom[0])]
+    print(SpikeInfo.size)
+
     axes[0].plot(asig.times, asig.data, color='k', lw=1)
     axes[1].plot(asig.times, asig.data, color='k', lw=1)
 
