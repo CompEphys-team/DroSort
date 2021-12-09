@@ -252,12 +252,12 @@ for t_id in labeled:
     t = long_waveforms_align[t_id].T
 
     zoom = [peak- neighbors_t ,peak+neighbors_t]
-    print(t_id)
+    # print(t_id)
     fig, axes=plot_compared_fitted_spikes(Seg, 0, Templates[:40,:], SpikeInfo, [unit_column, new_column], zoom=zoom, save=None,colors=colors)
     axes[0].plot([peak,next_peak],[1,1],'.',markersize=5,color='r')
     axes[1].plot([peak,next_peak],[1,1],'.',markersize=5,color='r')
     outpath = plots_folder / ('-2_changed_spike_'+str(t_id)+'_signal' + fig_format)
-    plt.savefig(outpath)
+    fig.savefig(outpath)
     plt.close()
 
     # title = "spike %d from unit %s"%(t_id,unit_titles[SpikeInfo[unit_column][t_id]])
@@ -273,4 +273,6 @@ for t_id in labeled:
     except:
         plot_combined_templates_bests(aligned_templates[:lim,:],templates_labels,org_spike=t[:lim],distances=distances[t_id],title=title,save=outpath)
 
+
+    plt.close()
 
