@@ -191,8 +191,9 @@ def plot_spike_events(Segment,thres=2,max_window=1,max_row=5,save=None,save_form
 
                 if rejs is not None:
                     chunk_r = rejs[np.where((rejs > t_ini) & (rejs < t_end))]
-                    axes[idx].plot(chunk_r,np.ones(chunk_r.shape),'|',markersize=1,color='r')
-                axes[idx].plot(t_events,a_events,'.',markersize=1)
+                    axes[idx].plot(chunk_r,np.ones(chunk_r.shape),'|',markersize=5,color='r',label='rejected_spikes')
+
+                axes[idx].plot(t_events,a_events,'|',markersize=5,label='detected_spikes')
                 axes[idx].plot(asig.times[ini:end],np.ones(asig.times[ini:end].shape)*thres,linewidth=0.5)
 
             if idx ==0:

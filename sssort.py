@@ -181,6 +181,11 @@ reject_spikes(Templates, SpikeInfo, 'unit', n_neighbors, verbose=True)
 # unassign spikes if unit has too little good spikes
 SpikeInfo = unassign_spikes(SpikeInfo, 'unit',min_good=15)
 
+
+outpath = plots_folder / ("templates_init" + fig_format)
+plot_templates(Templates, SpikeInfo, N=100, save=outpath)
+
+
 """
  
  #### ##    ## #### ######## 
@@ -235,7 +240,7 @@ SpikeInfo['unit_0'] = SpikeInfo['unit'] # the init
 
 # get run parameters from config file
 n_final_clusters = Config.getint('spike sort','n_final_clusters')
-rm_smaller_cluster = Config.getboolean('posprocessing','rm_smaller_cluster')
+rm_smaller_cluster = Config.getboolean('spike sort','rm_smaller_cluster')
 it_merge = Config.getint('spike sort','it_merge')
 org_it_merge = it_merge
 first_merge = Config.getint('spike sort','first_merge')

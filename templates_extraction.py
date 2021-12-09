@@ -129,8 +129,11 @@ print_msg('- spike detect - ')
 mad_thresh = Config.getfloat('spike detect', 'mad_thresh')
 wsize = Config.getfloat('spike detect', 'wsize') * pq.ms
 
+min_ampl = Config.getfloat('preprocessing', 'min_amplitude')
+max_dur = Config.getfloat('preprocessing', 'max_duration')
+
 try:
-    r_non_spikes = Config.getboolean('spike detect','non_spikes')
+    r_non_spikes = Config.getboolean('preprocessing','non_spikes')
 except Exception as e:
     r_non_spikes = True
 
@@ -167,7 +170,7 @@ for i, seg in enumerate(Blk.segments):
 
     # remove bad detections
     if r_non_spikes:
-        st_cut,rejs = reject_non_spikes(AnalogSignal,st_cut,n_samples,verbose=True,plot=False)
+        st_cut,rejs = reject_non_spikes(AnalogSignal,st_cut,n_samples,min_ampl=min_ampl,max_dur=max_dur,verbose=True,plot=False)
 
     seg.spiketrains.append(st_cut)
 
@@ -260,9 +263,6 @@ for j,Seg in enumerate(Blk.segments):
     outpath = plots_folder / ("templates_in_signal_init_%d"%j+fig_format)
     plot_templates_on_trace(Seg, j, Templates, save=outpath,wsize=n_samples,zoom=zoom)
 
-
-outpath = plots_folder / ("templates_init" + fig_format)
-plot_templates(Templates, SpikeInfo, N=100, save=outpath)
 
 #Save all into disk
 

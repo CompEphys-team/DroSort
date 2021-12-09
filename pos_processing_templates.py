@@ -86,7 +86,7 @@ Templates = sp.concatenate(templates,axis=1)
 
 n_samples = np.sum(w_samples)
 
-default_templates = True
+default_templates = False
 
 if not default_templates:
     # Get average shapes
@@ -122,7 +122,7 @@ else:
     A = np.load("./templates/template_a.npy")
     B = np.load("./templates/template_b.npy")
 
-average_spikes = [A,B]
+    average_spikes = [A,B]
 
 #label spike clusters
 amps = [max(av)-min(av) for av in average_spikes]
@@ -165,7 +165,7 @@ combined_templates,templates_labels = get_combined_templates([A,B],dt_c,max_len,
 #########################################################################################################
 mode = 'end'
 mode = 'mean'
-# mode = 'neighbors'
+mode = 'neighbors'
 lim = 120
 
 #Get distances

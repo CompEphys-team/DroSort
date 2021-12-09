@@ -360,7 +360,7 @@ def double_spike_detect(AnalogSignal, bounds_pos,bounds_neg, lowpass_freq=1000*p
     return SpikeTrain
 
 #TODO: do with Templates, updating SpikeInfo
-def reject_non_spikes(AnalogSignal,SpikeTrain,wsize,plot=False,verbose=False):
+def reject_non_spikes(AnalogSignal,SpikeTrain,wsize,min_ampl,max_dur,plot=False,verbose=False):
     """Reject detected spikes that follow any of this restrictions:
             first point much smaller than last
             crosses mid point only once.
@@ -400,8 +400,11 @@ def reject_non_spikes(AnalogSignal,SpikeTrain,wsize,plot=False,verbose=False):
         # non_spike_cond = (waveform[0] < waveform[-1]-ampl*0.2 and np.where(waveform[waveform.size//2:]<thres)[0].size==0)
 
         non_spike_cond = ((waveform[0] < waveform[-1]-ampl*0.2) and ~(waveform[waveform.size//2:]<thres).any())
-        if non_spike_cond or (ampl < 0.25) or (dur > 27):
+        if non_spike_cond or (ampl < min_ampl) or (dur > max_dur):
             to_remove.append(i)
+            print(sp_id,sp,"fst << last",(waveform[0] < waveform[-1]-ampl*0.2),"Doesn't cross thres",~(waveform[waveform.size//2:]<thres).any(),
+                "amplitude",ampl < min_ampl, ampl,'duration',dur > max_dur, dur)
+
             # print(sp,"ini much smaller",(waveform[0] < waveform[-1]-ampl*0.2))
             # print("not going down",~(waveform[waveform.size//2:]<thres).any())
             # print("amplitude < 0.25",(ampl < 0.25))
@@ -756,6 +759,7 @@ def score_amplitude(X,Y):
     return -abs(ampl_Y - ampl_X) #If amplitude is much bigger in prediction, bad score
 
 def double_score(X,Y):
+    """ computes score as a combination of Rss and amplitude"""
     rss = Rss(X,Y)
     ampl = score_amplitude(X,Y)
 

@@ -60,30 +60,76 @@ From the original detection removes spikes that are:
 
 ########TODO insert examples images.
 
+![](../images/bad_spike_example.png)
+
 ## 2. Spike sorting by clustering
 
+The clustering is performed following the original algorithm. A model is generated based on the spike shape and its firing rate. 
+1. Firing rates are estimated for each unit (cluster)
+2. A model is predicted based on the linear relationship between PCA of the waveform and the predicted firing rate. 
+3. It is checked how well do the spikes in the unit fit the prediction "Score". Each spike is assignated the unit with the min score. 
+
+This is performed in each iteration. After this is done, the clusters are compared for a possible merge. A merge is performed when two clusters are so similar, based on a pairwise distance and a probability parameter clust_alpha.
+
+### Changes and restrictions
+The initial number of clusters is set in the config file at the beggining. This could be for example 9. From the initial clustering, the process avobe generating models is performed. Instead of n iterations, the loop will run until it converges to 2 or 3 clusters. 
+
+For the definition of the algorithm, there is an ideal number of clusters when spikes will fit the model and the firing rate, for example when there are two stimulations, for each neuron, the ideal number of clusters could be 4: neuron a, neuron a stimulated, neuron b and neuron b stimulated. Up to this point, merge should be done so the clusters which spikes are similar will be together, but reassign unit based on the model prediction based on the firing rate might missassign spikes.
+
+For that purpose, the parameter 'cluster_limit_train' would set the number of clusters after which there should be no more training and it should only merge. 
+
+The algorithm might get stucked in a certain number of clusters, to avoid that, the merge probability parameter is modified after n unsuccessful merges (n is defined by it_no_merge').
+
+#######TODO image
+
 ## 3. Pos-processing
+The aim of the posprocessing is to fix some spikes that might have been bad assigned. The posprocessing relay on an overall good spike clustering. If there are many spikes bad clustered it might fail.
+1. Cluster identification: when there are 3 clusters, they will be label to a, b or unknown. The SpikeInfo is saved with a -2 for unknown.
+2. Reassign by amplitude 
+3. Reassign by composed spikes
+
 ### 3.1 Cluster identification
-Identifies clusters from a loaded template. Necessary to distinguis between a cluster, b cluster and unknown cluster. 
+Identifies clusters from a loaded template. Necessary to distinguish between a cluster, b cluster and unknown cluster. 
 Assigns a '-2' value to unknown cluster in a new unit column in SpikeInfo.
 
-### 3.2 Reassign by amplitude
-### 3.3 Reassign by composed spikes
-### 3.4 Reassign by neighbors
+### 3.2 Assign unknown by composed templates.
 
-![](../meetings/8-Oct-2021/bad_spike_example.png)
+### 3.3 Reassign by amplitude
+Analyzes each spike and its neighbors amplitude by cluster. If the amplitude of an spike is more similar to their neighbors from the other cluster, the spike is reassigned.
+
+### 3.4 Reassign by composed spikes
+A matrix with all the possible combination of spikes is done. a+b; b+a; a, b and a+b at the same point. 
+1. Computes the average of the 2 types of spikes or loads the default templates. 
+2. Generates the general combined grid.
+3. Generates specific template matrix based on the neighbors average.
+4. Calculates the distance of the spike to each template
+5. Gets best fit and compares to original situation. 
+6. Saves all plots. 
+
+
 ## Use
 Create config file with parameters from template: model.ini. Then run run_all.py script as:
 	
 	python3 run_all.py a_path/model.ini
 
 That will run the following scripts in order:
-python3 run 
+
+	python3 templates_extraction.py a_path/model.ini
+	python3 sssort.py a_path/model.ini
+	python3 cluster_identification.py a_path/exp_name/results
+	python3 pos_processing_amplitude.py a_path/exp_name/results
+	python3 pos_processing_templates.py a_path/exp_name/results
+	
+	###TODO: change by config and not result plot
+	python3 cluster_identification.py a_path/model.ini
+	python3 pos_processing_amplitude.py a_path/model.ini
+	python3 pos_processing_templates.py a_path/model.ini
+
 
 
 ## TODO
 1. Spike detection:
-	- Missing spikes !!!!!^
+	- Missing spikes !!!!!
 	- "double" detection super slow: 
 		
 		a. save min and max at detection
@@ -92,21 +138,18 @@ python3 run
 	- Review spike rejection... Parameters hardcoded
 	
 2. Spike sort:
-
-	- Unused spike rejection --> -1 spikes complicated.
-	- Remove small cluster tricky
+	- Spike rejection "bad spikes" overlaps with the initial rejection.
+	- Remove small cluster... Not so necessary
 
 2. Cluster identification
-
 	- See possible -1 unit.
-3. Posprocessing amplitude
+
 4. Posprocessing templates
 	- General template
-		1. Add -2 unit alternative
 		2. Review outcome
-		3. Analyze single spikes too???
 	- Neighbors
-		1. Spike templates in b spike have a spike... ?!?!?!
+
+
 
 
 	
