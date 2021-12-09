@@ -86,7 +86,7 @@ Templates = sp.concatenate(templates,axis=1)
 
 n_samples = np.sum(w_samples)
 
-default_templates = False
+default_templates = True
 
 if not default_templates:
     # Get average shapes
@@ -163,9 +163,9 @@ combined_templates,templates_labels = get_combined_templates([A,B],dt_c,max_len,
 #########################################################################################################
 ####   Calculate distance from each spike to template
 #########################################################################################################
-mode = 'end'
-mode = 'mean'
-mode = 'neighbors'
+# mode = 'end'
+# mode = 'mean'
+# mode = 'neighbors'
 lim = 120
 
 #Get distances
@@ -258,7 +258,10 @@ elif mode == 'neighbors':
 
     distances = D_pw
 else:
-    long_waveforms = np.array([align_to(np.concatenate((t,[t[-1]]*max_len)),mode) for t in Templates.T])
+    long_waveforms = get_Templates(data, inds, (w_samples[0],w_samples[1]+max_len)).T
+    long_waveforms_align = align_spikes(long_waveforms,mode=mode)
+    aligned_templates = np.array(combined_templates)
+    # long_waveforms = np.array([align_to(np.concatenate((t,[t[-1]]*max_len)),mode) for t in Templates.T])
     distances=distance_to_average(long_waveforms.T,combined_templates)
 
 
@@ -451,7 +454,10 @@ for t_id in non_spikes:
 
     title = "spike %d from unit %s"%(t_id,unit_titles[SpikeInfo[unit_column][t_id]])
     outpath = plots_folder / ('spike_'+str(t_id)+'_templates_grid' + fig_format)
-    plot_combined_templates_bests(aligned_templates[t_id-1][:lim,:],templates_labels,org_spike=t[:lim],distances=distances[t_id-1],title=title,save=outpath)
+    try:
+        plot_combined_templates_bests(aligned_templates[t_id-1][:lim,:],templates_labels,org_spike=t[:lim],distances=distances[t_id-1],title=title,save=outpath)
+    except:
+        plot_combined_templates_bests(aligned_templates[:lim,:],templates_labels,org_spike=t[:lim],distances=distances[t_id-1],title=title,save=outpath)
 
 # for t_id in to_change:
 for t_id in to_change_2:
@@ -475,7 +481,10 @@ for t_id in to_change_2:
 
     title = "spike %d from unit %s"%(t_id,unit_titles[SpikeInfo[unit_column][t_id]])
     outpath = plots_folder / ('-2_spike_'+str(t_id)+'_templates_grid' + fig_format)
-    plot_combined_templates_bests(aligned_templates[t_id][:lim,:],templates_labels,org_spike=t[:lim],distances=distances[t_id],title=title,save=outpath)
+    try:
+        plot_combined_templates_bests(aligned_templates[t_id][:lim,:],templates_labels,org_spike=t[:lim],distances=distances[t_id],title=title,save=outpath)
+    except:
+        plot_combined_templates_bests(aligned_templates[:lim,:],templates_labels,org_spike=t[:lim],distances=distances[t_id],title=title,save=outpath)
 
 
 
@@ -501,5 +510,8 @@ for t_id in to_change:
 
     title = "spike %d from unit %s"%(t_id,unit_titles[SpikeInfo[unit_column][t_id]])
     outpath = plots_folder / ('spike_'+str(t_id)+'_templates_grid' + fig_format)
-    plot_combined_templates_bests(aligned_templates[t_id][:lim,:],templates_labels,org_spike=t[:lim],distances=distances[t_id],title=title,save=outpath)
+    try:
+        plot_combined_templates_bests(aligned_templates[t_id][:lim,:],templates_labels,org_spike=t[:lim],distances=distances[t_id],title=title,save=outpath)
+    except:
+        plot_combined_templates_bests(aligned_templates[:lim,:],templates_labels,org_spike=t[:lim],distances=distances[t_id],title=title,save=outpath)
 
