@@ -168,37 +168,6 @@ def plot_combined_templates_bests(combined_templates,templates_labels,org_spike,
         plt.close()
 
 
-    # for c,ct in enumerate(combined_templates):
-    #     i,j = c//ncols,c%ncols
-
-    #     axes[i,j].plot(org_spike,color='k')
-    #     axes[i,j].plot(ct)
-
-    #     peak_inds = signal.argrelmax(ct)[0]
-    #     peak_inds = peak_inds[np.argsort(ct[peak_inds])[-len(templates_labels[c]):]]
-
-    #     axes[i,j].plot(peak_inds,ct[peak_inds],'.')
-    #     x = combined_templates.shape[1] * 0.75
-
-    #     axes[i,j].text(x, 0.75,str(templates_labels[c]))
-
-    #     if distances is not None:
-    #         if distances[c] == min(distances) or distances[c] == np.sort(distances)[1]:
-    #             color='r'
-    #             change_ax_color(axes[i,j],color)
-    #         else:
-    #             color='k'
-    #         # print(combined_templates.shape)
-
-    #         x = combined_templates.shape[1] * 0.75
-    #         y = -0.75
-    #         axes[i,j].text(x, y,"%.3f"%distances[c],color=color)
-
-    #     # plt.ylim(-2,0)
-
-    # plt.tight_layout()
-
-
 def change_ax_color(ax,color):
     ax.spines['left'].set_color(color)        
     ax.spines['top'].set_color(color) 
