@@ -50,7 +50,7 @@ Assigns a '-2' value to unknown cluster in a new unit column in SpikeInfo.
 ### 3.3 Reassign by composed spikes
 ### 3.4 Reassign by neighbors
 
-
+![](../meetings/8-Oct-2021/bad_spike_example.png)
 ## Use
 Create config file with parameters from template: model.ini. Then run run_all.py script as:
 	
