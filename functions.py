@@ -361,7 +361,15 @@ def double_spike_detect(AnalogSignal, bounds_pos,bounds_neg, lowpass_freq=1000*p
 
 #TODO: do with Templates, updating SpikeInfo
 def reject_non_spikes(AnalogSignal,SpikeTrain,wsize,plot=False,verbose=False):
+    """Reject detected spikes that follow any of this restrictions:
+            first point much smaller than last
+            crosses mid point only once.
+            amplitude is too small for a spike
+            duration is too short for a spike
+    """
     to_remove = []
+
+    #For each detected spike
     for i,sp in enumerate(SpikeTrain):
         sp_id = int(sp*AnalogSignal.sampling_rate)
 
@@ -369,28 +377,33 @@ def reject_non_spikes(AnalogSignal,SpikeTrain,wsize,plot=False,verbose=False):
         # end_waveform = AnalogSignal.magnitude[sp_id:sp_id+wsize//2]
         # ini_waveform = AnalogSignal.magnitude[sp_id-wsize//2:sp_id]
 
-        # half = (max(waveform)+min(waveform))/2
+        # thres = (max(waveform)+min(waveform))/2
+
+
+        #get amplitude and thres reference
         ampl = (max(waveform)-min(waveform))
-        half = max(waveform)-(ampl)/3
+        thres = max(waveform)-(ampl)/3
         # ampl = (max(waveform)-min(waveform))
 
-        try:
-            duration_vals = np.where(np.isclose(waveform, half,atol=0.06))[0]
-            dur = duration_vals[-1]-duration_vals[0]
-        except:
-            dur = -np.inf
+        # get duration of the spike from a threshold
+        # try:
+        #     duration_vals = np.where(np.isclose(waveform, thres,atol=0.06))[0]
+        #     dur = duration_vals[-1]-duration_vals[0]
+        # except:
+        #     dur = -np.inf
+        dur = get_duration(waveform)
 
-        #ignore spike when first point much smaller than last
+        # ignore spike when first point much smaller than last
         # and crosses mid point only once.
         # or amplitude is too small for a spike
         # or duration is too short for a spike
-        # non_spike_cond = (waveform[0] < waveform[-1]-ampl*0.2 and np.where(waveform[waveform.size//2:]<half)[0].size==0)
+        # non_spike_cond = (waveform[0] < waveform[-1]-ampl*0.2 and np.where(waveform[waveform.size//2:]<thres)[0].size==0)
 
-        non_spike_cond = ((waveform[0] < waveform[-1]-ampl*0.2) and ~(waveform[waveform.size//2:]<half).any())
+        non_spike_cond = ((waveform[0] < waveform[-1]-ampl*0.2) and ~(waveform[waveform.size//2:]<thres).any())
         if non_spike_cond or (ampl < 0.25) or (dur > 27):
             to_remove.append(i)
             # print(sp,"ini much smaller",(waveform[0] < waveform[-1]-ampl*0.2))
-            # print("not going down",~(waveform[waveform.size//2:]<half).any())
+            # print("not going down",~(waveform[waveform.size//2:]<thres).any())
             # print("amplitude < 0.25",(ampl < 0.25))
             # print("duration > 25",(dur > 27))
             # print(dur)
@@ -406,13 +419,13 @@ def reject_non_spikes(AnalogSignal,SpikeTrain,wsize,plot=False,verbose=False):
 
             # if sp > 2.25 and sp < 2.3:
             # print('ini-end','back_down','back_down_any')
-            # print(sp,waveform[0] < waveform[-1]-ampl*0.2, np.where(waveform[waveform.size//2:]<half)[0].size==0,~(waveform[waveform.size//2:]<half).any())
+            # print(sp,waveform[0] < waveform[-1]-ampl*0.2, np.where(waveform[waveform.size//2:]<thres)[0].size==0,~(waveform[waveform.size//2:]<thres).any())
             # print('ampl','dur')
             # print((ampl < 0.25),dur > 25)
-            # #     print(waveform[0], waveform[-1],ampl*0.2, half, ampl ,dur)
+            # #     print(waveform[0], waveform[-1],ampl*0.2, thres, ampl ,dur)
             # plt.plot(waveform)
             # plt.plot(waveform.size//2,AnalogSignal.magnitude[sp_id],'.',color='k')
-            # plt.plot(np.ones(waveform.shape)*half)
+            # plt.plot(np.ones(waveform.shape)*thres)
             # plt.plot(waveform[0],'.')
             # plt.plot(waveform.size,waveform[-1],'.')
             # plt.show()
@@ -427,7 +440,7 @@ def reject_non_spikes(AnalogSignal,SpikeTrain,wsize,plot=False,verbose=False):
         # print_msg("Removing spike at "+str(sp))
         print_msg("Removing %d non-spikes"%len(to_remove))
 
-
+    # Generate new SpikeTrain with the ignored spikes
     new_times = np.delete(SpikeTrain.times,to_remove)
     new_waveforms = np.delete(SpikeTrain.waveforms,to_remove)
     new_waveforms = new_waveforms[:,np.newaxis,np.newaxis]
@@ -545,7 +558,8 @@ def peak_reject(Templates, f=3):
     bad_inds = sp.logical_or(left > peak/f, right > peak/f)
     return bad_inds
 
-#TODO: not useful rejection. Review bad spikes influence
+#TODO: not useful rejection. Review bad spikes influence. 
+#       This is from the original version, overlaps with spike_rejection in templates_extraction.
 def reject_spikes(Templates, SpikeInfo, unit_column, n_neighbors=80, verbose=False):
     """ reject bad spikes from Templates, updates SpikeInfo """
     units = get_units(SpikeInfo, unit_column)
@@ -958,9 +972,9 @@ def get_neighbors_amplitude(st,Templates,SpikeInfo,unit_column,unit,idx=0,t=0.3)
 
 def get_duration(waveform):
     ampl = (max(waveform)-min(waveform))
-    half = max(waveform)-(ampl)/3
+    thres = max(waveform)-(ampl)/3
     try:
-        duration_vals = np.where(np.isclose(waveform, half,atol=0.06))[0]
+        duration_vals = np.where(np.isclose(waveform, thres,atol=0.06))[0]
         dur = duration_vals[-1]-duration_vals[0]
     except:
         dur = -np.inf

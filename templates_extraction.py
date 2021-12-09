@@ -64,6 +64,7 @@ print_msg('data read from %s' % data_path)
 mpl.rcParams['figure.dpi'] = Config.get('output','fig_dpi')
 fig_format = Config.get('output','fig_format')
 
+#TODO restriction if you do not want to analyze the whole trace
 # try:
 #     ini = Config.getint('preprocessing','ini') // 1000
 #     end = Config.getint('preprocessing','end') // 1000
@@ -140,7 +141,6 @@ for i, seg in enumerate(Blk.segments):
     bounds_neg = [MAD(AnalogSignal)*(mad_thresh-2), sp.inf] * AnalogSignal.units #TODO hardcode mad_thresh lower
     # bounds_neg = [-sp.inf,-MAD(AnalogSignal)*(mad_thresh-2)] * AnalogSignal.units #TODO hardcode mad_thresh lower
 
-
     fs = Blk.segments[0].analogsignals[0].sampling_rate
     n_samples = (wsize * fs).simplified.magnitude.astype('int32')
 
@@ -183,8 +183,9 @@ for i,seg in enumerate(Blk.segments):
 
 print_msg("detected spikes plotted")
 
-#Detect bad segments based on norm probability distribution
 
+#Detect bad segments based on norm probability distribution 
+#TODO: this is from the original version, does not usually get any result.
 if Config.getboolean('preprocessing', 'sd_reject'):
     stim_onset = Config.getfloat('preprocessing', 'stim_onset') * pq.s
     alpha = Config.getfloat('preprocessing', 'sd_reject_alpha')
@@ -260,12 +261,17 @@ for j,Seg in enumerate(Blk.segments):
     plot_templates_on_trace(Seg, j, Templates, save=outpath,wsize=n_samples,zoom=zoom)
 
 
+outpath = plots_folder / ("templates_init" + fig_format)
+plot_templates(Templates, SpikeInfo, N=100, save=outpath)
+
+#Save all into disk
+
 # templates to disk
 outpath = results_folder / 'Templates_ini.npy'
 sp.save(outpath, Templates)
 print_msg("saving Templates to %s" % outpath)
 
-# templates to disk
+# rejected spikes to disk
 outpath = results_folder / 'rejected_spikes.npy'
 sp.save(outpath, rejs)
 print_msg("saving rejected_spikes to %s" % outpath)

@@ -89,6 +89,7 @@ print_msg('spikes read from %s' % spikes_path)
 Templates= np.load(templates_path)
 print_msg('templates read from %s' % templates_path)
 
+#Load rejected spikes if found
 try:
     rej_spikes = np.load(rej_spikes_path)
 except:
@@ -104,6 +105,9 @@ n_samples = (wsize * fs).simplified.magnitude.astype('int32')
 # plotting
 mpl.rcParams['figure.dpi'] = Config.get('output','fig_dpi')
 fig_format = Config.get('output','fig_format')
+
+
+#TODO restriction if you do not want to analyze the whole trace
 
 # try:
 #     ini = Config.getint('preprocessing','ini') // 1000
@@ -126,6 +130,7 @@ fig_format = Config.get('output','fig_format')
  
 """
 
+#Performs the first clustering from PCA 
 n_clusters_init = Config.getint('spike sort','init_clusters')
 print_msg("initial kmeans with %i clusters" % n_clusters_init)
 pca = PCA(n_components=5) # FIXME HARDCODED PARAMETER
@@ -144,6 +149,8 @@ spike_labels = kmeans_labels.astype('U')
   ######  ##        #### ##    ## ######## #### ##    ## ##        #######  
  
 """
+# Generates the SpikeInfo data frame with first clustering. 
+
 #  make a SpikeInfo dataframe
 SpikeInfo = pd.DataFrame()
 
@@ -156,6 +163,8 @@ spike_times = sp.concatenate([seg.spiketrains[0].times.magnitude for seg in Blk.
 SpikeInfo['time'] = spike_times
 
 # get segment labels
+# This is from the original version, data is in only in the first segment,
+# every value in this column should be 0
 segment_labels = []
 for i, seg in enumerate(Blk.segments):
     segment_labels.append(seg.spiketrains[0].shape[0] * [i])
@@ -163,7 +172,7 @@ segment_labels = sp.concatenate(segment_labels)
 SpikeInfo['segment'] = segment_labels
 
 # get all labels
-SpikeInfo['unit'] = spike_labels #AG: Unit column has cluster id.
+SpikeInfo['unit'] = spike_labels #Unit column has cluster id.
 
 # get clean templates
 n_neighbors = Config.getint('spike model','template_reject')
@@ -171,10 +180,6 @@ reject_spikes(Templates, SpikeInfo, 'unit', n_neighbors, verbose=True)
 
 # unassign spikes if unit has too little good spikes
 SpikeInfo = unassign_spikes(SpikeInfo, 'unit',min_good=15)
-
-outpath = plots_folder / ("templates_init" + fig_format)
-plot_templates(Templates, SpikeInfo, N=100, save=outpath)
-
 
 """
  
@@ -203,10 +208,8 @@ plot_Models(Models, save=outpath)
 
 zoom = sp.array(Config.get('output','zoom').split(','),dtype='float32') / 1000
 
-
 seg_name = Path(Seg.annotations['filename']).stem
 units = get_units(SpikeInfo, 'unit')
-
 
 Blk = populate_block(Blk,SpikeInfo,'unit',units)
 
@@ -214,28 +217,6 @@ Seg = Blk.segments[0]
 outpath = plots_folder / (seg_name + '_fitted_spikes_init' + fig_format)
 plot_fitted_spikes(Seg, 0, Models, SpikeInfo, 'unit', zoom=zoom, save=outpath,wsize=n_samples,rejs=rej_spikes)
 
-# #FIX: Template seems like model?¿?¿?¿?
-# max_window = 0.3 #AG: TODO add to config file
-# plot_fitted_spikes_complete(Blk, Templates, SpikeInfo, 'unit', max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates')
-
-
-# max_window = 0.3 #AG: TODO add to config file
-
-# for j, Seg in enumerate(Blk.segments):
-#     seg_name = Path(Seg.annotations['filename']).stem
-
-#     asig = Seg.analogsignals[0]
-#     max_window = int(max_window*asig.sampling_rate) #FIX conversion from secs to points
-#     n_plots = asig.shape[0]//max_window
-
-#     for n_plot in range(0,n_plots):
-#         outpath = plots_folder / (seg_name + '_templates_%s_%d'%(max_window,n_plot) + fig_format)
-#         ini = n_plot*max_window + max_window
-#         end = ini + max_window
-#         end = min(end, Seg.analogsignals[0].shape[0])
-#         zoom = [ini,end]/asig.sampling_rate
-
-#         plot_templates_on_trace(Seg, j, Templates, save=outpath,wsize=n_samples,zoom=zoom)
 
 """
  
@@ -252,6 +233,7 @@ plot_fitted_spikes(Seg, 0, Models, SpikeInfo, 'unit', zoom=zoom, save=outpath,ws
 # reset
 SpikeInfo['unit_0'] = SpikeInfo['unit'] # the init
 
+# get run parameters from config file
 n_final_clusters = Config.getint('spike sort','n_final_clusters')
 rm_smaller_cluster = Config.getboolean('posprocessing','rm_smaller_cluster')
 it_merge = Config.getint('spike sort','it_merge')
@@ -269,11 +251,13 @@ spike_ids = SpikeInfo['id'].values
 
 it_no_merge = Config.getint('spike sort','it_no_merge')
 
+#init loop params
 it =1
 not_merge =0
 
 change_cluster=Config.getint('spike sort','cluster_limit_train')
 last = False
+
 while n_units >= n_final_clusters and not last:
     if n_units == n_final_clusters:
         last = True
@@ -297,6 +281,7 @@ while n_units >= n_final_clusters and not last:
     score = Rss #change to double_score or amplitude_score for other model scoring
     Scores, units = Score_spikes(Templates, SpikeInfo, prev_unit_col, Models, score_metric=score, penalty=penalty)
 
+    #If still changing from prediction
     if n_units > change_cluster:
         # assign new labels
         min_ix = sp.argmin(Scores, axis=1)
@@ -308,9 +293,10 @@ while n_units >= n_final_clusters and not last:
         new_labels = sp.array(SpikeInfo[prev_unit_col])
 
     SpikeInfo[this_unit_col] = new_labels
-
     n_changes = np.sum(~(SpikeInfo[prev_unit_col]==SpikeInfo[this_unit_col]))
     print("Changes by scoring: %d "%n_changes)
+
+    # merge value forcing
     if it_merge > 1 and n_changes < 3:
         it_merge = 1
         clust_alpha +=0.1
@@ -321,9 +307,10 @@ while n_units >= n_final_clusters and not last:
     reject_spikes(Templates, SpikeInfo, this_unit_col,verbose=False)
 
     # randomly unassign a fraction of spikes
+    #TODO review
     # if it != its-1: # the last
-    N = int(n_spikes * sorting_noise)
-    SpikeInfo.loc[SpikeInfo.sample(N).index,this_unit_col] = '-1'
+    # N = int(n_spikes * sorting_noise)
+    # SpikeInfo.loc[SpikeInfo.sample(N).index,this_unit_col] = '-1'
     
     # plot templates
     outpath = plots_folder / ("Templates_%s%s" % (this_unit_col, fig_format))
@@ -357,6 +344,7 @@ while n_units >= n_final_clusters and not last:
         print_msg("%d failed merges. New alpha value: %f"%(not_merge,clust_alpha))
         not_merge = 0
 
+    
     # Model eval
 
     n_changes,Rss_sum,ScoresSum,units,AICs,n_units = eval_model(SpikeInfo,this_unit_col,prev_unit_col,Scores,Templates,ScoresSum,AICs)
@@ -394,8 +382,8 @@ while n_units >= n_final_clusters and not last:
 #######
 print_msg("algorithm run is done")
 
+#find last column name
 last_unit_col = [col for col in SpikeInfo.columns if col.startswith('unit')][-1]
-
 unit_column = last_unit_col
 
 # #Plot when there's only one trial
@@ -412,7 +400,7 @@ outpath = plots_folder / ("Models_%s%s" % (unit_column,fig_format))
 plot_Models(Models, save=outpath)
 
 
-# Remove the smallest cluster (contains false positive spikes)
+# Remove the smallest cluster
 # TODO change for smallest amplitude?
 if rm_smaller_cluster:
     SpikeInfo['last_remove_save'] = copy.deepcopy(SpikeInfo[unit_column].values)
@@ -460,6 +448,7 @@ kernel = ele.kernels.GaussianKernel(sigma=kernel_fast * pq.s)
 # it = its-1 # the last
 it = it-1
 
+#TODO change for a call to populate block
 for i, seg in tqdm(enumerate(Blk.segments),desc="populating block for output"):
     spike_labels = SpikeInfo.groupby(('segment')).get_group((i))['unit_%i' % it].values
     seg.spiketrains[0].annotations['unit_labels'] = list(spike_labels)
@@ -485,6 +474,8 @@ for i, seg in tqdm(enumerate(Blk.segments),desc="populating block for output"):
         asigs.append(frate)
     seg.analogsignals = asigs
 
+
+#save all
 
 units = get_units(SpikeInfo,unit_column)
 print_msg("Number of spikes in trace: %d"%SpikeInfo[unit_column].size)
@@ -528,19 +519,6 @@ if Config.getboolean('output','csv'):
 
         outpath = results_folder / ("Segment_%s_frates.csv" % seg_name)
         FratesDf.to_csv(outpath)
-            
-        # firing rates - downsampled
-        # tbins = sp.arange(0,12.2,0.1)
-        # FratesDf_ds = pd.DataFrame(columns=FratesDf.columns)
-        # for i in range(1,tbins.shape[0]):
-        #     t0 = tbins[i-1]
-        #     t1 = tbins[i]
-        #     ix = sp.logical_and(FratesDf['t'] > t0,FratesDf['t'] < t1)
-        #     FratesDf_ds = FratesDf_ds.append(FratesDf.iloc[ix.values].mean(axis=0),ignore_index=True)
-        # FratesDf_ds['t'] = tbins[:-1]
-
-        # outpath = results_folder / ("Segment_%s_frates_downsampled.csv" % seg_name)
-        # FratesDf_ds.to_csv(outpath)
     
 
 """
@@ -562,16 +540,6 @@ for j, Seg in enumerate(Blk.segments):
     plot_segment(Seg, units, save=outpath)
 
 # plot all sorted spikes
-# zoom = sp.array(Config.get('output','zoom').split(','),dtype='float32') / 1000
-
-# max_window = 4 #AG: TODO add to config file
-# unit_column = last_unit_col
-
-# plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column, max_window, plots_folder, fig_format,wsize=n_samples)
-
-# max_window = 0.3 #AG: TODO add to config file
-# plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column, max_window, plots_folder, fig_format,wsize=n_samples)
-
 max_window = 0.3 #AG: TODO add to config file
 plot_fitted_spikes_complete(Blk, Templates, SpikeInfo, unit_column, max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates',rejs=rej_spikes)
 
