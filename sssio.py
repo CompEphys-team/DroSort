@@ -101,8 +101,10 @@ def save_data(Blk, path):
     if ext == '.dill':
         blk2dill(Blk, path)
 
+
 if __name__ == '__main__':
     """ for command line usage - first argument being path to list file """
     path = Path(sys.argv[1])
     Blk = list2blk(path)
     blk2dill(Blk, path.with_suffix('.dill'))
+

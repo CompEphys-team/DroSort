@@ -1,4 +1,6 @@
 from functions import *
+import sssio
+from pathlib import Path
 
 import numpy as np
 def get_neighbors_time(asig,st,n_samples,n_neighbors):
@@ -13,7 +15,8 @@ def get_neighbors_time(asig,st,n_samples,n_neighbors):
     # print(np.mean(isis),spike_time)
 
     #TODO: isis * n_neighbors
-    return spike_time*n_neighbors + np.mean(isis)
+    # return spike_time*n_neighbors + np.mean(isis)
+    return spike_time*n_neighbors + np.mean(isis)*n_neighbors
 
 def get_spikes_ids(id_ref,time,SpikeInfo,spike_train):
     """ Get ids from spikes in a certain time window 
@@ -64,7 +67,7 @@ def get_averages_from_units(aligned_spikes,units,SpikeInfo,unit_column,verbose=F
 def get_combined_templates(average_spikes,dt_c,max_len,mode):
     """Gets all possible combinations of spikes and return the waveforms 
     of the templates and the labels. 
-    a,b; b,a; a; b; a+b; """
+    a,b; b,a; b,b; a,a; a; b; a+b; """
 
     combined_templates = []
     A,B = average_spikes
@@ -78,25 +81,38 @@ def get_combined_templates(average_spikes,dt_c,max_len,mode):
     n = len(combined_templates) -n
     templates_labels+=[['b','a']]*n
 
+    #TODO: fix BB and AA, last combination removed to avoid A+A aligned
+    #might mix with c spike. 
+    #Add BB templates
+    prev_n = len(combined_templates)
+    combine_templates(combined_templates,B,B,dt_c,max_len,mode)
+    combined_templates = combined_templates[:-24] #TODO: hardcoded
+    n = len(combined_templates) -prev_n
+    templates_labels+=[['b','b']]*n
+
+    # #Add AA templates
+    # prev_n = len(combined_templates)
+    # combine_templates(combined_templates,A,A,dt_c,max_len,mode)
+    # combined_templates = combined_templates[:-25] #TODO: hardcoded
+    # n = len(combined_templates) -prev_n
+    # templates_labels+=[['a','a']]*n
+
     #Add sum of two
     comb_t =np.array(np.concatenate((A,[A[-1]]*max_len))+np.concatenate((B,[B[-1]]*max_len)))
-    # comb_t =np.array(np.concatenate(([A[0]]*(n_samples//2),A,[A[-1]]*(n_samples//2)))+np.concatenate(([B[0]]*(n_samples//2),B,[B[-1]]*(n_samples//2))))
     combined_templates.append(np.array(align_to(comb_t,mode)))
     templates_labels.append(['c'])
 
     #Add simple A
     comb_t =np.array(np.concatenate((A,[A[-1]]*max_len)))
-    # comb_t =np.array(np.concatenate(([A[0]]*(n_samples//2),A,[A[-1]]*(n_samples//2))))
     combined_templates.append(np.array(align_to(comb_t,mode)))
     templates_labels.append(['a'])
 
     #Add simple B
     comb_t =np.array(np.concatenate((B,[B[-1]]*max_len)))
-    # comb_t =np.array(np.concatenate(([B[0]]*(n_samples//2),B,[B[-1]]*(n_samples//2))))
     combined_templates.append(np.array(align_to(comb_t,mode)))
     templates_labels.append(['b'])
 
-    return combined_templates,templates_labels
+    return np.array(combined_templates),templates_labels
 
 
 #TODO superpos spikes needed????
@@ -112,10 +128,9 @@ def combine_templates(combined_templates,A,B,dt,max_len,align_mode):
         combined_templates.append(np.array(align_to(comb_t,align_mode)))
 
 def plot_combined_templates(combined_templates,templates_labels,ncols=5,org_spike=[],distances=None,title='',save=None):
-    # ncols = 5 
-    nrows = int(np.ceil(len(combined_templates)/ncols))
+    nrows = int(np.ceil(combined_templates.shape[0]/ncols))
 
-    fig, axes= plt.subplots(nrows=nrows,ncols=ncols, sharex=True, sharey=True,figsize=(ncols*2,nrows))
+    fig, axes= plt.subplots(nrows=nrows,ncols=ncols, sharex=True, sharey=True,figsize=(ncols*2,nrows),num=1, clear=True)
     # fig, axes= plt.subplots(nrows=nrows,ncols=ncols, sharex=True, sharey=True)
 
     for c,ct in enumerate(combined_templates):
@@ -124,10 +139,10 @@ def plot_combined_templates(combined_templates,templates_labels,ncols=5,org_spik
         axes[i,j].plot(org_spike,color='k')
         axes[i,j].plot(ct)
 
-        peak_inds = signal.argrelmax(ct)[0]
-        peak_inds = peak_inds[np.argsort(ct[peak_inds])[-len(templates_labels[c]):]]
+        # peak_inds = signal.argrelmax(ct)[0]
+        # peak_inds = peak_inds[np.argsort(ct[peak_inds])[-len(templates_labels[c]):]]
 
-        axes[i,j].plot(peak_inds,ct[peak_inds],'.')
+        # axes[i,j].plot(peak_inds,ct[peak_inds],'.')
         x = combined_templates.shape[1] * 0.75
 
         axes[i,j].text(x, 0.75,str(templates_labels[c]))
@@ -138,7 +153,6 @@ def plot_combined_templates(combined_templates,templates_labels,ncols=5,org_spik
                 change_ax_color(axes[i,j],color)
             else:
                 color='k'
-            # print(combined_templates.shape)
 
             x = combined_templates.shape[1] * 0.75
             y = -0.75
@@ -150,7 +164,8 @@ def plot_combined_templates(combined_templates,templates_labels,ncols=5,org_spik
     plt.tight_layout()
 
     if save is not None:
-        plt.savefig(save)
+        fig.savefig(save)
+        plt.close(fig)
         plt.close()
 
 
@@ -187,3 +202,46 @@ def change_ax_color(ax,color):
     ax.spines['top'].set_color(color) 
     ax.spines['right'].set_color(color)        
     ax.spines['bottom'].set_color(color)    
+
+
+####Defined here and not in sssio due to dependencies with functions.py
+
+def save_all(results_folder,Config,SpikeInfo,Blk,units,Frates=False):
+    # store SpikeInfo
+    outpath = results_folder / 'SpikeInfo.csv'
+    print_msg("saving SpikeInfo to %s" % outpath)
+    SpikeInfo.to_csv(outpath)
+
+    # store Block
+    outpath = results_folder / 'result.dill'
+    print_msg("saving Blk as .dill to %s" % outpath)
+    sssio.blk2dill(Blk, outpath)
+
+    print_msg("data is stored")
+
+
+    # output csv data
+    if Config.getboolean('output','csv'):
+        print_msg("writing csv")
+
+        # SpikeTimes
+        for i, Seg in enumerate(Blk.segments):
+            seg_name = Path(Seg.annotations['filename']).stem
+            for j, unit in enumerate(units):
+                St, = select_by_dict(Seg.spiketrains, unit=unit)
+                outpath = results_folder / ("Segment_%s_unit_%s_spike_times.txt" % (seg_name, unit))
+                np.savetxt(outpath, St.times.magnitude)
+
+        if Frates:
+            # firing rates - full res
+            for i, Seg in enumerate(Blk.segments):
+                FratesDf = pd.DataFrame()
+                seg_name = Path(Seg.annotations['filename']).stem
+                for j, unit in enumerate(units):
+                    asig, = select_by_dict(Seg.analogsignals, kind='frate_fast', unit=unit)
+                    FratesDf['t'] = asig.times.magnitude
+                    FratesDf[unit] = asig.magnitude.flatten()
+
+                outpath = results_folder / ("Segment_%s_frates.csv" % seg_name)
+                FratesDf.to_csv(outpath)
+    

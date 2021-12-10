@@ -31,24 +31,33 @@ from superpos_functions import *
 
 #Load file
 mpl.rcParams['figure.dpi'] = 300
-
-results_folder = Path(os.path.abspath(sys.argv[1]))
-
-# results_folder = config_path.parent / exp_name / 'results'
-plots_folder = results_folder / 'plots' / 'pos_processing'
-os.makedirs(plots_folder, exist_ok=True)
-
 fig_format = '.png'
 
-#load Blk
-Blk=get_data(sys.argv[1]+"/result.dill")
-Seg = Blk.segments[0]
 
-#load SpikeInfo
-SpikeInfo = pd.read_csv(sys.argv[1]+"/SpikeInfo.csv")
+# get config
+config_path = Path(os.path.abspath(sys.argv[1]))
+Config = configparser.ConfigParser()
+Config.read(config_path)
+print_msg('config file read from %s' % config_path)
+
+# handling paths and creating output directory
+data_path = Path(Config.get('path','data_path'))
+if not data_path.is_absolute():
+    data_path = config_path.parent / data_path
+
+exp_name = Config.get('path','experiment_name')
+results_folder = config_path.parent / exp_name / 'results'
+plots_folder = results_folder / 'plots' / 'pos_processing'
+
+os.makedirs(plots_folder, exist_ok=True)
+
+Blk=get_data(results_folder/"result.dill")
+SpikeInfo = pd.read_csv(results_folder/"SpikeInfo.csv")
+
 unit_column = [col for col in SpikeInfo.columns if col.startswith('unit')][-1]
 SpikeInfo = SpikeInfo.astype({unit_column: str})
 units = get_units(SpikeInfo,unit_column)
+
 
 if len(units) != 3:
 	print("Three units needed, only %d found in SpikeInfo"%len(units))

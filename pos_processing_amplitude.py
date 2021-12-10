@@ -1,10 +1,13 @@
 import matplotlib.pyplot as plt
 import pandas as pd
+from sys import path
+import configparser
+
+# from superpos_functions import *
 from sssio import * 
 from plotters import *
 from functions import *
-from sys import path
-from superpos_functions import *
+from posprocessing_functions import *
 
 # path = sys.argv[1]
 
@@ -20,31 +23,45 @@ from superpos_functions import *
 ##
 ################################################################
 
-results_folder = Path(os.path.abspath(sys.argv[1]))
 
-# results_folder = config_path.parent / exp_name / 'results'
+# get config
+config_path = Path(os.path.abspath(sys.argv[1]))
+Config = configparser.ConfigParser()
+Config.read(config_path)
+print_msg('config file read from %s' % config_path)
+
+# handling paths and creating output directory
+data_path = Path(Config.get('path','data_path'))
+if not data_path.is_absolute():
+    data_path = config_path.parent / data_path
+
+exp_name = Config.get('path','experiment_name')
+results_folder = config_path.parent / exp_name / 'results'
 plots_folder = results_folder / 'plots' / 'pos_processing' / 'amplitude'
+
 os.makedirs(plots_folder, exist_ok=True)
 
-fig_format='.png'
+Blk=get_data(results_folder/"result.dill")
+SpikeInfo = pd.read_csv(results_folder/"SpikeInfo.csv")
 
-mpl.rcParams['figure.dpi'] = 300
-
-Blk=get_data(sys.argv[1]+"/result.dill")
-SpikeInfo = pd.read_csv(sys.argv[1]+"/SpikeInfo.csv")
-
-# last_unit_col = [col for col in SpikeInfo.columns if col.startswith('unit')][-1]
 unit_column = [col for col in SpikeInfo.columns if col.startswith('unit')][-1]
-# unit_column = last_unit_col
 SpikeInfo = SpikeInfo.astype({unit_column: str})
 units = get_units(SpikeInfo,unit_column)
+Templates= np.load(results_folder/"Templates_ini.npy")
 
-Templates= np.load(sys.argv[1]+"/Templates_ini.npy")
+
+fig_format='.png'
+mpl.rcParams['figure.dpi'] = 300
+
 
 print_msg("Number of spikes in trace: %d"%SpikeInfo[unit_column].size)
-print_msg("Number of good spikes: %d"%len(SpikeInfo.groupby(['good']).get_group(True)[unit_column]))
+# print_msg("Number of good spikes: %d"%len(SpikeInfo.groupby(['good']).get_group(True)[unit_column]))
 # print_msg("Number of bad spikes: %d"%len(SpikeInfo.groupby(['good']).get_group(False)[unit_column]))
 print_msg("Number of clusters: %d"%len(units))
+print_msg("SpikeInfo units:")
+print(SpikeInfo[unit_column].value_counts())
+
+new_column = 'unit_amplitude'
 
 ################################################################
 ##  
@@ -59,6 +76,9 @@ if '-2' in units:
 if len(units) > 2:
     print_msg("Too many units: %s. Try run cluster_identification.py first"%units)
     exit()
+if new_column in SpikeInfo.keys():
+    print_msg("Posprocessing by amplitude is already in SpikeInfo")
+    exit()
 
 dict_units = {u:i for i,u in enumerate(units)}
 
@@ -68,34 +88,17 @@ Seg = Blk.segments[0]
 n_samples = Templates[:,0].size 
 
 new_labels = copy.deepcopy(SpikeInfo[unit_column].values)
-n_neighbors = 6 #TODO add to config file
-
-# #Time of one spike * number of spikes * 2 (approximate isis)
-# neighbors_t = (n_samples/1000)*n_neighbors 
-# print(neighbors_t)
-# # TODO: fix use sampling and no 1000 ?!?!?!
-# dt = Seg.analogsignals[0].times[1]-Seg.analogsignals[0].times[0]
-# dt = dt.item()
-# neighbors_t = (n_samples*dt)*n_neighbors 
-# print(neighbors_t)
-
-# #Calculate neighbors time as n first spikes + ISIs time
-# neighbors_t = st.times[n_neighbors].item()
 
 # Calculate neighbors time as spike time * n_spikes + isi mean time
-dt = Seg.analogsignals[0].times[1]-Seg.analogsignals[0].times[0]
-dt = dt.item()
-spike_time = n_samples*dt
-isis = [ b-a for a,b in zip(st.times[:-1],st.times[1:])]
-# print(np.mean(isis),spike_time)
-neighbors_t = spike_time*n_neighbors + np.mean(isis)
-# print(neighbors_t)
+n_neighbors = 6#TODO add to config file
+neighbors_t = get_neighbors_time(Seg.analogsignals[0],st,n_samples,n_neighbors)
 print_msg("Surrounding time for neighbors: %f"%neighbors_t)
 #Note: neighbors_t is a fixed time, when checking n neighbours ignoring time, 
 #       the distance between spikes could be too high.
 
+
 #new column in SpikeInfo with changes
-SpikeInfo['unit_amplitude'] = new_labels
+SpikeInfo[new_column] = new_labels
 ids = []
 
 print_msg("Processing comparation")
@@ -115,25 +118,16 @@ for i, (spike_id,org_label) in enumerate(zip(spike_ids,SpikeInfo[unit_column])):
     sur_ampl = get_neighbors_amplitude(st,Templates,SpikeInfo,unit_column,org_label,idx=spike_id,t=neighbors_t)
     sur_ampl_new = get_neighbors_amplitude(st,Templates,SpikeInfo,unit_column,new_label,idx=spike_id,t=neighbors_t)
 
-    # dur = get_duration(spike)
-    # sur_dur = get_neighbors_amplitude(st,Templates,SpikeInfo,unit_column,org_label,idx=spike_id,t=neighbors_t)
-    # sur_dur_new = get_neighbors_amplitude(st,Templates,SpikeInfo,unit_column,new_label,idx=spike_id,t=neighbors_t)
-
     if abs(ampl-sur_ampl) > abs(ampl-sur_ampl_new):
-        SpikeInfo['unit_amplitude'][i] = new_label
+        SpikeInfo[new_column][i] = new_label
         new_labels[i] = new_label
         ids.append(i)
 
         #plot change
         zoom = [st.times[spike_id]-neighbors_t*pq.s,st.times[spike_id]+neighbors_t*pq.s]
         outpath = plots_folder / ("cluster_changed_amplitude_%d"%i+fig_format)
-        fig, axes=plot_compared_fitted_spikes(Seg, 0, Templates, SpikeInfo, [unit_column, 'unit_amplitude'], zoom=zoom, save=outpath,wsize=n_samples)
+        fig, axes=plot_compared_fitted_spikes(Seg, 0, Templates, SpikeInfo, [unit_column, new_column], zoom=zoom, save=outpath,wsize=n_samples)
 
-        # if st.times[spike_id] > 6.2 and st.times[spike_id] < 6.5:
-            # print(ampl,sur_ampl,sur_ampl_new,st.times[spike_id])
-            # print(ampl,abs(ampl-sur_ampl),abs(ampl-sur_ampl_new),SpikeInfo[unit_column][i],SpikeInfo['unit_amplitude'][i])
-            # print(dur,sur_dur,sur_dur_new,st.times[spike_id])
-            # print(dur,abs(dur-sur_dur),abs(dur-sur_ampl_new),SpikeInfo[unit_column][i],SpikeInfo['unit_amplitude'][i])
 
 print_msg("Num of final changes %d"%np.sum(~(SpikeInfo[unit_column]==new_labels).values))
 
@@ -144,43 +138,14 @@ SpikeInfo.to_csv(outpath)
 
 # repopulate block?
 # print(ids)
-# Blk = populate_block(Blk,SpikeInfo,'unit_amplitude',units)
+# Blk = populate_block(Blk,SpikeInfo,new_column,units)
 # st = Blk.segments[0].spiketrains[0]
 
 
-# store SpikeInfo
-outpath = results_folder / 'SpikeInfo.csv'
-print_msg("saving SpikeInfo to %s" % outpath)
-SpikeInfo.to_csv(outpath)
 
-# store Block
-outpath = results_folder / 'result.dill'
-print_msg("saving Blk as .dill to %s" % outpath)
-sssio.blk2dill(Blk, outpath)
 
-print_msg("data is stored")
+print_msg("Saving SpikeInfo, Blk and Spikes into disk")
+print_msg("Current units",units)
+save_all(results_folder,Config,SpikeInfo,Blk,units)
 
-# output csv data
-if Config.getboolean('output','csv'):
-    print_msg("writing csv")
-
-    # SpikeTimes
-    for i, Seg in enumerate(Blk.segments):
-        seg_name = Path(Seg.annotations['filename']).stem
-        for j, unit in enumerate(units):
-            St, = select_by_dict(Seg.spiketrains, unit=unit)
-            outpath = results_folder / ("Segment_%s_unit_%s_spike_times.txt" % (seg_name, unit))
-            np.savetxt(outpath, St.times.magnitude)
-
-    # firing rates - full res
-    for i, Seg in enumerate(Blk.segments):
-        FratesDf = pd.DataFrame()
-        seg_name = Path(Seg.annotations['filename']).stem
-        for j, unit in enumerate(units):
-            asig, = select_by_dict(Seg.analogsignals, kind='frate_fast', unit=unit)
-            FratesDf['t'] = asig.times.magnitude
-            FratesDf[unit] = asig.magnitude.flatten()
-
-        outpath = results_folder / ("Segment_%s_frates.csv" % seg_name)
-        FratesDf.to_csv(outpath)
-    
+print_msg("Done")

@@ -7,6 +7,7 @@ from sys import path
 from superpos_functions import align_spike
 from posprocessing_functions import *
 
+import configparser
 # path = sys.argv[1]
 
 ################################################################
@@ -19,30 +20,52 @@ from posprocessing_functions import *
 ##              Load clustering result
 ##
 ################################################################
+
+#Load from config file
+
 mpl.rcParams['figure.dpi'] = 300
-
-results_folder = Path(os.path.abspath(sys.argv[1]))
-
-# results_folder = config_path.parent / exp_name / 'results'
-plots_folder = results_folder / 'plots' / 'pos_processing' / 'label_unknown'
-os.makedirs(plots_folder, exist_ok=True)
-
 fig_format = '.png'
 
-Blk=get_data(sys.argv[1]+"/result.dill")
-SpikeInfo = pd.read_csv(sys.argv[1]+"/SpikeInfo.csv")
+# get config
+config_path = Path(os.path.abspath(sys.argv[1]))
+Config = configparser.ConfigParser()
+Config.read(config_path)
+print_msg('config file read from %s' % config_path)
+
+# handling paths and creating output directory
+data_path = Path(Config.get('path','data_path'))
+if not data_path.is_absolute():
+    data_path = config_path.parent / data_path
+
+exp_name = Config.get('path','experiment_name')
+results_folder = config_path.parent / exp_name / 'results'
+plots_folder = results_folder / 'plots' / 'pos_processing' / 'label_unknown'
+
+os.makedirs(plots_folder, exist_ok=True)
+
+Blk=get_data(results_folder/"result.dill")
+SpikeInfo = pd.read_csv(results_folder/"SpikeInfo.csv")
 
 unit_column = [col for col in SpikeInfo.columns if col.startswith('unit')][-1]
 SpikeInfo = SpikeInfo.astype({unit_column: str})
 units = get_units(SpikeInfo,unit_column)
-Templates= np.load(sys.argv[1]+"/Templates_ini.npy")
+Templates= np.load(results_folder/"Templates_ini.npy")
+
 
 #third cluster fix
 if '-2' in units:
     units.remove('-2') 
-if len(units) > 2:
-    print_msg("Too many units: %s. Try run cluster_identification.py first"%units)
+elif len(units) > 2:
+    print_msg("-2 cluster not found, run cluster_identification.py first")
+    print(SpikeInfo[unit_column].value_counts())
     exit()
+else:
+    print_msg("Spikes already labeled")
+    print(SpikeInfo[unit_column].value_counts())
+    exit()
+
+# if len(units) > 2:
+#     print_msg("Too many units: %s. Try run cluster_identification.py first"%units)
 
 
 print_msg("Number of spikes in trace: %d"%SpikeInfo[unit_column].size)
@@ -89,12 +112,16 @@ n_samples = np.sum(w_samples)
 default_templates = True
 
 if not default_templates:
+    print_msg("Calculating average templates from units")
+
     # Get average shapes
     mode = 'end'
     aligned_spikes = align_spikes(Templates,mode)
     average_spikes = get_averages_from_units(aligned_spikes,units,SpikeInfo,unit_column)
 
 else:
+    print_msg("Getting average templates from disk")
+
     A = np.load("./templates/template_a.npy")
     B = np.load("./templates/template_b.npy")
 
@@ -121,7 +148,7 @@ sp.save(outpath, A)
 outpath = results_folder / 'template_b.npy'
 sp.save(outpath, B)
 
-
+print_msg("Calculating general combined_templates")
 # Get combined templates from averages
 mode = 'end' # Alignment mode
 dt_c = 2 # moving step to sum signals for different combinations
@@ -139,19 +166,22 @@ combined_templates,templates_labels = get_combined_templates([A,B],dt_c,max_len,
 #########################################################################################################
 # mode = 'end'
 # mode = 'mean'
-# mode = 'neighbors'
-lim = 120
+
+#parameter that modifies last part of the spike
+lim = 120 #TODO: might change when max_len in combined templates changes
 
 #Get distances
 
 #Mode 1 align each combination to the mean and computes distances
 if mode == 'mean':
-    long_waveforms = np.array([np.concatenate(([t[0]]*(n_samples//2),t,[t[-1]]*(n_samples//2))) for t in Templates.T])
+    # long_waveforms = np.array([np.concatenate(([t[0]]*(n_samples//2),t,[t[-1]]*(n_samples//2))) for t in Templates.T])
+    long_waveforms = get_Templates(data, inds, (w_samples[0],w_samples[1]+max_len)).T
     aligned_templates=np.zeros((long_waveforms.shape[0],len(combined_templates),long_waveforms.shape[1]))
     long_waveforms_align = np.zeros(long_waveforms.shape)
 
     D_pw = sp.zeros((long_waveforms_align.shape[0],aligned_templates.shape[1]))
 
+    #Calculates the mean distance between each spike and the templates
     for t_i,t in enumerate(long_waveforms):
         for ct_i,ct in enumerate(combined_templates):
             d_mean = (np.mean(ct)-np.mean(t))**2
@@ -162,15 +192,17 @@ if mode == 'mean':
             long_waveforms_align[t_i] = t_a
             aligned_templates[t_i,ct_i]= ct_a
 
+        #Computes distances for each spike and all the combined templates aligned to it.
         D_pw[t_i,:] = metrics.pairwise.euclidean_distances(aligned_templates[t_i],t.reshape(1,-1)).reshape(-1)
  
     distances = D_pw
 
-else:
+else: #Simplified version: alignment is based on each spike, not their relation. 
+    #Modes: 'peak', 'min', 'ini', 'end'
+
     long_waveforms = get_Templates(data, inds, (w_samples[0],w_samples[1]+max_len)).T
     long_waveforms_align = align_spikes(long_waveforms,mode=mode)
     aligned_templates = np.array(combined_templates)
-    # long_waveforms = np.array([align_to(np.concatenate((t,[t[-1]]*max_len)),mode) for t in Templates.T])
     distances=distance_to_average(long_waveforms.T,combined_templates)
 
 
@@ -186,11 +218,7 @@ colors[title_units['a']] = 'g'
 colors[title_units['b']] = 'b'
 colors['-1'] = 'k'
 colors['-2'] = 'k'
-print(colors)
-# # print(colors)
-
-# t_colors = [colors[unit] for unit in SpikeInfo[unit_column]]
-# print()
+# print(colors)
 
 labeled = []
 
@@ -236,16 +264,12 @@ for t_id,t in enumerate(long_waveforms_align):
         else:
             best_match = templates_labels[np.argmin(distances[t_id])]
 
-
-        # print("guess:",best_match,distances[t_id,np.argmin(distances[t_id])])
-        # print("current:",curr_match)
-        # print(best_match != [unit_titles[my_unit],unit_titles[next_unit]])
-
         SpikeInfo[new_column][t_id] = title_units[best_match[0]]
         labeled.append(t_id)
 
 print_msg("Number of spikes labeled: %d"%len(labeled))
 
+print_msg("Plotting changes")
 # for t_id in to_change:
 for t_id in labeled:
     peak = SpikeInfo['time'][t_id] 
@@ -260,11 +284,16 @@ for t_id in labeled:
     fig.savefig(outpath)
     plt.close()
 
-    # title = "spike %d from unit %s"%(t_id,unit_titles[SpikeInfo[unit_column][t_id]])
-    # outpath = plots_folder / ('spike_'+str(t_id)+'_templates_grid_all' + fig_format)
-    # plot_combined_templates(aligned_templates[t_id],templates_labels,ncols=8,org_spike=t,distances=distances[t_id],title=title,save=outpath)
-    # #TODO change when combined templates is general not working
-    # #     plot_combined_templates(combined_templates,templates_labels,ncols=5)
+    if complete_grid:
+        title = "spike %d from unit %s"%(t_id,unit_titles[SpikeInfo[unit_column][t_id]])
+        outpath = plots_folder / ('spike_'+str(t_id)+'_templates_grid_all' + fig_format)
+        try:
+            plot_combined_templates(aligned_templates[t_id][:lim,:],templates_labels,ncols=8,org_spike=t,distances=distances[t_id],title=title,save=outpath)
+        except:
+            plot_combined_templates(aligned_templates[:lim,:],templates_labels,ncols=8,org_spike=t,distances=distances[t_id],title=title,save=outpath)
+
+        #TODO change when combined templates is general not working
+        #     plot_combined_templates(combined_templates,templates_labels,ncols=5)
 
     title = "spike %d from unit %s"%(t_id,unit_titles[SpikeInfo[unit_column][t_id]])
     outpath = plots_folder / ('-2_spike_'+str(t_id)+'_templates_grid' + fig_format)
@@ -276,3 +305,9 @@ for t_id in labeled:
 
     plt.close()
 
+
+print_msg("Saving SpikeInfo, Blk and Spikes into disk")
+print(units)
+save_all(results_folder,Config,SpikeInfo,Blk,units)
+
+print_msg("Done")

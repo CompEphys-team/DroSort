@@ -170,7 +170,8 @@ for i, seg in enumerate(Blk.segments):
 
     # remove bad detections
     if r_non_spikes:
-        st_cut,rejs = reject_non_spikes(AnalogSignal,st_cut,n_samples,min_ampl=min_ampl,max_dur=max_dur,verbose=True,plot=False)
+        verbose = Config.getboolean('spike detect','verbose')
+        st_cut,rejs = reject_non_spikes(AnalogSignal,st_cut,n_samples,min_ampl=min_ampl,max_dur=max_dur,verbose=verbose,plot=False)
 
     seg.spiketrains.append(st_cut)
 

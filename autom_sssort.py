@@ -20,13 +20,13 @@ for file in smr_files:
 		os.system("python3 smr2dill.py %s %s"%(file,dill_file))
 
 	#create new config file
-	os.system("cp %s/autom_model.ini %s/model.ini "%(d,d))
+	os.system("cp %s/autom_model.ini %s/%s.ini "%(d,d,file_name))
 	
 	#adapt config file
 	adapted_dill_file = file_name.replace('/','\/')+'.dill'
-	os.system("sed -i 's/data_path = file_name/data_path = %s/' %s/model.ini"%(adapted_dill_file,d))
+	os.system("sed -i 's/data_path = file_name/data_path = %s/' %s/%s.ini"%(adapted_dill_file,d,file_name))
 
-	os.system("sed -i 's/experiment_name = exp_name/experiment_name = %s/' %s/model.ini"%(file_name,d))
+	os.system("sed -i 's/experiment_name = exp_name/experiment_name = %s/' %s/%s.ini"%(file_name,d,file_name))
 
 	#run sorting
 	os.system("python3 templates_extraction.py %s/model.ini"%d)

@@ -402,19 +402,11 @@ def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, co
             pass
 
 #TODO add "rej" spikes in function
-def plot_compared_fitted_spikes(Segment, j, Models, SpikeInfo, unit_columns, unit_order=None, zoom=None, save=None, colors=None,wsize=40,rejs=None):
+def plot_compared_fitted_spikes(Segment, j, Models, SpikeInfo, unit_columns, unit_order=None, zoom=None, save=None, colors=None,wsize=40,rejs=None,title=None):
     """ plot to inspect fitted spikes """
     fig, axes =plt.subplots(nrows=2, sharex=True, sharey=True,num=1, clear=True)
     
     asig = Segment.analogsignals[0]
-    # print(to_points(zoom[0],asig.sampling_rate))
-    # asig = asig[int(to_points(zoom[0],asig.sampling_rate)):int(to_points(zoom[1],asig.sampling_rate))]
-    # # print(Models.shape)
-    # Models = Models[:,SpikeInfo['id'][np.logical_and(SpikeInfo['time']<zoom[1],SpikeInfo['time']>zoom[0])]]
-    # # print(SpikeInfo.size)
-    
-    # SpikeInfo = SpikeInfo[np.logical_and(SpikeInfo['time']<zoom[1],SpikeInfo['time']>zoom[0])]
-    # print(SpikeInfo.size)
 
     axes[0].plot(asig.times, asig.data, color='k', lw=1)
     axes[1].plot(asig.times, asig.data, color='k', lw=1)
@@ -423,7 +415,7 @@ def plot_compared_fitted_spikes(Segment, j, Models, SpikeInfo, unit_columns, uni
     #get events amplitude value (spike)
     a_events = st.waveforms
     a_events = [max(a) for a in a_events]
-    axes[1].plot(st.times,np.ones(st.times.shape),'|',markersize=2)
+    # axes[1].plot(st.times,np.ones(st.times.shape),'|',markersize=2)
 
     if '-1' in SpikeInfo[unit_columns[1]]:
         removed = SpikeInfo.groupby(unit_columns[1]).get_group('-1')['time']
@@ -438,8 +430,12 @@ def plot_compared_fitted_spikes(Segment, j, Models, SpikeInfo, unit_columns, uni
         for ax in axes:
             ax.set_xlim(zoom)
             
-    stim_name = Path(Segment.annotations['filename']).stem
-    fig.suptitle(stim_name)
+    if title is None:
+        stim_name = Path(Segment.annotations['filename']).stem
+        fig.suptitle(stim_name)
+    else:
+        fig.suptitle(title)
+
     fig.tight_layout()
     fig.subplots_adjust(top=0.9)
     sns.despine(fig)
