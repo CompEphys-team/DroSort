@@ -404,7 +404,7 @@ def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, co
 #TODO add "rej" spikes in function
 def plot_compared_fitted_spikes(Segment, j, Models, SpikeInfo, unit_columns, unit_order=None, zoom=None, save=None, colors=None,wsize=40,rejs=None):
     """ plot to inspect fitted spikes """
-    fig, axes =plt.subplots(nrows=2, sharex=True, sharey=True)
+    fig, axes =plt.subplots(nrows=2, sharex=True, sharey=True,num=1, clear=True)
     
     asig = Segment.analogsignals[0]
     # print(to_points(zoom[0],asig.sampling_rate))

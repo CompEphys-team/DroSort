@@ -157,7 +157,7 @@ def plot_combined_templates(combined_templates,templates_labels,ncols=5,org_spik
 
 def plot_combined_templates_bests(combined_templates,templates_labels,org_spike,distances,n_bests=2,title='',save=None):
 
-    fig, axes= plt.subplots(nrows=1,ncols=n_bests, sharex=True, sharey=True)
+    fig, axes= plt.subplots(nrows=1,ncols=n_bests, sharex=True, sharey=True,num=1, clear=True)
     # fig, axes= plt.subplots(nrows=nrows,ncols=ncols, sharex=True, sharey=True)
 
     inds = np.argsort(distances)[:2]
@@ -175,8 +175,11 @@ def plot_combined_templates_bests(combined_templates,templates_labels,org_spike,
     plt.tight_layout()
 
     if save is not None:
-        plt.savefig(save)
+        fig.savefig(save)
+        plt.close(fig)
         plt.close()
+
+    return fig,axes
 
 
 def change_ax_color(ax,color):
