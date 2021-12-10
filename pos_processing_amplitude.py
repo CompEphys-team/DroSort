@@ -146,3 +146,41 @@ SpikeInfo.to_csv(outpath)
 # print(ids)
 # Blk = populate_block(Blk,SpikeInfo,'unit_amplitude',units)
 # st = Blk.segments[0].spiketrains[0]
+
+
+# store SpikeInfo
+outpath = results_folder / 'SpikeInfo.csv'
+print_msg("saving SpikeInfo to %s" % outpath)
+SpikeInfo.to_csv(outpath)
+
+# store Block
+outpath = results_folder / 'result.dill'
+print_msg("saving Blk as .dill to %s" % outpath)
+sssio.blk2dill(Blk, outpath)
+
+print_msg("data is stored")
+
+# output csv data
+if Config.getboolean('output','csv'):
+    print_msg("writing csv")
+
+    # SpikeTimes
+    for i, Seg in enumerate(Blk.segments):
+        seg_name = Path(Seg.annotations['filename']).stem
+        for j, unit in enumerate(units):
+            St, = select_by_dict(Seg.spiketrains, unit=unit)
+            outpath = results_folder / ("Segment_%s_unit_%s_spike_times.txt" % (seg_name, unit))
+            np.savetxt(outpath, St.times.magnitude)
+
+    # firing rates - full res
+    for i, Seg in enumerate(Blk.segments):
+        FratesDf = pd.DataFrame()
+        seg_name = Path(Seg.annotations['filename']).stem
+        for j, unit in enumerate(units):
+            asig, = select_by_dict(Seg.analogsignals, kind='frate_fast', unit=unit)
+            FratesDf['t'] = asig.times.magnitude
+            FratesDf[unit] = asig.magnitude.flatten()
+
+        outpath = results_folder / ("Segment_%s_frates.csv" % seg_name)
+        FratesDf.to_csv(outpath)
+    

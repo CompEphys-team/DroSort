@@ -2,15 +2,22 @@ from functions import *
 
 import numpy as np
 def get_neighbors_time(asig,st,n_samples,n_neighbors):
+    """Calculates the window time for n neighbors based on 
+        the duration of a spike and the stimated ISI.
+        spike_time * neighbors + ISI mean
+    """
     dt = asig.times[1]-asig.times[0]
     dt = dt.item()
     spike_time = n_samples*dt
     isis = [ b-a for a,b in zip(st.times[:-1],st.times[1:])]
     # print(np.mean(isis),spike_time)
 
+    #TODO: isis * n_neighbors
     return spike_time*n_neighbors + np.mean(isis)
 
 def get_spikes_ids(id_ref,time,SpikeInfo,spike_train):
+    """ Get ids from spikes in a certain time window 
+    """
     times_all = SpikeInfo['time']
 
     idx_t = times_all.values[id_ref]
@@ -26,13 +33,13 @@ def get_spikes_ids(id_ref,time,SpikeInfo,spike_train):
     return ids
 
 def align_spikes(spikes,mode):
-
+    """Align all spikes given using a certain mode"""
     return np.array([align_to(spike, mode) for spike in spikes.T]).T
 
 
 
 def get_averages_from_units(aligned_spikes,units,SpikeInfo,unit_column,verbose=False):
-    """
+    """Returns the average of the spikes for each unit 
     """
     average_spikes = []
     for unit in units:
@@ -55,6 +62,10 @@ def get_averages_from_units(aligned_spikes,units,SpikeInfo,unit_column,verbose=F
 
 
 def get_combined_templates(average_spikes,dt_c,max_len,mode):
+    """Gets all possible combinations of spikes and return the waveforms 
+    of the templates and the labels. 
+    a,b; b,a; a; b; a+b; """
+
     combined_templates = []
     A,B = average_spikes
     #Add AB templates
