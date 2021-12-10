@@ -22,6 +22,7 @@ Library for neuroscience data. Recordings are organized into blocks and each blo
 Dataframe saving info for each spike detected. This contains the info of the cluster assignation in each iteration, labeled as unit_n. **The number of spikes in SpikeInfo must match the numbers of Templates.** 
 
 Columns:
+
 * 'id' --> spike reference
 * 'time' --> spike time in s
 * 'segment' --> segment where the spike is
@@ -35,6 +36,7 @@ Columns:
 * 'unit_templates'--> changed spikes from "pos_processing_templates.py"
 
 **The labels**. Clusters will have an assigned **positive** integer number from the beggining and during merges some of them may disappear. The numbers in the final result will not necessarily be consecutive nor in order. When a spike is unassigned, it will be marked as -1. 
+
 * 0-n Corresponding cluster unit.
 * -1 unassigned spike
 * -2 unknown cluster identified in "cluster_identification.py". Only when sssort ends at 3 clusters.
@@ -53,6 +55,7 @@ Note: The spikes not detected here will not be used in the following steps of th
 
 Spike rejection:
 From the original detection removes spikes that are:
+
 * First point is much smaller than last.
 * The trace crosses mid point only once.
 * Amplitude is too small for a spike.
@@ -67,7 +70,7 @@ From the original detection removes spikes that are:
 The clustering is performed following the original algorithm. A model is generated based on the spike shape and its firing rate. 
 1. Firing rates are estimated for each unit (cluster)
 2. A model is predicted based on the linear relationship between PCA of the waveform and the predicted firing rate. 
-3. It is checked how well do the spikes in the unit fit the prediction "Score". Each spike is assignated the unit with the min score. 
+3. It is checked how well do the spikes in the unit fit the prediction "Score". Each spike is assigned the unit with the min score. 
 
 This is performed in each iteration. After this is done, the clusters are compared for a possible merge. A merge is performed when two clusters are so similar, based on a pairwise distance and a probability parameter clust_alpha.
 
@@ -78,7 +81,7 @@ For the definition of the algorithm, there is an ideal number of clusters when s
 
 For that purpose, the parameter 'cluster_limit_train' would set the number of clusters after which there should be no more training and it should only merge. 
 
-The algorithm might get stucked in a certain number of clusters, to avoid that, the merge probability parameter is modified after n unsuccessful merges (n is defined by it_no_merge').
+The algorithm might get stacked in a certain number of clusters, to avoid that, the merge probability parameter is modified after n unsuccessful merges (n is defined by it_no_merge').
 
 #######TODO image
 
@@ -93,6 +96,7 @@ Identifies clusters from a loaded template. Necessary to distinguish between a c
 Assigns a '-2' value to unknown cluster in a new unit column in SpikeInfo.
 
 ### 3.2 Assign unknown by composed templates.
+If there is a third cluster, the average is loaded or calculated from the two identified clusters, and the combined spikes are calculated. The spikes in unit '-2' are assigned to the cluster which less distance.
 
 ### 3.3 Reassign by amplitude
 Analyzes each spike and its neighbors amplitude by cluster. If the amplitude of an spike is more similar to their neighbors from the other cluster, the spike is reassigned.
@@ -108,6 +112,10 @@ A matrix with all the possible combination of spikes is done. a+b; b+a; a, b and
 
 
 ## Use
+Convert file to .dill using:
+	
+	python3 smr2dill.py my_file.smr my_file.dill
+	
 Create config file with parameters from template: model.ini. Then run run_all.py script as:
 	
 	python3 run_all.py a_path/model.ini
@@ -116,19 +124,15 @@ That will run the following scripts in order:
 
 	python3 templates_extraction.py a_path/model.ini
 	python3 sssort.py a_path/model.ini
-	python3 cluster_identification.py a_path/exp_name/results
-	python3 pos_processing_amplitude.py a_path/exp_name/results
-	python3 pos_processing_templates.py a_path/exp_name/results
-	
-	###TODO: change by config and not result plot
 	python3 cluster_identification.py a_path/model.ini
+	python3 label_unknown.py a_path/model.ini
 	python3 pos_processing_amplitude.py a_path/model.ini
 	python3 pos_processing_templates.py a_path/model.ini
 
 
-
 ## TODO
 1. Spike detection:
+
 	- Missing spikes !!!!!
 	- "double" detection super slow: 
 		
@@ -138,16 +142,22 @@ That will run the following scripts in order:
 	- Review spike rejection... Parameters hardcoded
 	
 2. Spike sort:
+
 	- Spike rejection "bad spikes" overlaps with the initial rejection.
 	- Remove small cluster... Not so necessary
 
 2. Cluster identification
+
 	- See possible -1 unit.
 
 4. Posprocessing templates
-	- General template
-		2. Review outcome
-	- Neighbors
+
+	- Review outcome in different situations
+	- Spike a+b add b spike to SpikeInfo and Templates
+
+5. Script to change single spike given a reference
+6. Script to plot final result
+	
 
 
 
