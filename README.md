@@ -42,6 +42,7 @@ Columns:
 * -2 unknown cluster identified in "cluster_identification.py". Only when sssort ends at 3 clusters.
 
 ### Templates
+A 2 dimensional array with the spikes waveforms (n_spikes, w_spike). The reference in SpikeInfo['id'] matches each the order in this matrix
 
 ## 1. Spike detection
 This is run by "templates_extraction.py"
