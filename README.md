@@ -112,7 +112,34 @@ A matrix with all the possible combination of spikes is done. a+b; b+a; a, b and
 6. Saves all plots. 
 
 
+
+## Instalation
+This software runs in Python 3. There are some packages that need to be installed. Instalation options:
+### 1. Conda
+You can run Spike Sorting with Conda and use the enviroment on enviroment.yml in this repository. After creating the enviroment you might have all the packages necesaries. **You will have to activate the enviroment everytime you want to use it**. 
+Create conda enviroment
+
+    conda create -n SpikeSort -f enviroment.yml
+
+Activate conda SpikeSort
+
+    conda activate SpikeSort
+
+For finishing using this enviroment:
+
+    conda deactivate
+
+### 2. Manual installation
+
+If you want to manually install the packages instead of using conda, you can either run the scripts and install required packages or try running:
+
+    ./install_dependencies.sh
+
+This bash script for Linux has the main dependencies listed to install with pip. (You can also use this as a reference)
+
 ## Use
+If you are using conda run first:
+    conda activate SpikeSort
 Convert file to .dill using:
 	
 	python3 smr2dill.py my_file.smr my_file.dill
@@ -123,12 +150,12 @@ Create config file with parameters from template: model.ini. Then run run_all.py
 
 That will run the following scripts in order:
 
-	python3 templates_extraction.py a_path/model.ini
-	python3 sssort.py a_path/model.ini
-	python3 cluster_identification.py a_path/model.ini
-	python3 label_unknown.py a_path/model.ini
-	python3 post_processing_amplitude.py a_path/model.ini
-	python3 post_processing_templates.py a_path/model.ini
+	python3 templates_extraction.py examples/model.ini
+	python3 sssort.py examples/model.ini
+	python3 cluster_identification.py examples/model.ini
+	python3 label_unknown_spikes.py a_path/model.ini
+	python3 post_processing_amplitude.py examples/model.ini
+	python3 post_processing_templates.py examples/model.ini
 
 
 ## TODO
