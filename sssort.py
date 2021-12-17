@@ -299,7 +299,7 @@ while n_units >= n_final_clusters and not last:
 
     SpikeInfo[this_unit_col] = new_labels
     n_changes = np.sum(~(SpikeInfo[prev_unit_col]==SpikeInfo[this_unit_col]))
-    print("Changes by scoring: %d "%n_changes)
+    print_msg("Changes by scoring: %d "%n_changes)
 
     # merge value forcing
     if it_merge > 1 and n_changes < 3:

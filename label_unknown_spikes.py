@@ -4,8 +4,8 @@ from sssio import *
 from plotters import *
 from functions import *
 from sys import path
-from superpos_functions import align_spike
-from posprocessing_functions import *
+# from superpos_functions import align_spike
+from postprocessing_functions import *
 
 import configparser
 # path = sys.argv[1]
@@ -23,8 +23,10 @@ import configparser
 
 #Load from config file
 
-mpl.rcParams['figure.dpi'] = 300
-fig_format = '.png'
+#TODO config
+mpl.rcParams['figure.dpi'] = Config.get('output','fig_dpi')
+fig_format = Config.get('output','fig_format')
+complete_grid = Config.get('postprocessing','complete_grid')
 
 # get config
 config_path = Path(os.path.abspath(sys.argv[1]))
@@ -39,7 +41,7 @@ if not data_path.is_absolute():
 
 exp_name = Config.get('path','experiment_name')
 results_folder = config_path.parent / exp_name / 'results'
-plots_folder = results_folder / 'plots' / 'pos_processing' / 'label_unknown'
+plots_folder = results_folder / 'plots' / 'post_processing' / 'label_unknown'
 
 os.makedirs(plots_folder, exist_ok=True)
 
@@ -221,6 +223,7 @@ colors['-2'] = 'k'
 # print(colors)
 
 labeled = []
+small_diff = []
 
 #New column for result
 new_labels = copy.deepcopy(SpikeInfo[unit_column].values)

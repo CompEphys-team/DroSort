@@ -7,13 +7,13 @@ import configparser
 from sssio import * 
 from plotters import *
 from functions import *
-from posprocessing_functions import *
+from postprocessing_functions import *
 
 # path = sys.argv[1]
 
 ################################################################
 ##
-## Posprocessing reasigning clusters by neighbours amplitude.
+## postprocessing reasigning clusters by neighbours amplitude.
 ##
 ################################################################
 
@@ -37,7 +37,7 @@ if not data_path.is_absolute():
 
 exp_name = Config.get('path','experiment_name')
 results_folder = config_path.parent / exp_name / 'results'
-plots_folder = results_folder / 'plots' / 'pos_processing' / 'amplitude'
+plots_folder = results_folder / 'plots' / 'post_processing' / 'amplitude'
 
 os.makedirs(plots_folder, exist_ok=True)
 
@@ -77,7 +77,7 @@ if len(units) > 2:
     print_msg("Too many units: %s. Try run cluster_identification.py first"%units)
     exit()
 if new_column in SpikeInfo.keys():
-    print_msg("Posprocessing by amplitude is already in SpikeInfo")
+    print_msg("postprocessing by amplitude is already in SpikeInfo")
     exit()
 
 dict_units = {u:i for i,u in enumerate(units)}

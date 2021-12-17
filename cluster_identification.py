@@ -26,7 +26,7 @@ import elephant as ele
 from functions import *
 from plotters import *
 from sssio import *
-from superpos_functions import *
+# from superpos_functions import *
  
 
 #Load file
@@ -47,7 +47,7 @@ if not data_path.is_absolute():
 
 exp_name = Config.get('path','experiment_name')
 results_folder = config_path.parent / exp_name / 'results'
-plots_folder = results_folder / 'plots' / 'pos_processing'
+plots_folder = results_folder / 'plots' / 'post_processing'
 
 os.makedirs(plots_folder, exist_ok=True)
 
@@ -58,6 +58,9 @@ unit_column = [col for col in SpikeInfo.columns if col.startswith('unit')][-1]
 SpikeInfo = SpikeInfo.astype({unit_column: str})
 units = get_units(SpikeInfo,unit_column)
 
+#Load Templates
+Waveforms= np.load(results_folder/"Templates_ini.npy")
+n_samples = Waveforms[:,0].size
 
 if len(units) != 3:
 	print("Three units needed, only %d found in SpikeInfo"%len(units))
@@ -67,9 +70,6 @@ if '-2' in units or 'unit_labeled' in SpikeInfo.keys():
     print_msg("Clusters already assigned")
     exit()
 
-#Load Templates
-Waveforms= np.load(sys.argv[1]+"/Templates_ini.npy")
-n_samples = Waveforms[:,0].size
 
 #Load model templates 
 template_a = np.load("./templates/template_a.npy")

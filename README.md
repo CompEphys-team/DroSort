@@ -32,8 +32,8 @@ Columns:
 * 'frate_from_n'
 * 'unit_n'
 * 'unit_labeled' --> changed spikes from "cluster_identification.py"
-* 'unit_amplitude'--> changed spikes from "pos_processing_amplitude.py"
-* 'unit_templates'--> changed spikes from "pos_processing_templates.py"
+* 'unit_amplitude'--> changed spikes from "post_processing_amplitude.py"
+* 'unit_templates'--> changed spikes from "post_processing_templates.py"
 
 **The labels**. Clusters will have an assigned **positive** integer number from the beggining and during merges some of them may disappear. The numbers in the final result will not necessarily be consecutive nor in order. When a spike is unassigned, it will be marked as -1. 
 
@@ -86,8 +86,8 @@ The algorithm might get stacked in a certain number of clusters, to avoid that, 
 
 #######TODO image
 
-## 3. Pos-processing
-The aim of the posprocessing is to fix some spikes that might have been bad assigned. The posprocessing relay on an overall good spike clustering. If there are many spikes bad clustered it might fail.
+## 3. Post-processing
+The aim of the postprocessing is to fix some spikes that might have been bad assigned. The postprocessing relay on an overall good spike clustering. If there are many spikes bad clustered it might fail.
 1. Cluster identification: when there are 3 clusters, they will be label to a, b or unknown. The SpikeInfo is saved with a -2 for unknown.
 2. Reassign by amplitude 
 3. Reassign by composed spikes
@@ -127,8 +127,8 @@ That will run the following scripts in order:
 	python3 sssort.py a_path/model.ini
 	python3 cluster_identification.py a_path/model.ini
 	python3 label_unknown.py a_path/model.ini
-	python3 pos_processing_amplitude.py a_path/model.ini
-	python3 pos_processing_templates.py a_path/model.ini
+	python3 post_processing_amplitude.py a_path/model.ini
+	python3 post_processing_templates.py a_path/model.ini
 
 
 ## TODO
@@ -151,7 +151,7 @@ That will run the following scripts in order:
 
 	- See possible -1 unit.
 
-4. Posprocessing templates
+4. postprocessing templates
 
 	- Review outcome in different situations
 	- Spike a+b add b spike to SpikeInfo and Templates
