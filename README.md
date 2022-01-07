@@ -142,30 +142,34 @@ If you are using conda run first:
 
         conda activate SpikeSort
 
+Move to scripts path
+		
+		cd scripts
+
 Convert file to .dill using:
 	
-	   python3 smr2dill.py my_file.smr my_file.dill
+	   python smr2dill.py ../data/examples/sorttest.smr my_file.dill
 
 Create config file with parameters from template: model.ini. Then run run_all.py script as:
-	   python3 run_all.py examples/model.ini
+	   python run_all.py ../data/examples/model.ini
 
 That will run the following scripts in order:
 
-    	   python3 templates_extraction.py examples/model.ini
+    	   python templates_extraction.py ../data/examples/model.ini
 
-    	   python3 sssort.py examples/model.ini
+    	   python sssort.py ../data/examples/model.ini
 
-    	   python3 cluster_identification.py examples/model.ini
+    	   python cluster_identification.py ../data/examples/model.ini
 
-    	   python3 label_unknown_spikes.py a_path/model.ini
+    	   python label_unknown_spikes.py ../data/examples/model.ini
 
-    	   python3 post_processing_amplitude.py examples/model.ini
+    	   python post_processing_amplitude.py ../data/examples/model.ini
 
-       python3 post_processing_templates.py examples/model.ini
+       python post_processing_templates.py ../data/examples/model.ini
 
-Every scripts uses a config file, you can see a comented example in model.ini
+Every scripts uses a config file, you can see a commented example in model.ini
 
-**Note:** Create one config file for each data file, ideally call the ini file same as the 
+**Note:** Create one config file for each data file, ideally call the ini file same as the data .dill file.
 
 ## TODO
 1. Spike detection:
@@ -185,7 +189,7 @@ Every scripts uses a config file, you can see a comented example in model.ini
 
 2. Cluster identification
 
-	- See possible -1 unit.
+	- label spikes in SpikeInfo
 
 4. postprocessing templates
 
