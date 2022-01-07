@@ -32,8 +32,8 @@ Columns:
 * 'frate_from_n'
 * 'unit_n'
 * 'unit_labeled' --> changed spikes from "cluster_identification.py"
-* 'unit_amplitude'--> changed spikes from "pos_processing_amplitude.py"
-* 'unit_templates'--> changed spikes from "pos_processing_templates.py"
+* 'unit_amplitude'--> changed spikes from "post_processing_amplitude.py"
+* 'unit_templates'--> changed spikes from "post_processing_templates.py"
 
 **The labels**. Clusters will have an assigned **positive** integer number from the beggining and during merges some of them may disappear. The numbers in the final result will not necessarily be consecutive nor in order. When a spike is unassigned, it will be marked as -1. 
 
@@ -85,8 +85,8 @@ The algorithm might get stacked in a certain number of clusters, to avoid that, 
 
 #######TODO image
 
-## 3. Pos-processing
-The aim of the posprocessing is to fix some spikes that might have been bad assigned. The posprocessing relay on an overall good spike clustering. If there are many spikes bad clustered it might fail.
+## 3. Post-processing
+The aim of the postprocessing is to fix some spikes that might have been bad assigned. The postprocessing relay on an overall good spike clustering. If there are many spikes bad clustered it might fail.
 1. Cluster identification: when there are 3 clusters, they will be label to a, b or unknown. The SpikeInfo is saved with a -2 for unknown.
 2. Reassign by amplitude 
 3. Reassign by composed spikes
@@ -111,24 +111,61 @@ A matrix with all the possible combination of spikes is done. a+b; b+a; a, b and
 6. Saves all plots. 
 
 
+
+## Instalation
+This software runs in Python 3. There are some packages that need to be installed. Instalation options:
+### 1. Conda
+You can run Spike Sorting with Conda ([https://docs.anaconda.com/anaconda/install/index.html]) and use the enviroment on enviroment.yml in this repository. After creating the enviroment you might have all the packages necesaries. **You will have to activate the enviroment everytime you want to use it**.
+
+Create conda enviroment
+
+        conda env create -n SpikeSort -f enviroment.yml
+
+Activate conda SpikeSort
+
+        conda activate SpikeSort
+
+For finishing using this enviroment:
+
+        conda deactivate
+
+### 2. Manual installation
+
+If you want to manually install the packages instead of using conda, you can either run the scripts and install required packages or try running:
+
+        ./install_dependencies.sh
+
+This bash script for Linux has the main dependencies listed to install with pip. (You can also use this as a reference)
+
 ## Use
+If you are using conda run first:
+
+        conda activate SpikeSort
+
 Convert file to .dill using:
 	
-	python3 smr2dill.py my_file.smr my_file.dill
-	
+	   python3 smr2dill.py my_file.smr my_file.dill
+
 Create config file with parameters from template: model.ini. Then run run_all.py script as:
-	
-	python3 run_all.py a_path/model.ini
+	   python3 run_all.py examples/model.ini
 
 That will run the following scripts in order:
 
-	python3 templates_extraction.py a_path/model.ini
-	python3 sssort.py a_path/model.ini
-	python3 cluster_identification.py a_path/model.ini
-	python3 label_unknown.py a_path/model.ini
-	python3 pos_processing_amplitude.py a_path/model.ini
-	python3 pos_processing_templates.py a_path/model.ini
+    	   python3 templates_extraction.py examples/model.ini
 
+    	   python3 sssort.py examples/model.ini
+
+    	   python3 cluster_identification.py examples/model.ini
+
+    	   python3 label_unknown_spikes.py a_path/model.ini
+
+    	   python3 post_processing_amplitude.py examples/model.ini
+
+       python3 post_processing_templates.py examples/model.ini
+
+Every scripts uses a config file, you can see a comented example in model.ini
+
+**Note:** Create one config file for each data file, ideally call the ini file same as the 
 
 ## TODO
 1. Spike detection:
@@ -150,7 +187,7 @@ That will run the following scripts in order:
 
 	- See possible -1 unit.
 
-4. Posprocessing templates
+4. postprocessing templates
 
 	- Review outcome in different situations
 	- Spike a+b add b spike to SpikeInfo and Templates

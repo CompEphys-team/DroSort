@@ -7,7 +7,7 @@ from plotters import *
 from functions import *
 from sys import path
 # from superpos_functions import align_spike
-from posprocessing_functions import *
+from postprocessing_functions import *
 
 
 ################################################################
@@ -28,7 +28,7 @@ if not data_path.is_absolute():
 
 exp_name = Config.get('path','experiment_name')
 results_folder = config_path.parent / exp_name / 'results'
-plots_folder = results_folder / 'plots' / 'pos_processing' / 'templates'
+plots_folder = results_folder / 'plots' / 'post_processing' / 'templates'
 
 os.makedirs(plots_folder, exist_ok=True)
 
@@ -41,8 +41,8 @@ units = get_units(SpikeInfo,unit_column)
 Templates= np.load(results_folder/"Templates_ini.npy")
 
 
-fig_format='.png'
-mpl.rcParams['figure.dpi'] = 300
+mpl.rcParams['figure.dpi'] = Config.get('output','fig_dpi')
+fig_format = Config.get('output','fig_format')
 complete_grid = False
 
 #third cluster fix
@@ -176,8 +176,8 @@ plt.show()
 ####   Calculate distance from each spike to template
 #########################################################################################################
 #mode == mean, neighbors or alignment mode 'end', 'ini', 'peak','min'
-mode = Config.get('posprocessing','mode_templates')
-lim = Config.getint('posprocessing','lim_templates')
+mode = Config.get('postprocessing','mode_templates')
+lim = Config.getint('postprocessing','lim_templates')
 
 #Get distances
 if mode == 'neighbors' or mode == 'mean':
