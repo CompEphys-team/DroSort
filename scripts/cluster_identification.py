@@ -68,6 +68,7 @@ if len(units) != 3:
 
 if '-2' in units or 'unit_labeled' in SpikeInfo.keys():
     print_msg("Clusters already assigned")
+    print(SpikeInfo[unit_column].value_counts())
     exit()
 
 

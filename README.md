@@ -119,53 +119,53 @@ You can run Spike Sorting with Conda ([https://docs.anaconda.com/anaconda/instal
 
 Create conda enviroment
 
-        conda env create -n SpikeSort -f enviroment.yml
+	conda env create -n SpikeSort -f enviroment.yml
 
 Activate conda SpikeSort
 
-        conda activate SpikeSort
+    conda activate SpikeSort
 
 For finishing using this enviroment:
 
-        conda deactivate
+	conda deactivate
 
 ### 2. Manual installation
 
 If you want to manually install the packages instead of using conda, you can either run the scripts and install required packages or try running:
 
-        ./install_dependencies.sh
+	./install_dependencies.sh
 
 This bash script for Linux has the main dependencies listed to install with pip. (You can also use this as a reference)
 
 ## Use
 If you are using conda run first:
 
-        conda activate SpikeSort
+	conda activate SpikeSort
 
 Move to scripts path
 		
-		cd scripts
+	cd scripts
 
 Convert file to .dill using:
 	
-	   python smr2dill.py ../data/examples/sorttest.smr my_file.dill
+	python smr2dill.py ../data/examples/sorttest.smr my_file.dill
 
 Create config file with parameters from template: model.ini. Then run run_all.py script as:
-	   python run_all.py ../data/examples/model.ini
+	python run_all.py ../data/examples/model.ini
 
 That will run the following scripts in order:
 
-    	   python templates_extraction.py ../data/examples/model.ini
+	python templates_extraction.py ../data/examples/model.ini
 
-    	   python sssort.py ../data/examples/model.ini
+	python sssort.py ../data/examples/model.ini
 
-    	   python cluster_identification.py ../data/examples/model.ini
+	python cluster_identification.py ../data/examples/model.ini
 
-    	   python label_unknown_spikes.py ../data/examples/model.ini
+	python label_unknown_spikes.py ../data/examples/model.ini
 
-    	   python post_processing_amplitude.py ../data/examples/model.ini
+	python post_processing_amplitude.py ../data/examples/model.ini
 
-       python post_processing_templates.py ../data/examples/model.ini
+    python post_processing_templates.py ../data/examples/model.ini
 
 Every scripts uses a config file, you can see a commented example in model.ini
 

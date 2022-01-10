@@ -23,10 +23,6 @@ import configparser
 
 #Load from config file
 
-#TODO config
-mpl.rcParams['figure.dpi'] = Config.get('output','fig_dpi')
-fig_format = Config.get('output','fig_format')
-complete_grid = Config.get('postprocessing','complete_grid')
 
 # get config
 config_path = Path(os.path.abspath(sys.argv[1]))
@@ -53,6 +49,12 @@ SpikeInfo = SpikeInfo.astype({unit_column: str})
 units = get_units(SpikeInfo,unit_column)
 Templates= np.load(results_folder/"Templates_ini.npy")
 
+
+#plot config
+plotting_changes = Config.getboolean('postprocessing','plot_changes')
+mpl.rcParams['figure.dpi'] = Config.get('output','fig_dpi')
+fig_format = Config.get('output','fig_format')
+complete_grid = Config.getboolean('postprocessing','complete_grid')
 
 #third cluster fix
 if '-2' in units:
@@ -272,45 +274,49 @@ for t_id,t in enumerate(long_waveforms_align):
 
 print_msg("Number of spikes labeled: %d"%len(labeled))
 
-print_msg("Plotting changes")
-# for t_id in to_change:
-for t_id in labeled:
-    peak = SpikeInfo['time'][t_id] 
-    t = long_waveforms_align[t_id].T
-
-    zoom = [peak- neighbors_t ,peak+neighbors_t]
-    # print(t_id)
-    fig, axes=plot_compared_fitted_spikes(Seg, 0, Templates[:40,:], SpikeInfo, [unit_column, new_column], zoom=zoom, save=None,colors=colors)
-    axes[0].plot([peak,next_peak],[1,1],'.',markersize=5,color='r')
-    axes[1].plot([peak,next_peak],[1,1],'.',markersize=5,color='r')
-    outpath = plots_folder / ('-2_changed_spike_'+str(t_id)+'_signal' + fig_format)
-    fig.savefig(outpath)
-    plt.close()
-
-    if complete_grid:
-        title = "spike %d from unit %s"%(t_id,unit_titles[SpikeInfo[unit_column][t_id]])
-        outpath = plots_folder / ('spike_'+str(t_id)+'_templates_grid_all' + fig_format)
-        try:
-            plot_combined_templates(aligned_templates[t_id][:lim,:],templates_labels,ncols=8,org_spike=t,distances=distances[t_id],title=title,save=outpath)
-        except:
-            plot_combined_templates(aligned_templates[:lim,:],templates_labels,ncols=8,org_spike=t,distances=distances[t_id],title=title,save=outpath)
-
-        #TODO change when combined templates is general not working
-        #     plot_combined_templates(combined_templates,templates_labels,ncols=5)
-
-    title = "spike %d from unit %s"%(t_id,unit_titles[SpikeInfo[unit_column][t_id]])
-    outpath = plots_folder / ('-2_spike_'+str(t_id)+'_templates_grid' + fig_format)
-    try:
-        plot_combined_templates_bests(aligned_templates[t_id][:lim,:],templates_labels,org_spike=t[:lim],distances=distances[t_id],title=title,save=outpath)
-    except:
-        plot_combined_templates_bests(aligned_templates[:lim,:],templates_labels,org_spike=t[:lim],distances=distances[t_id],title=title,save=outpath)
-
-
-    plt.close()
 
 
 print_msg("Saving SpikeInfo, Blk and Spikes into disk")
 print(units)
 save_all(results_folder,Config,SpikeInfo,Blk,units)
+
+
+if plotting_changes:
+    print_msg("Plotting changes")
+    # for t_id in to_change:
+    for t_id in labeled:
+        peak = SpikeInfo['time'][t_id] 
+        t = long_waveforms_align[t_id].T
+
+        zoom = [peak- neighbors_t ,peak+neighbors_t]
+        # print(t_id)
+        fig, axes=plot_compared_fitted_spikes(Seg, 0, Templates[:40,:], SpikeInfo, [unit_column, new_column], zoom=zoom, save=None,colors=colors)
+        axes[0].plot([peak,next_peak],[1,1],'.',markersize=5,color='r')
+        axes[1].plot([peak,next_peak],[1,1],'.',markersize=5,color='r')
+        outpath = plots_folder / ('-2_changed_spike_'+str(t_id)+'_signal' + fig_format)
+        fig.savefig(outpath)
+        plt.close()
+
+        if complete_grid:
+            title = "spike %d from unit %s"%(t_id,unit_titles[SpikeInfo[unit_column][t_id]])
+            outpath = plots_folder / ('spike_'+str(t_id)+'_templates_grid_all' + fig_format)
+            try:
+                plot_combined_templates(aligned_templates[t_id][:lim,:],templates_labels,ncols=8,org_spike=t,distances=distances[t_id],title=title,save=outpath)
+            except:
+                plot_combined_templates(aligned_templates[:lim,:],templates_labels,ncols=8,org_spike=t,distances=distances[t_id],title=title,save=outpath)
+
+            #TODO change when combined templates is general not working
+            #     plot_combined_templates(combined_templates,templates_labels,ncols=5)
+
+        title = "spike %d from unit %s"%(t_id,unit_titles[SpikeInfo[unit_column][t_id]])
+        outpath = plots_folder / ('-2_spike_'+str(t_id)+'_templates_grid' + fig_format)
+        try:
+            plot_combined_templates_bests(aligned_templates[t_id][:lim,:],templates_labels,org_spike=t[:lim],distances=distances[t_id],title=title,save=outpath)
+        except:
+            plot_combined_templates_bests(aligned_templates[:lim,:],templates_labels,org_spike=t[:lim],distances=distances[t_id],title=title,save=outpath)
+
+
+        plt.close()
+
 
 print_msg("Done")
