@@ -146,4 +146,4 @@ units = get_units(SpikeInfo, new_column)
 Blk = populate_block(Blk, SpikeInfo, new_column, units)
 save_all(results_folder, Config, SpikeInfo, Blk, units)
 
-print_msg("Done")
+print_msg("all done - quitting")

@@ -407,32 +407,32 @@ def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, co
 #TODO add "rej" spikes in function
 def plot_compared_fitted_spikes(Segment, j, Models, SpikeInfo, unit_columns, unit_order=None, zoom=None, save=None, colors=None,wsize=40,rejs=None,title=None):
     """ plot to inspect fitted spikes """
-    fig, axes =plt.subplots(nrows=2, sharex=True, sharey=True,num=1, clear=True)
-    
+    fig, axes =plt.subplots(nrows=2, sharex=True, sharey=True, num=1, clear=True)
+
     asig = Segment.analogsignals[0]
 
     axes[0].plot(asig.times, asig.data, color='k', lw=1)
     axes[1].plot(asig.times, asig.data, color='k', lw=1)
 
-    st = Segment.spiketrains[0] #get all spike trains (assuming there's only one spike train)
-    #get events amplitude value (spike)
+    st = Segment.spiketrains[0]  # get all spike trains (assuming there's only one spike train)
+    # get events amplitude value (spike)
     a_events = st.waveforms
     a_events = [max(a) for a in a_events]
     # axes[1].plot(st.times,np.ones(st.times.shape),'|',markersize=2)
 
     if '-1' in SpikeInfo[unit_columns[1]]:
         removed = SpikeInfo.groupby(unit_columns[1]).get_group('-1')['time']
-        axes[1].plot(removed,np.ones(removed.shape),'|',markersize=3,color='r')
+        axes[1].plot(removed, np.ones(removed.shape), '|', markersize=3, color='r')
 
     plt.title(unit_columns[0])
-    plot_by_unit(axes[0],st,asig, Models, SpikeInfo, unit_columns[0], unit_order, colors,wsize)
+    plot_by_unit(axes[0], st, asig, Models, SpikeInfo, unit_columns[0], unit_order, colors, wsize)
     plt.title(unit_columns[1])
-    plot_by_unit(axes[1],st,asig, Models, SpikeInfo, unit_columns[1], unit_order, colors,wsize)
+    plot_by_unit(axes[1], st, asig, Models, SpikeInfo, unit_columns[1], unit_order, colors, wsize)
 
     if zoom is not None:
         for ax in axes:
             ax.set_xlim(zoom)
-            
+
     if title is None:
         stim_name = Path(Segment.annotations['filename']).stem
         fig.suptitle(stim_name)
