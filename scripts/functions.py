@@ -103,8 +103,11 @@ def select_by_dict(objs, **selection):
 
 def sort_units(units):
     """ helper to sort units ascendingly according to their number """
-    units = sp.array(units,dtype='int32')
-    units = sp.sort(units).astype('U')
+    try:
+        units = sp.array(units,dtype='int32')
+        units = sp.sort(units).astype('U')
+    except:
+        pass
     return list(units)
 
 def get_units(SpikeInfo, unit_column, remove_unassinged=True):

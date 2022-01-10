@@ -245,7 +245,7 @@ for t_id,t in enumerate(long_waveforms_align):
     next_unit = SpikeInfo[unit_column][t_id+1]
 
     # If its unit -2, label by best match.
-    if int(my_unit) < 0:
+    if my_unit == '-2':
         # #Reasonable distance to next spike
         w_time = (n_samples//2)/10000
 
@@ -278,6 +278,9 @@ print_msg("Number of spikes labeled: %d"%len(labeled))
 
 print_msg("Saving SpikeInfo, Blk and Spikes into disk")
 print(units)
+
+units = get_units(SpikeInfo, new_column)
+Blk = populate_block(Blk, SpikeInfo, new_column, units)
 save_all(results_folder,Config,SpikeInfo,Blk,units)
 
 

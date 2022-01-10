@@ -21,10 +21,13 @@ from functions import *
 
 def get_colors(units, palette='hls', desat=None, keep=True):
     """ return dict mapping unit labels to colors """
-    if keep:
-        n_colors = np.array(units).astype('int32').max()+1
+    if 'a' in units:
+        n_colors = 2
     else:
-        n_colors = len(units)
+        if keep:
+            n_colors = np.array(units).astype('int32').max()+1
+        else:
+            n_colors = len(units)
     colors = sns.color_palette(palette, n_colors=n_colors, desat=desat)
     # unit_ids = sp.arange(n_colors).astype('U')
     return dict(zip(units,colors))

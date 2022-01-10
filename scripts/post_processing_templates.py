@@ -255,10 +255,10 @@ else:
 colors = get_colors(units)
 
 # # #TODO: fix no need to assign color to -1 and -2...
-colors[title_units['a']] = 'g'
-colors[title_units['b']] = 'b'
-colors['-1'] = 'k'
-colors['-2'] = 'k'
+# colors[title_units['a']] = 'g'
+# colors[title_units['b']] = 'b'
+# colors['-1'] = 'k'
+# colors['-2'] = 'k'
 print(colors)
 
 
@@ -333,33 +333,33 @@ for t_id,t in enumerate(long_waveforms_align):
             # print("Skiping b match",best_match)
             continue
 
-        if best_match == ['a'] and curr_match == ['a','b'] and next_peak < peak+w_time: #If spikes are close enough is an a + rebound
+        if best_match == ['a'] and curr_match == ['a','b'] and next_peak < peak+w_time:  #If spikes are close enough is an a + rebound
         # if best_match == ['a'] and curr_match == ['a','b']:
             non_spikes.append(t_id+1)
 
         elif best_match[0] == 'c':
             c_spikes.append(t_id)
             non_spikes.append(t_id+1)
-        
-        else: #general case change current unit and next one by guess
+
+        else:  #general case change current unit and next one by guess
 
             SpikeInfo[new_column][t_id] = title_units[best_match[0]]
             to_change.append(t_id) 
             try:
                 SpikeInfo[new_column][t_id+1] = title_units[best_match[1]]
                 to_change.append(t_id+1) 
-            except: #when guess is only for 1 spike
+            except:  #when guess is only for 1 spike
                 pass
 
 print_msg("Number of spikes relabeled: %d"%len(to_change))
 print_msg("Number of spikes 'non_spikes': %d"%len(non_spikes))
 print_msg("Number of spikes 'large' combined: %d"%len(c_spikes))
 
-#Unassign a rebounds
+# Unassign a rebounds
 SpikeInfo[new_column].iloc[non_spikes] = '-1'
 
-#Modify c spike
-#TODO: add b spike next to it.
+# Modify c spike
+# TODO: add b spike next to it.
 SpikeInfo[new_column].iloc[c_spikes] = title_units['a']
 # id_l = max(SpikeInfo['id'])
 # index = len(SpikeInfo[new_column])
@@ -380,11 +380,14 @@ SpikeInfo[new_column].iloc[c_spikes] = title_units['a']
 # # print(SpikeInfo.keys())
 # SpikeInfo = SpikeInfo.sort_values(by='time')
 
-#TODO: add spike in Templates and Blk?¿
+# TODO: add spike in Templates and Blk?¿
 
 
 print_msg("Saving SpikeInfo, Blk and Spikes into disk")
 print(units)
+
+units = get_units(SpikeInfo, new_column)
+Blk = populate_block(Blk, SpikeInfo, new_column, units)
 save_all(results_folder,Config,SpikeInfo,Blk,units)
 
 outpath = results_folder / 'Templates_final.npy'
@@ -397,14 +400,14 @@ for j, Seg in enumerate(Blk.segments):
     plot_segment(Seg, units, save=outpath)
 
 # plot all sorted spikes
-max_window = 0.3 #AG: TODO add to config file
+max_window = 0.3  # AG: TODO add to config file
 plot_fitted_spikes_complete(Blk, Templates[:40,:], SpikeInfo, unit_column, max_window, plots_folder, fig_format,wsize=40,extension='_templates')
 
 print_msg("plotting done")
 print_msg("all done - quitting")
 
 if plotting_changes:
-    #Plot every change
+    # Plot every change
     for t_id in non_spikes:
         peak = SpikeInfo['time'][t_id] 
         t = long_waveforms_align[t_id-1].T

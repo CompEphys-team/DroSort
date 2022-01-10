@@ -62,11 +62,13 @@ units = get_units(SpikeInfo,unit_column)
 Waveforms= np.load(results_folder/"Templates_ini.npy")
 n_samples = Waveforms[:,0].size
 
+new_column = 'unit_labeled'
+
 if len(units) != 3:
 	print("Three units needed, only %d found in SpikeInfo"%len(units))
 	exit()
 
-if '-2' in units or 'unit_labeled' in SpikeInfo.keys():
+if '-2' in units or new_column in SpikeInfo.keys():
     print_msg("Clusters already assigned")
     print(SpikeInfo[unit_column].value_counts())
     exit()
@@ -110,29 +112,37 @@ for unit in units:
 
 
 print_msg("Distances to a: ")
-print_msg("\t\t%s"%str(units))
-print_msg("\t\t%s"%str(distances_a))
+print_msg("\t\t%s" % str(units))
+print_msg("\t\t%s" % str(distances_a))
 print_msg("Distances to b: ")
-print_msg("\t\t%s"%str(units))
-print_msg("\t\t%s"%str(distances_b))
+print_msg("\t\t%s" % str(units))
+print_msg("\t\t%s" % str(distances_b))
 
-#Get best assignations
+# Get best assignations
 a_unit = units[np.argmin(distances_a)]
 b_unit = units[np.argmin(distances_b)]
 non_unit = [unit for unit in units if a_unit not in unit and b_unit not in unit][0]
 
 
-asigs = {a_unit:'A',b_unit:'B',non_unit:'?'}
-print_msg("Final assignation: %s"%asigs)
+asigs = {a_unit: 'A', b_unit: 'B', non_unit: '?'}
+print_msg("Final assignation: %s" % asigs)
 
-#plot assignation
+# plot assignation
 outpath = plots_folder / ("cluster_reassignation" + fig_format)
-plot_means(means,units,template_a,template_b,asigs=asigs,outpath=outpath)
+plot_means(means, units, template_a, template_b, asigs=asigs, outpath=outpath)
 
 # create new column with reassigned labels
-SpikeInfo['unit_labeled'] = copy.deepcopy(SpikeInfo[unit_column].values)
-Df = SpikeInfo.groupby('unit_labeled').get_group(non_unit)
-SpikeInfo.loc[Df.index, 'unit_labeled'] = '-2'
+SpikeInfo[new_column] = copy.deepcopy(SpikeInfo[unit_column].values)
+non_unit_rows = SpikeInfo.groupby(new_column).get_group(non_unit)
+a_unit_rows = SpikeInfo.groupby(new_column).get_group(a_unit)
+b_unit_rows = SpikeInfo.groupby(new_column).get_group(b_unit)
+
+SpikeInfo.loc[non_unit_rows.index, new_column] = '-2'
+SpikeInfo.loc[a_unit_rows.index, new_column] = 'a'
+SpikeInfo.loc[b_unit_rows.index, new_column] = 'b'
+
+units = get_units(SpikeInfo, new_column)
+Blk = populate_block(Blk, SpikeInfo, new_column, units)
 
 # store SpikeInfo
 outpath = results_folder / 'SpikeInfo.csv'

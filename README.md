@@ -171,6 +171,12 @@ Every scripts uses a config file, you can see a commented example in model.ini
 
 **Note:** Create one config file for each data file, ideally call the ini file same as the data .dill file.
 
+To plot the general result of a concrete experiment run plot_result with the path of the trial as argument:
+    
+    python plot_result.py ../data/examples/sorttest/results/
+
+
+
 ## TODO
 1. Spike detection:
 
