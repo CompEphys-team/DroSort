@@ -38,7 +38,7 @@ SpikeInfo = pd.read_csv(results_folder/"SpikeInfo.csv")
 unit_column = [col for col in SpikeInfo.columns if col.startswith('unit')][-1]
 SpikeInfo = SpikeInfo.astype({unit_column: str})
 units = get_units(SpikeInfo,unit_column)
-Templates= np.load(results_folder/"Templates_ini.npy")
+Templates_ini = np.load(results_folder/"Templates_ini.npy")
 
 
 mpl.rcParams['figure.dpi'] = Config.get('output','fig_dpi')
@@ -66,7 +66,7 @@ Seg = Blk.segments[0]
 
 # new_labels = copy.deepcopy(SpikeInfo[unit_column].values)
 n_neighbors = 6#TODO add to config file
-n_samples = Templates[:,0].size *5
+n_samples = Templates_ini[:,0].size *5
 
 neighbors_t = get_neighbors_time(Seg.analogsignals[0],st,n_samples,n_neighbors)
 
@@ -387,6 +387,8 @@ print_msg("Saving SpikeInfo, Blk and Spikes into disk")
 print(units)
 save_all(results_folder,Config,SpikeInfo,Blk,units)
 
+outpath = results_folder / 'Templates_final.npy'
+sp.save(outpath, Templates[:40,:])
 
 # plot all sorted spikes
 for j, Seg in enumerate(Blk.segments):
@@ -396,7 +398,7 @@ for j, Seg in enumerate(Blk.segments):
 
 # plot all sorted spikes
 max_window = 0.3 #AG: TODO add to config file
-plot_fitted_spikes_complete(Blk, Templates, SpikeInfo, unit_column, max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates')
+plot_fitted_spikes_complete(Blk, Templates[:40,:], SpikeInfo, unit_column, max_window, plots_folder, fig_format,wsize=40,extension='_templates')
 
 print_msg("plotting done")
 print_msg("all done - quitting")

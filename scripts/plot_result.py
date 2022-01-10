@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 import pandas as pd
 from sssio import * 
 from plotters import *
@@ -6,34 +5,36 @@ from functions import *
 
 # path = sys.argv[1]
 
-Blk=get_data(sys.argv[1]+"/result.dill")
+results_folder = Path(os.path.abspath(sys.argv[1]))
+fig_format = '.png'
+Blk = get_data(results_folder / "result.dill")
 
 
-SpikeInfo = pd.read_csv(sys.argv[1]+"/SpikeInfo.csv")
+SpikeInfo = pd.read_csv(results_folder / "SpikeInfo.csv")
 
-print(SpikeInfo.keys())
-print(SpikeInfo)
+Templates = np.load(results_folder / "Templates_final.npy")
 
-last_unit_col = [col for col in SpikeInfo.columns if col.startswith('unit')][-1]
+plots_folder = results_folder / 'plots' / 'final_result'
+os.makedirs(plots_folder, exist_ok=True)
 
-SpikeInfo = SpikeInfo.astype({last_unit_col: str})
+n_samples = Templates.shape[0]
 
-units = get_units(SpikeInfo,last_unit_col)
+unit_column = [col for col in SpikeInfo.columns if col.startswith('unit')][-1]
+print(SpikeInfo[unit_column].value_counts())
+
+SpikeInfo = SpikeInfo.astype({unit_column: str})
+
+units = get_units(SpikeInfo, unit_column)
 print(units)
 
 colors = get_colors(units)
 
-for seg in Blk.segments:
-    print(seg)
-    for n,asig in enumerate(seg.analogsignals):
-        plt.subplot(len(seg.analogsignals),1,n+1)
-        plt.plot(asig.times,asig.magnitude)
+# plot all sorted spikes
+for j, Seg in enumerate(Blk.segments):
+    seg_name = Path(Seg.annotations['filename']).stem
+    outpath = plots_folder / (seg_name + '_final_overview' + fig_format)
+    plot_segment(Seg, units, save=outpath)
 
-        if n==0:
-            for i,sp in enumerate(seg.spiketrains[0]):
-                unit =SpikeInfo[SpikeInfo['id']==i][last_unit_col].values[0] 
-                col = colors[str(unit)]
-
-                plt.plot(seg.spiketrains[0].times[i],seg.spiketrains[0].waveforms.reshape(seg.spiketrains[0].times.size)[i],'.',color=col)
-
-plt.show()
+# plot all sorted spikes
+max_window = 0.3  # AG: TODO add to config file
+plot_fitted_spikes_complete(Blk, Templates, SpikeInfo, unit_column, max_window, plots_folder, fig_format, wsize=n_samples, extension='_final')

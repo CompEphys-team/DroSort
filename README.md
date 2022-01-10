@@ -148,7 +148,7 @@ Move to scripts path
 
 Convert file to .dill using:
 	
-	python smr2dill.py ../data/examples/sorttest.smr my_file.dill
+	python smr2dill.py ../data/examples/sorttest.smr
 
 Create config file with parameters from template: model.ini. Then run run_all.py script as:
 	python run_all.py ../data/examples/model.ini

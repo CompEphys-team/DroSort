@@ -402,8 +402,8 @@ def reject_non_spikes(AnalogSignal,SpikeTrain,wsize,min_ampl,max_dur,plot=False,
         non_spike_cond = ((waveform[0] < waveform[-1]-ampl*0.2) and ~(waveform[waveform.size//2:]<thres).any())
         if non_spike_cond or (ampl < min_ampl) or (dur > max_dur):
             to_remove.append(i)
-            print_msg(str(sp_id)+str(sp)+"fst << last"+str(waveform[0] < waveform[-1]-ampl*0.2)+"Doesn't cross thres"+ str(~(waveform[waveform.size//2:]<thres).any())+
-                "amplitude" + str(ampl < min_ampl) + str(ampl) + 'duration' + str(dur > max_dur) + str(dur))
+            print_msg(str(sp_id)+str(sp)+" fst << last "+str(waveform[0] < waveform[-1]-ampl*0.2)+" Doesn't cross thres "+ str(~(waveform[waveform.size//2:]<thres).any())+
+                " amplitude " + str(ampl < min_ampl) + str(ampl) + ' duration ' + str(dur > max_dur) + str(dur))
 
             # print(sp,"ini much smaller",(waveform[0] < waveform[-1]-ampl*0.2))
             # print("not going down",~(waveform[waveform.size//2:]<thres).any())
