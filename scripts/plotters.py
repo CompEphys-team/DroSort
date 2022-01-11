@@ -298,21 +298,22 @@ def plot_compared_spike_events(Segment1,Segment2,thres=2,max_window=1,max_row=5,
 
 def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=None, zoom=None, save=None, colors=None,wsize=40,rejs=None):
     """ plot to inspect fitted spikes """
-    fig, axes =plt.subplots(nrows=2, sharex=True, sharey=True)
+    fig, axes = plt.subplots(nrows=2, sharex=True, sharey=True)
     
     asig = Segment.analogsignals[0]
     axes[0].plot(asig.times, asig.data, color='k', lw=1)
     axes[1].plot(asig.times, asig.data, color='k', lw=1)
 
-    st = Segment.spiketrains[0] #get all spike trains (assuming there's only one spike train)
-    #get events amplitude value (spike)
+    st = Segment.spiketrains[0]  # get all spike trains (assuming there's only one spike train)
+    # get events amplitude value (spike)
     a_events = st.waveforms
     a_events = [max(a) for a in a_events]
-    axes[1].plot(st.times,np.ones(st.times.shape),'|',markersize=1,label="spike_time_ref")
+    axes[1].plot(st.times, np.ones(st.times.shape), '|', markersize=1, label="spike_time_ref")
     if rejs is not None:
-        axes[1].plot(rejs,np.ones(rejs.shape),'|',markersize=1,color='r',label="rejected_spike")
+        axes[1].plot(rejs, np.ones(rejs.shape), '|', markersize=1, color='r', label="rejected_spike")
 
-    plot_by_unit(axes[1],st,asig, Models, SpikeInfo, unit_column, unit_order, colors,wsize,j)
+    plot_by_unit(axes[1], st, asig, Models, SpikeInfo, unit_column, unit_order,
+                 colors, wsize, j)
 
     if zoom is not None:
         for ax in axes:
@@ -446,7 +447,7 @@ def plot_compared_fitted_spikes(Segment, j, Models, SpikeInfo, unit_columns, uni
     if save is not None:
         fig.savefig(save)
         # plt.close(fig)
-        
+
         # WARNING: do not add plt.close; figure clears by definition
         #         (arg: num=1, clear=True) adding plt.close leaks memory
 
@@ -500,24 +501,24 @@ def plot_templates_on_trace(Segment, j, Templates, zoom=None, save=None,wsize=40
     fs = asig.sampling_rate
 
     asig_recons = sp.zeros(asig.shape[0])
-    asig_recons[:] = sp.nan 
+    asig_recons[:] = sp.nan
 
     inds = (st.times * fs).simplified.magnitude.astype('int32')
     offset = (st.t_start * fs).simplified.magnitude.astype('int32')
     inds = inds - offset
 
-    pred_spikes = Templates[:,:].T
+    pred_spikes = Templates[:, :].T
 
     for i, spike in enumerate(pred_spikes):
-        asig_recons[int(inds[i]-wsize/2):int(inds[i]+wsize/2)] = spike
+        asig_recons[int(inds[i] - wsize/2):int(inds[i] + wsize/2)] = spike
 
     axes[1].plot(asig.times, asig_recons, lw=1.5, color='b')
 
-    #get events amplitude value (spike)
+    # get events amplitude value (spike)
     a_events = st.waveforms
     a_events = [max(a) for a in a_events]
 
-    axes[1].plot(st.times,a_events,'.',markersize=2,color='r')
+    axes[1].plot(st.times, a_events, '.', markersize=2, color='r')
 
     if zoom is not None:
         for ax in axes:

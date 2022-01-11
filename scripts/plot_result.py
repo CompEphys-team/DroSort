@@ -25,7 +25,7 @@ print(SpikeInfo[unit_column].value_counts())
 SpikeInfo = SpikeInfo.astype({unit_column: str})
 
 units = get_units(SpikeInfo, unit_column)
-print(units)
+# print(units)
 
 colors = get_colors(units)
 

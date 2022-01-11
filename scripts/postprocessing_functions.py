@@ -241,3 +241,25 @@ def save_all(results_folder, Config, SpikeInfo, Blk, units, Frates=False):
 
                 outpath = results_folder / ("Segment_%s_frates.csv" % seg_name)
                 FratesDf.to_csv(outpath)
+
+
+def add_spikes_to_SpikeTrain(Blk, new_times, new_waveforms):
+    st_times = Blk.segments[0].spiketrains[0].times
+    times = np.append(st_times,new_times)
+
+    st_waveforms = Blk.segments[0].spiketrains[0].waveforms
+    waveforms = np.append(st_waveforms, new_waveforms)
+    print(waveforms.shape)
+
+    AnalogSignal = Blk.segments[0].analogsignals[0]
+
+    SpikeTrain = neo.core.SpikeTrain(times,
+                                     t_start=AnalogSignal.t_start,
+                                     t_stop=AnalogSignal.t_stop,
+                                     sampling_rate=AnalogSignal.sampling_rate,
+                                     waveforms=waveforms,
+                                     sort=True)
+
+    Blk.segments[0].spiketrains[0] = SpikeTrain
+
+    return Blk
