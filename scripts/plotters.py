@@ -445,7 +445,10 @@ def plot_compared_fitted_spikes(Segment, j, Models, SpikeInfo, unit_columns, uni
 
     if save is not None:
         fig.savefig(save)
-        plt.close(fig)
+        # plt.close(fig)
+        
+        # WARNING: do not add plt.close; figure clears by definition
+        #         (arg: num=1, clear=True) adding plt.close leaks memory
 
     return fig, axes
 

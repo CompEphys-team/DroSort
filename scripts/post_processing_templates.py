@@ -135,21 +135,21 @@ else:
 
     average_spikes = [A, B]
 
-#label spike clusters
-amps = [max(av)-min(av) for av in average_spikes]
+# label spike clusters
+amps = [max(av) - min(av) for av in average_spikes]
 
 a_id = np.argmax(amps)
 b_id = np.argmin(amps)
 
 
-titles={a_id:'a',b_id:'b'}
-unit_titles={units[a_id]:'a',units[b_id]:'b','-2':'?','-1':'-'}
-title_units = {'a':units[a_id],'b':units[b_id],'?':'-2','-':'-1'}
+titles = {a_id: 'a', b_id: 'b'}
+unit_titles = {units[a_id]: 'a', units[b_id]: 'b', '-2': '?', '-1': '-'}
+title_units = {'a': units[a_id], 'b': units[b_id], '?': '-2', '-': '-1'}
 
 A = average_spikes[a_id]
 B = average_spikes[b_id]
 # print(titles)
-print_msg("Labeled units %s"%unit_titles)
+print_msg("Labeled units %s" % unit_titles)
 
 outpath = results_folder / 'template_a.npy'
 sp.save(outpath, A)
@@ -157,53 +157,52 @@ outpath = results_folder / 'template_b.npy'
 sp.save(outpath, B)
 
 
-
-
 # Get combined templates from averages
-mode = 'end' # Alignment mode
-dt_c = 2 # moving step to sum signals for different combinations
-max_len = n_samples # max extension of the combined template
+mode = 'end'  # Alignment mode
+dt_c = 2  # moving step to sum signals for different combinations
+max_len = n_samples  # max extension of the combined template
 
-#Get combination from a, b; b, a; a; b; a+b (c)
+# Get combination from a, b; b, a; a; b; a+b (c)
 combined_templates, templates_labels = get_combined_templates([A, B],dt_c, max_len, mode)
 
-ncols = 10#TODO add to config file
-#Plot templates
+ncols = 10  # TODO add to config file
+# Plot templates
 
 outpath = plots_folder / ('general_combined_templates_grid' + fig_format)
 plot_combined_templates(np.array(combined_templates),templates_labels, ncols=ncols, save=outpath)
-plt.show()
+# plt.show()
 
 #########################################################################################################
 ####   Calculate distance from each spike to template
 #########################################################################################################
+
 #mode == mean, neighbors or alignment mode 'end', 'ini', 'peak','min'
-mode = Config.get('postprocessing','mode_templates')
-lim = Config.getint('postprocessing','lim_templates')
+mode = Config.get('postprocessing', 'mode_templates')
+lim = Config.getint('postprocessing', 'lim_templates')
 
-#Get distances
+# Get distances
 if mode == 'neighbors' or mode == 'mean':
-    long_waveforms = get_Templates(data, inds, (w_samples[0],w_samples[1]+max_len)).T
+    long_waveforms = get_Templates(data, inds, (w_samples[0], w_samples[1] + max_len)).T
 
-    aligned_templates=np.zeros((long_waveforms.shape[0],len(combined_templates),long_waveforms.shape[1]))[:,:,:lim]
-    long_waveforms_align = np.zeros(long_waveforms.shape)[:,:lim]
-    all_combined_templates=np.zeros((long_waveforms.shape[0],len(combined_templates),long_waveforms.shape[1]))
+    aligned_templates = np.zeros((long_waveforms.shape[0], len(combined_templates), long_waveforms.shape[1]))[:, :, :lim]
+    long_waveforms_align = np.zeros(long_waveforms.shape)[:, :lim]
+    all_combined_templates = np.zeros((long_waveforms.shape[0], len(combined_templates), long_waveforms.shape[1]))
 
-    D_pw = sp.zeros((long_waveforms_align.shape[0],aligned_templates.shape[1]))
+    D_pw = sp.zeros((long_waveforms_align.shape[0], aligned_templates.shape[1]))
 
     #TODO: simplify code, put together mean alignment for neighbors and mean
     if mode == 'mean':
-        for t_i, t in enumerate(long_waveforms[:,:lim]):
-            for ct_i, ct in enumerate(combined_templates[:,:lim]):
-                d_mean = (np.mean(ct)-np.mean(t))**2
+        for t_i, t in enumerate(long_waveforms[:, :lim]):
+            for ct_i, ct in enumerate(combined_templates[:, :lim]):
+                d_mean = (np.mean(ct) - np.mean(t))**2
 
                 ct_a = align_to(ct, d_mean)
                 t_a = align_to(t, d_mean)
 
                 long_waveforms_align[t_i] = t_a
-                aligned_templates[t_i, ct_i]= ct_a
+                aligned_templates[t_i, ct_i] = ct_a
 
-            D_pw[t_i,:] = metrics.pairwise.euclidean_distances(aligned_templates[t_i],t.reshape(1,-1)).reshape(-1)
+            D_pw[t_i, :] = metrics.pairwise.euclidean_distances(aligned_templates[t_i],t.reshape(1,-1)).reshape(-1)
 
         distances = D_pw
 
@@ -389,7 +388,7 @@ print(units)
 
 units = get_units(SpikeInfo, new_column)
 Blk = populate_block(Blk, SpikeInfo, new_column, units)
-save_all(results_folder, Config, SpikeInfo, Blk, units)
+# save_all(results_folder, Config, SpikeInfo, Blk, units)
 
 outpath = results_folder / 'Templates_final.npy'
 sp.save(outpath, Templates[:40, :])
@@ -407,13 +406,17 @@ plot_fitted_spikes_complete(Blk, Templates[:40, :], SpikeInfo, unit_column,
 
 print_msg("general plotting done")
 
-
-labels = ['non_spike_'] * len(non_spikes) + ['changed_spike_'] * len(to_change)\
-    + ['sum_spikes_'] * len(c_spikes) + ['small_diff_spike_'] * len(small_diff)
-all_changes = non_spikes + to_change + c_spikes + small_diff
+plotting_changes = True
 
 if plotting_changes:
+
+    # list all changes and labels for output
+    labels = ['non_spike_'] * len(non_spikes) + ['changed_spike_'] * len(to_change)\
+        + ['sum_spikes_'] * len(c_spikes) + ['small_diff_spike_'] * len(small_diff)
+    all_changes = non_spikes + to_change + c_spikes + small_diff
+
     print_msg("plotting changes")
+
     # Plot every change
     for t_id, label in zip(all_changes, labels):
         peak = SpikeInfo['time'][t_id]
@@ -464,15 +467,6 @@ if plotting_changes:
         # except:
         #     plot_combined_templates_bests(aligned_templates, templates_labels, org_spike=t, distances=distances[t_id-1],title=title, save=outpath)
 
-        # plt.close()
-        # # Clear the current axes.
-        # plt.cla() 
-        # # Clear the current figure.
-        # plt.clf() 
-        # # Closes all the figure windows.
-        # plt.close('all')   
-        # plt.close(fig)
-        # gc.collect()
 
 
     # # for t_id in to_change:

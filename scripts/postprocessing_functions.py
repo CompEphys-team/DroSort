@@ -30,13 +30,12 @@ def get_spikes_ids(id_ref, time, SpikeInfo, spike_train):
     # neighbors = times[np.where(SpikeInfo.loc[times, unit_column].values==unit)]
     ids = np.where((spike_train.times > ini) & (spike_train.times < end) & (spike_train.times != idx_t))
 
-
     return ids
+
 
 def align_spikes(spikes, mode):
     """Align all spikes given using a certain mode"""
     return np.array([align_to(spike, mode) for spike in spikes.T]).T
-
 
 
 def get_averages_from_units(aligned_spikes, units, SpikeInfo, unit_column, verbose=False):
@@ -53,7 +52,8 @@ def get_averages_from_units(aligned_spikes, units, SpikeInfo, unit_column, verbo
            average_spike = np.average(templates, axis=0)
         except Exception as e:
             if verbose:
-                print_msg("Exception in averaging" + str(e.args) + " generating zeros average for %.3f s" % SpikeInfo['time'].iloc[len(SpikeInfo) // 2])
+                print_msg("Exception in averaging" + str(e.args) + " generating\
+                zeros average for %.3f s" % SpikeInfo['time'].iloc[len(SpikeInfo) // 2])
             average_spike = np.zeros(aligned_spikes.shape[0])
 
         average_spikes.append(average_spike)
@@ -127,7 +127,6 @@ def plot_combined_templates(combined_templates, templates_labels, ncols=5, org_s
     nrows = int(np.ceil(combined_templates.shape[0] / ncols))
 
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols, sharex=True, sharey=True, figsize=(ncols * 2, nrows), num=1, clear=True)
-    # fig, axes= plt.subplots(nrows=nrows, ncols=ncols, sharex=True, sharey=True)
 
     for c, ct in enumerate(combined_templates):
         i, j = c // ncols, c % ncols
@@ -139,9 +138,10 @@ def plot_combined_templates(combined_templates, templates_labels, ncols=5, org_s
         # peak_inds = peak_inds[np.argsort(ct[peak_inds])[-len(templates_labels[c]):]]
 
         # axes[i, j].plot(peak_inds, ct[peak_inds],'.')
-        x = combined_templates.shape[1] * 0.75
+        x = 0.6
+        y = 0.7
 
-        axes[i, j].text(x, 0.75, str(templates_labels[c]))
+        axes[i, j].text(x,y, str(templates_labels[c]), transform=axes[i,j].transAxes)
 
         if distances is not None:
             if distances[c] == min(distances) or distances[c] == np.sort(distances)[1]:
@@ -150,9 +150,8 @@ def plot_combined_templates(combined_templates, templates_labels, ncols=5, org_s
             else:
                 color = 'k'
 
-            x = combined_templates.shape[1] * 0.75
-            y = -0.75
-            axes[i, j].text(x, y, "%.3f" % distances[c], color=color)
+            y = 0.2
+            axes[i, j].text(x, y, "%.3f" % distances[c], color=color, transform=axes[i,j].transAxes)
 
         # plt.ylim(-2, 0)
 
@@ -164,23 +163,23 @@ def plot_combined_templates(combined_templates, templates_labels, ncols=5, org_s
         # plt.close(fig)
         # plt.close()
 
+        # WARNING: do not add plt.close; figure clears by definition
+        #         (arg: num=1, clear=True) adding plt.close leaks memory
+
 
 def plot_combined_templates_bests(combined_templates, templates_labels, org_spike, distances, n_bests=2, title='', save=None):
 
     fig, axes = plt.subplots(nrows=1, ncols=n_bests, sharex=True, sharey=True, num=1, clear=True)
-    # fig, axes= plt.subplots(nrows=nrows, ncols=ncols, sharex=True, sharey=True)
-
     inds = np.argsort(distances)[:2]
 
     for i, ind in enumerate(inds):
-        axes[i].plot(org_spike, color='k')
-        axes[i].plot(combined_templates[ind])
+        axes[i].plot(org_spike, color='k', label="spike")
+        axes[i].plot(combined_templates[ind], label="template")
 
-        x = combined_templates.shape[1] * 0.75
-        y = -0.5
-        axes[i].text(x, 0.75, str(templates_labels[ind]))
-        axes[i].text(x, y, "%.3f" % distances[ind] , color='k')
+        axes[i].text(x=0.8, y=0.8, s=str(templates_labels[ind]), fontsize=15, transform=axes[i].transAxes)
+        axes[i].text(x=0.6, y=0.2, s="distance = %.3f" % distances[ind], fontsize=15, color='k', transform=axes[i].transAxes)
 
+    plt.legend()
     plt.suptitle(title)
     plt.tight_layout()
 
@@ -188,7 +187,7 @@ def plot_combined_templates_bests(combined_templates, templates_labels, org_spik
         fig.savefig(save)
         # WARNING: do not add plt.close; figure clears by definition
         #         (arg: num=1, clear=True) adding plt.close leaks memory
-        
+
         # plt.close(fig)
         # plt.close()
 
