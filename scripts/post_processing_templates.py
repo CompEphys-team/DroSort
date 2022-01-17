@@ -410,11 +410,12 @@ SpikeInfo[new_column].iloc[non_spikes] = '-1'
 # print(Blk.segments[0].spiketrains[2].times.shape)
 # print(Blk.segments[0].spiketrains[0].waveforms.shape)
 
-# print_msg("Saving SpikeInfo, Blk and Spikes into disk")
+print_msg("Saving SpikeInfo, Blk and Spikes into disk")
 
-# units = get_units(SpikeInfo, new_column)
-# Blk = populate_block(Blk, SpikeInfo, new_column, units)
-# # save_all(results_folder, Config, SpikeInfo, Blk, units)
+units = get_units(SpikeInfo, new_column)
+Blk = populate_block(Blk, SpikeInfo, new_column, units)
+output_csv = Config.getboolean('output', 'csv')
+save_all(results_folder, output_csv, SpikeInfo, Blk, units)
 
 
 outpath = results_folder / 'Templates_final.npy'

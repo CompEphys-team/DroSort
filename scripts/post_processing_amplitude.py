@@ -144,6 +144,7 @@ print_msg("Current units", units)
 
 units = get_units(SpikeInfo, new_column)
 Blk = populate_block(Blk, SpikeInfo, new_column, units)
-save_all(results_folder, Config, SpikeInfo, Blk, units)
+output_csv = Config.getboolean('output', 'csv')
+save_all(results_folder, output_csv, SpikeInfo, Blk, units)
 
 print_msg("all done - quitting")

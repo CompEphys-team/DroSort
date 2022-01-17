@@ -203,7 +203,7 @@ def change_ax_color(ax, color):
 
 # Defined here and not in sssio due to dependencies with functions.py
 
-def save_all(results_folder, Config, SpikeInfo, Blk, units, Frates=False):
+def save_all(results_folder, output_csv, SpikeInfo, Blk, units, Frates=False):
     # store SpikeInfo
     outpath = results_folder / 'SpikeInfo.csv'
     print_msg("saving SpikeInfo to %s" % outpath)
@@ -218,7 +218,8 @@ def save_all(results_folder, Config, SpikeInfo, Blk, units, Frates=False):
 
 
     # output csv data
-    if Config.getboolean('output','csv'):
+    # if Config.getboolean('output','csv'):
+    if output_csv:
         print_msg("writing csv")
 
         # SpikeTimes
