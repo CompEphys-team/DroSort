@@ -175,6 +175,11 @@ To plot the general result of a concrete experiment run plot_result with the pat
     
     python plot_result.py ../data/examples/sorttest/results/
 
+To change one concrete spike you can run change_spike.py and specify the id and the label you want for the spike:
+    
+    python change_spike.py -p ../data/examples/sorttest/results/ -id 392 -u b
+
+Note: the arguments value must be specified with the argument flag as -p, -id or -u for path, spike id and unit, respectively.
 
 
 ## TODO
