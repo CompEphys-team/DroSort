@@ -356,70 +356,33 @@ print_msg("Number of spikes 'large' combined: %d" % len(c_spikes))
 SpikeInfo[new_column].iloc[non_spikes] = '-1'
 # Warning: the spike will still be in Templates
 
-# # Modify c spike
+# TODO: Templates and Templates_ini different shape!!!!
+# print(Templates.shape,Templates_ini.shape)
 
-# SpikeInfo[new_column].iloc[c_spikes] = title_units['a']
-# # 1. Add spike in SpikeInfo
-# id_l = max(SpikeInfo['id'])  # get last id
-# # index = len(SpikeInfo[new_column])  # get last index
-# # copy c spike rows
-# print(SpikeInfo[new_column].value_counts())
-# SpikeInfo = pd.concat([SpikeInfo, SpikeInfo.iloc[c_spikes]])
+# Modify c spike
 
-# # 2. Add spike in Template
-# # Templates.reshape(Templates.shape[0]+len(c_spikes),Templates.shape[1])
-# print(Templates.shape)
-# print(SpikeInfo[new_column].value_counts())
+Templates, SpikeInfo = duplicate_spike(Templates, SpikeInfo, new_column, c_spikes, title_units)
 
-# print_msg("Adding sum spikes")
-# print(c_spikes)
-# # Sort spike and id
-# for i, s in enumerate(c_spikes):
-#     new_id = i + id_l  # get new id in the end of Spike Info
-#     # get original id, that is the same
-#     org_id = SpikeInfo['id'].iloc[new_id]  # get index
+print_msg("Adding spikes to spike trains")
 
-#     # Templates[:,new_id] = Templates[:,org_id]
-#     Templates = np.append(Templates, Templates[:, org_id, np.newaxis], axis=1)
+c_times = SpikeInfo.iloc[c_spikes]['time'].values  # use id ¿?
+c_peaks = np.max(Templates[:, c_spikes], axis=0)
+add_spikes_to_SpikeTrain(Blk, c_times, c_peaks)
 
-#     SpikeInfo[new_column].iloc[new_id] = title_units['b']
-#     SpikeInfo['id'].iloc[new_id] = new_id
-
-# # print(SpikeInfo.keys())
-# # print(SpikeInfo[new_column].value_counts())
-
-# SpikeInfo = SpikeInfo.sort_values(by='time')
-
-# print(SpikeInfo[new_column].value_counts())
-
-# # TODO: fix Blk spiketrain, fails in plotting waveforms
-# c_times = SpikeInfo.iloc[c_spikes]['time'].values  # use id ¿?
-# c_peaks = np.max(Templates[:, c_spikes], axis=0)
-
-# print("New column")
-# print(c_peaks)
-# print(c_times)
-# print(len(Blk.segments[0].spiketrains))
-
-# Blk = add_spikes_to_SpikeTrain(Blk, c_times, c_peaks)
-# # TODO Blk 3 spiketrains ¿?¿?¿?
-# print(len(Blk.segments))
-# print(len(Blk.segments[0].spiketrains))
-# print(Blk.segments[0].spiketrains[0].times.shape)
-# print(Blk.segments[0].spiketrains[1].times.shape)
-# print(Blk.segments[0].spiketrains[2].times.shape)
-# print(Blk.segments[0].spiketrains[0].waveforms.shape)
+print_msg("Final SpikeInfo")
+print_msg(str(SpikeInfo[new_column].value_counts()))
 
 print_msg("Saving SpikeInfo, Blk and Spikes into disk")
-
 units = get_units(SpikeInfo, new_column)
 Blk = populate_block(Blk, SpikeInfo, new_column, units)
+
 output_csv = Config.getboolean('output', 'csv')
 save_all(results_folder, output_csv, SpikeInfo, Blk, units)
 
+t_lim = 40
 
 outpath = results_folder / 'Templates_final.npy'
-sp.save(outpath, Templates[:40, :])
+sp.save(outpath, Templates[:t_lim, :])
 
 # plot all sorted spikes
 for j, Seg in enumerate(Blk.segments):
@@ -427,9 +390,10 @@ for j, Seg in enumerate(Blk.segments):
     outpath = plots_folder / (seg_name + '_overview' + fig_format)
     plot_segment(Seg, units, save=outpath)
 
+
 # plot all sorted spikes
 max_window = 0.3  # AG: TODO add to config file
-plot_fitted_spikes_complete(Blk, Templates[:40, :], SpikeInfo, unit_column,
+plot_fitted_spikes_complete(Blk, Templates[:t_lim, :], SpikeInfo, unit_column,
                             max_window, plots_folder, fig_format, wsize=40, extension='_templates')
 
 print_msg("general plotting done")
@@ -453,7 +417,7 @@ if plotting_changes:
         zoom = [peak - neighbors_t, peak + neighbors_t]
         # print(t_id)
 
-        fig, axes = plot_compared_fitted_spikes(Seg, 0, Templates[:40, :], SpikeInfo, [unit_column, new_column], zoom=zoom, save=None, title=title)
+        fig, axes = plot_compared_fitted_spikes(Seg, 0, Templates[:t_lim, :], SpikeInfo, [unit_column, new_column], zoom=zoom, save=None, title=title)
         axes[0].plot([peak, next_peak], [1, 1], '.', markersize=5, color='r')
         axes[1].plot([peak, next_peak], [1, 1], '.', markersize=5, color='r')
         outpath = plots_folder / (label + str(t_id) + '_signal' + fig_format)

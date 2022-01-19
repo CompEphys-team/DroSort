@@ -912,7 +912,7 @@ def get_frac(SpikeInfo,unit_column,unit):
     return n_goods/n_total
 
 
-
+# Populate block anotates spike trains in the segment and add 2 spike trains with each unit.
 def populate_block(Blk,SpikeInfo,unit_column,units):
     for i, seg in enumerate(Blk.segments):
         spike_labels = SpikeInfo.groupby(('segment')).get_group((i))[unit_column].values

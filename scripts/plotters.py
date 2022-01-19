@@ -306,8 +306,9 @@ def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=No
 
     st = Segment.spiketrains[0]  # get all spike trains (assuming there's only one spike train)
     # get events amplitude value (spike)
-    a_events = st.waveforms
-    a_events = [max(a) for a in a_events]
+    # a_events = st.waveforms
+    # a_events = [max(a) for a in a_events]
+
     axes[1].plot(st.times, np.ones(st.times.shape), '|', markersize=1, label="spike_time_ref")
     if rejs is not None:
         axes[1].plot(rejs, np.ones(rejs.shape), '|', markersize=1, color='r', label="rejected_spike")
@@ -339,6 +340,8 @@ def plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column,max_window, 
     for j, Seg in enumerate(Blk.segments):
         seg_name = Path(Seg.annotations['filename']).stem
 
+        print(Seg.spiketrains[0].times.shape)
+        print(Seg.spiketrains[0].waveforms.shape)
         asig = Seg.analogsignals[0]
         max_window = int(max_window*asig.sampling_rate) #FIX conversion from secs to points
         n_plots = asig.shape[0]//max_window

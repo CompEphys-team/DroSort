@@ -488,42 +488,45 @@ print_msg("Number of bad spikes: %d"%len(SpikeInfo.groupby(['good']).get_group(T
 # print_msg("Number of good spikes: %d"%len(SpikeInfo.groupby(['good']).get_group(False)[unit_column]))
 print_msg("Number of clusters: %d"%len(units))
 
+output_csv = Config.getboolean('output', 'csv')
+# warning firing rates not saved, too high memory use.
+save_all(results_folder, output_csv, SpikeInfo, Blk, units, Frates=False)
 
-# store SpikeInfo
-outpath = results_folder / 'SpikeInfo.csv'
-print_msg("saving SpikeInfo to %s" % outpath)
-SpikeInfo.to_csv(outpath)
+# # store SpikeInfo
+# outpath = results_folder / 'SpikeInfo.csv'
+# print_msg("saving SpikeInfo to %s" % outpath)
+# SpikeInfo.to_csv(outpath)
 
-# store Block
-outpath = results_folder / 'result.dill'
-print_msg("saving Blk as .dill to %s" % outpath)
-sssio.blk2dill(Blk, outpath)
+# # store Block
+# outpath = results_folder / 'result.dill'
+# print_msg("saving Blk as .dill to %s" % outpath)
+# sssio.blk2dill(Blk, outpath)
 
-print_msg("data is stored")
+# print_msg("data is stored")
 
-# output csv data
-if Config.getboolean('output','csv'):
-    print_msg("writing csv")
+# # output csv data
+# if Config.getboolean('output','csv'):
+#     print_msg("writing csv")
 
-    # SpikeTimes
-    for i, Seg in enumerate(Blk.segments):
-        seg_name = Path(Seg.annotations['filename']).stem
-        for j, unit in enumerate(units):
-            St, = select_by_dict(Seg.spiketrains, unit=unit)
-            outpath = results_folder / ("Segment_%s_unit_%s_spike_times.txt" % (seg_name, unit))
-            np.savetxt(outpath, St.times.magnitude)
+#     # SpikeTimes
+#     for i, Seg in enumerate(Blk.segments):
+#         seg_name = Path(Seg.annotations['filename']).stem
+#         for j, unit in enumerate(units):
+#             St, = select_by_dict(Seg.spiketrains, unit=unit)
+#             outpath = results_folder / ("Segment_%s_unit_%s_spike_times.txt" % (seg_name, unit))
+#             np.savetxt(outpath, St.times.magnitude)
 
-    # firing rates - full res
-    for i, Seg in enumerate(Blk.segments):
-        FratesDf = pd.DataFrame()
-        seg_name = Path(Seg.annotations['filename']).stem
-        for j, unit in enumerate(units):
-            asig, = select_by_dict(Seg.analogsignals, kind='frate_fast', unit=unit)
-            FratesDf['t'] = asig.times.magnitude
-            FratesDf[unit] = asig.magnitude.flatten()
+#     # firing rates - full res
+#     for i, Seg in enumerate(Blk.segments):
+#         FratesDf = pd.DataFrame()
+#         seg_name = Path(Seg.annotations['filename']).stem
+#         for j, unit in enumerate(units):
+#             asig, = select_by_dict(Seg.analogsignals, kind='frate_fast', unit=unit)
+#             FratesDf['t'] = asig.times.magnitude
+#             FratesDf[unit] = asig.magnitude.flatten()
 
-        outpath = results_folder / ("Segment_%s_frates.csv" % seg_name)
-        FratesDf.to_csv(outpath)
+#         outpath = results_folder / ("Segment_%s_frates.csv" % seg_name)
+#         FratesDf.to_csv(outpath)
     
 
 """

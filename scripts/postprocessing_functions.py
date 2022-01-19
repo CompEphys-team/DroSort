@@ -250,7 +250,6 @@ def add_spikes_to_SpikeTrain(Blk, new_times, new_waveforms):
 
     st_waveforms = Blk.segments[0].spiketrains[0].waveforms
     waveforms = np.append(st_waveforms, new_waveforms)
-    print(waveforms.shape)
 
     AnalogSignal = Blk.segments[0].analogsignals[0]
 
@@ -263,4 +262,30 @@ def add_spikes_to_SpikeTrain(Blk, new_times, new_waveforms):
 
     Blk.segments[0].spiketrains[0] = SpikeTrain
 
-    return Blk
+    # return Blk
+
+
+def duplicate_spike(Templates, SpikeInfo, new_column, c_spikes, title_units):
+    SpikeInfo[new_column].iloc[c_spikes] = title_units['a']
+    # 1. Add spike in SpikeInfo
+    id_l = max(SpikeInfo['id'])  # get last id
+
+    # copy c spike rows
+    SpikeInfo = pd.concat([SpikeInfo, SpikeInfo.iloc[c_spikes]])
+
+    # 2. Add spike in Template
+    print_msg("Adding sum spikes")
+    # Sort spike and id
+    for i, s in enumerate(c_spikes):
+        new_id = i + id_l  # get new id in the end of Spike Info
+        # get original id, that is the same
+        org_id = SpikeInfo['id'].iloc[new_id]  # get index
+
+        Templates = np.append(Templates, Templates[:, org_id, np.newaxis], axis=1)
+
+        SpikeInfo[new_column].iloc[new_id] = title_units['b']
+        SpikeInfo['id'].iloc[new_id] = new_id
+
+    SpikeInfo = SpikeInfo.sort_values(by='time')
+
+    return Templates, SpikeInfo
