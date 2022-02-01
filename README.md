@@ -115,17 +115,17 @@ A matrix with all the possible combination of spikes is done. a+b; b+a; a, b and
 ## Instalation
 This software runs in Python 3. There are some packages that need to be installed. Instalation options:
 ### 1. Conda
-You can run Spike Sorting with Conda ([https://docs.anaconda.com/anaconda/install/index.html]) and use the enviroment on enviroment.yml in this repository. After creating the enviroment you might have all the packages necesaries. **You will have to activate the enviroment everytime you want to use it**.
+You can run Spike Sorting with Conda ([https://docs.anaconda.com/anaconda/install/index.html]) and use the environment on environment.yml in this repository. After creating the environment you might have all the packages necesaries. **You will have to activate the environment everytime you want to use it**.
 
-Create conda enviroment
+Create conda environment
 
-	conda env create -n SpikeSort -f enviroment.yml
+	conda env create -n SpikeSort -f environment.yml
 
 Activate conda SpikeSort
 
     conda activate SpikeSort
 
-For finishing using this enviroment:
+For finishing using this environment:
 
 	conda deactivate
 
