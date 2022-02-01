@@ -420,8 +420,8 @@ def plot_compared_fitted_spikes(Segment, j, Models, SpikeInfo, unit_columns, uni
 
     st = Segment.spiketrains[0]  # get all spike trains (assuming there's only one spike train)
     # get events amplitude value (spike)
-    a_events = st.waveforms
-    a_events = [max(a) for a in a_events]
+    # a_events = st.waveforms
+    # a_events = [max(a) for a in a_events]
     # axes[1].plot(st.times,np.ones(st.times.shape),'|',markersize=2)
 
     if '-1' in SpikeInfo[unit_columns[1]]:

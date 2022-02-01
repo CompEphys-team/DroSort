@@ -298,7 +298,8 @@ if plotting_changes:
         axes[1].plot([peak, next_peak],[1, 1],'.',markersize=5, color='r')
         outpath = plots_folder / ('-2_changed_spike_'+str(t_id)+'_signal' + fig_format)
         fig.savefig(outpath)
-        plt.close()
+        # WARNING: do not add plt.close; figure clears by definition
+        #         (arg: num=1, clear=True) adding plt.close leaks memory
 
         if complete_grid:
             title = "spike %d from unit %s"%(t_id, unit_titles[SpikeInfo[unit_column][t_id]])
@@ -318,6 +319,8 @@ if plotting_changes:
         except:
             plot_combined_templates_bests(aligned_templates[:lim,:],templates_labels, org_spike=t[:lim],distances=distances[t_id],title=title, save=outpath)
 
-        plt.close()
+        # WARNING: do not add plt.close; figure clears by definition
+        #         (arg: num=1, clear=True) adding plt.close leaks memory
+
 
 print_msg("all done - quitting")

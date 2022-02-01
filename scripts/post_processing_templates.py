@@ -231,8 +231,8 @@ if mode == 'neighbors' or mode == 'mean':
                 ct_a = align_to(ct, d_mean)
                 t_a = align_to(t, d_mean)
                 #TODO: neighbors with different alignment?
-                # ct_a = align_to(ct,'peak')
-                # t_a = align_to(t,'peak')
+                # ct_a = align_to(ct, 'ini')
+                # t_a = align_to(t, 'ini')
                 long_waveforms_align[t_i] = t_a[:lim]
                 aligned_templates[t_i, ct_i] = ct_a[:lim]
 

@@ -38,3 +38,10 @@ for j, Seg in enumerate(Blk.segments):
 # plot all sorted spikes
 max_window = 0.3  # AG: TODO add to config file
 plot_fitted_spikes_complete(Blk, Templates, SpikeInfo, unit_column, max_window, plots_folder, fig_format, wsize=n_samples, extension='_final')
+
+
+if len(sys.argv) > 2:
+    zoom = sp.array(sys.argv[2].split(','), dtype='float32')
+    Seg = Blk.segments[0]
+    outpath = plots_folder / (seg_name + '_fitted_spikes_final_zoom' + fig_format)
+    plot_fitted_spikes(Seg, 0, Templates, SpikeInfo, unit_column, zoom=zoom, save=outpath,wsize=n_samples)
