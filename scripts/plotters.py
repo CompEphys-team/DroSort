@@ -298,7 +298,7 @@ def plot_compared_spike_events(Segment1,Segment2,thres=2,max_window=1,max_row=5,
 
 def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=None, zoom=None, save=None, colors=None,wsize=40,rejs=None):
     """ plot to inspect fitted spikes """
-    fig, axes = plt.subplots(nrows=2, sharex=True, sharey=True)
+    fig, axes = plt.subplots(nrows=2, sharex=True, sharey=True, num=1, clear=True)
     
     asig = Segment.analogsignals[0]
     axes[0].plot(asig.times, asig.data, color='k', lw=1)
@@ -330,7 +330,7 @@ def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=No
 
     if save is not None:
         fig.savefig(save)
-        plt.close(fig)
+        # plt.close(fig)
 
     return fig, axes
 
@@ -340,8 +340,6 @@ def plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column,max_window, 
     for j, Seg in enumerate(Blk.segments):
         seg_name = Path(Seg.annotations['filename']).stem
 
-        print(Seg.spiketrains[0].times.shape)
-        print(Seg.spiketrains[0].waveforms.shape)
         asig = Seg.analogsignals[0]
         max_window = int(max_window*asig.sampling_rate) #FIX conversion from secs to points
         n_plots = asig.shape[0]//max_window
