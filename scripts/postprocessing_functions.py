@@ -178,7 +178,7 @@ def plot_combined_templates_bests(combined_templates, templates_labels, org_spik
 
         axes[i].text(x=0.6, y=0.8, s=str(templates_labels[ind]), transform=axes[i].transAxes)
         axes[i].text(x=0.6, y=0.2, s="distance = \n%.3f" % distances[ind], color='k', transform=axes[i].transAxes)
-        
+        plt.ylim(-1.5,1.5)
         # axes[i].text(x=0.6, y=0.8, s=str(templates_labels[ind]), fontsize=15, transform=axes[i].transAxes)
         # axes[i].text(x=0.6, y=0.2, s="distance = \n%.3f" % distances[ind], fontsize=15, color='k', transform=axes[i].transAxes)
 

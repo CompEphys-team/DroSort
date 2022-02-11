@@ -42,9 +42,9 @@ units = get_units(SpikeInfo, unit_column)
 Templates_ini = np.load(results_folder/"Templates_ini.npy")
 
 
+plotting_changes = Config.getboolean('postprocessing','plot_changes')
 mpl.rcParams['figure.dpi'] = Config.get('output','fig_dpi')
 fig_format = Config.get('output','fig_format')
-plotting_changes = Config.getboolean('postprocessing','plot_changes')
 complete_grid = Config.getboolean('postprocessing','complete_grid')
 
 #third cluster fix
@@ -394,9 +394,9 @@ for j, Seg in enumerate(Blk.segments):
 
 #TODO: fix memory rising: loop & plt.close...
 # plot all sorted spikes
-# max_window = 0.3  # AG: TODO add to config file
-# plot_fitted_spikes_complete(Blk, Templates[:t_lim, :], SpikeInfo, unit_column,
-                            # max_window, plots_folder, fig_format, wsize=40, extension='_templates')
+max_window = 0.3  # AG: TODO add to config file
+plot_fitted_spikes_complete(Blk, Templates[:t_lim, :], SpikeInfo, unit_column,
+                            max_window, plots_folder, fig_format, wsize=40, extension='_templates')
 
 print_msg("general plotting done")
 
@@ -419,7 +419,6 @@ if plotting_changes:
 
         # t = long_waveforms_align[t_id - 1].T
         t = long_waveforms_align[id_].T
-        print(t.shape, len(templates_labels), aligned_templates.shape)
 
         title = "spike %d from unit %s" % (t_id, unit_titles[SpikeInfo[unit_column].iloc[t_id]])
 

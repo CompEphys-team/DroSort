@@ -268,6 +268,8 @@ for t_id, t in enumerate(long_waveforms_align):
         else:
             best_match = templates_labels[np.argmin(distances[t_id])]
 
+        #TODO add option remove non-spikes.
+
         SpikeInfo[new_column][t_id] = title_units[best_match[0]]
         labeled.append(t_id)
 
