@@ -542,6 +542,8 @@ save_all(results_folder, output_csv, SpikeInfo, Blk, units, Frates=False)
  
 """
 
+#TODO: fix memory rising: loop & plt.close...
+
 # plot all sorted spikes
 for j, Seg in enumerate(Blk.segments):
     seg_name = Path(Seg.annotations['filename']).stem

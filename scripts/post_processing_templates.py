@@ -202,7 +202,7 @@ if mode == 'neighbors' or mode == 'mean':
                 long_waveforms_align[t_i] = t_a
                 aligned_templates[t_i, ct_i] = ct_a
 
-            D_pw[t_i, :] = metrics.pairwise.euclidean_distances(aligned_templates[t_i],t.reshape(1,-1)).reshape(-1)
+            D_pw[t_i, :] = metrics.pairwise.euclidean_distances(aligned_templates[t_i], t.reshape(1,-1)).reshape(-1)
 
         distances = D_pw
 
@@ -242,7 +242,7 @@ if mode == 'neighbors' or mode == 'mean':
         distances = D_pw
 else:
     long_waveforms = get_Templates(data, inds, (w_samples[0], w_samples[1] + max_len)).T
-    long_waveforms_align = align_spikes(long_waveforms, mode=mode)
+    long_waveforms_align = align_spikes(long_waveforms, mode=mode)[:,:lim]
     aligned_templates = np.array(combined_templates)
     distances = distance_to_average(long_waveforms.T, combined_templates)
 
@@ -379,7 +379,7 @@ Blk = populate_block(Blk, SpikeInfo, new_column, units)
 output_csv = Config.getboolean('output', 'csv')
 save_all(results_folder, output_csv, SpikeInfo, Blk, units)
 
-t_lim = 40
+t_lim = 40 #TODO get from config file
 
 outpath = results_folder / 'Templates_final.npy'
 sp.save(outpath, Templates[:t_lim, :])
@@ -391,10 +391,12 @@ for j, Seg in enumerate(Blk.segments):
     plot_segment(Seg, units, save=outpath)
 
 
+
+#TODO: fix memory rising: loop & plt.close...
 # plot all sorted spikes
-max_window = 0.3  # AG: TODO add to config file
-plot_fitted_spikes_complete(Blk, Templates[:t_lim, :], SpikeInfo, unit_column,
-                            max_window, plots_folder, fig_format, wsize=40, extension='_templates')
+# max_window = 0.3  # AG: TODO add to config file
+# plot_fitted_spikes_complete(Blk, Templates[:t_lim, :], SpikeInfo, unit_column,
+                            # max_window, plots_folder, fig_format, wsize=40, extension='_templates')
 
 print_msg("general plotting done")
 
@@ -410,7 +412,14 @@ if plotting_changes:
     # Plot every change
     for t_id, label in zip(all_changes, labels):
         peak = SpikeInfo['time'][t_id]
-        t = long_waveforms_align[t_id - 1].T
+        if label == 'non_spike_':  # a non-spike is removed at the previous peak
+            id_ = t_id - 1
+        else:
+            id_ = t_id
+
+        # t = long_waveforms_align[t_id - 1].T
+        t = long_waveforms_align[id_].T
+        print(t.shape, len(templates_labels), aligned_templates.shape)
 
         title = "spike %d from unit %s" % (t_id, unit_titles[SpikeInfo[unit_column].iloc[t_id]])
 
@@ -425,15 +434,10 @@ if plotting_changes:
         # WARNING: do not add plt.close; figure clears by definition
         #         (arg: num=1, clear=True) adding plt.close leaks memory
 
-        if label == 'non_spike_':  # a non-spike is removed at the previous peak
-            id_ = t_id - 1
-        else:
-            id_ = t_id
-
         try:
-            temp = aligned_templates[id_]
+            temp = aligned_templates[id_][:,:lim]
         except:
-            temp = aligned_templates
+            temp = aligned_templates[:,:lim]
 
         if complete_grid:
             outpath = plots_folder / (label + str(t_id) + '_templates_grid_all' + fig_format)

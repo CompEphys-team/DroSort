@@ -160,6 +160,8 @@ max_len = n_samples # max extension of the combined template
 #Get combination from a, b; b, a; a; b; a+b (c)
 combined_templates, templates_labels = get_combined_templates([A, B],dt_c, max_len, mode)
 
+ncols = 10  # TODO add to config file
+
 #Plot templates
 # plot_combined_templates(combined_templates, templates_labels, ncols=5)
 # plt.show()
@@ -171,7 +173,9 @@ combined_templates, templates_labels = get_combined_templates([A, B],dt_c, max_l
 # mode = 'mean'
 
 #parameter that modifies last part of the spike
-lim = 120 #TODO: might change when max_len in combined templates changes
+# lim = 120 #TODO: might change when max_len in combined templates changes
+lim = Config.getint('postprocessing', 'lim_templates')
+mode = Config.get('postprocessing', 'mode_templates_labelling')
 
 #Get distances
 
@@ -179,14 +183,15 @@ lim = 120 #TODO: might change when max_len in combined templates changes
 if mode == 'mean':
     # long_waveforms = np.array([np.concatenate(([t[0]]*(n_samples//2),t,[t[-1]]*(n_samples//2))) for t in Templates.T])
     long_waveforms = get_Templates(data, inds, (w_samples[0],w_samples[1]+max_len)).T
-    aligned_templates=np.zeros((long_waveforms.shape[0],len(combined_templates),long_waveforms.shape[1]))
-    long_waveforms_align = np.zeros(long_waveforms.shape)
+
+    aligned_templates=np.zeros((long_waveforms.shape[0],len(combined_templates),long_waveforms.shape[1]))[:, :, :lim]
+    long_waveforms_align = np.zeros(long_waveforms.shape)[:, :lim]
 
     D_pw = sp.zeros((long_waveforms_align.shape[0],aligned_templates.shape[1]))
 
     #Calculates the mean distance between each spike and the templates
-    for t_i, t in enumerate(long_waveforms):
-        for ct_i, ct in enumerate(combined_templates):
+    for t_i, t in enumerate(long_waveforms[:, :lim]):
+        for ct_i, ct in enumerate(combined_templates[:, :lim]):
             d_mean = (np.mean(ct)-np.mean(t))**2
 
             ct_a = align_to(ct, d_mean)
@@ -196,7 +201,7 @@ if mode == 'mean':
             aligned_templates[t_i, ct_i]= ct_a
 
         #Computes distances for each spike and all the combined templates aligned to it.
-        D_pw[t_i,:] = metrics.pairwise.euclidean_distances(aligned_templates[t_i],t.reshape(1,-1)).reshape(-1)
+        D_pw[t_i,:] = metrics.pairwise.euclidean_distances(aligned_templates[t_i], t.reshape(1,-1)).reshape(-1)
  
     distances = D_pw
 
@@ -204,10 +209,12 @@ else: #Simplified version: alignment is based on each spike, not their relation.
     #Modes: 'peak', 'min', 'ini', 'end'
 
     long_waveforms = get_Templates(data, inds, (w_samples[0],w_samples[1]+max_len)).T
-    long_waveforms_align = align_spikes(long_waveforms, mode=mode)
+    long_waveforms_align = align_spikes(long_waveforms, mode=mode)[:,:lim]
     aligned_templates = np.array(combined_templates)
     distances=distance_to_average(long_waveforms.T, combined_templates)
 
+
+print(long_waveforms_align.shape, aligned_templates.shape)
 
 #########################################################################################################
 ####    compare spikes with templates  and reassign
@@ -215,13 +222,6 @@ else: #Simplified version: alignment is based on each spike, not their relation.
 
 #Compare all templates
 colors = get_colors(units)
-
-# # #TODO: fix no need to assign color to -1 and -2...
-colors[title_units['a']] = 'g'
-colors[title_units['b']] = 'b'
-colors['-1'] = 'k'
-colors['-2'] = 'k'
-# print(colors)
 
 labeled = []
 small_diff = []
@@ -257,7 +257,7 @@ for t_id, t in enumerate(long_waveforms_align):
 
         #TODO: review this restriction. See example ----
         #If best 2 distances are similar --> choose the one with two labels 
-        a_error = 0.01
+        a_error = 0.03
         if abs(distances[t_id][best_match_ids[0]]-distances[t_id][best_match_ids[1]]) < a_error:
 
             best_match_dis = [len(dis) for dis in np.array(templates_labels)[best_match_ids]]
@@ -286,13 +286,12 @@ save_all(results_folder, output_csv, SpikeInfo, Blk, units)
 
 if plotting_changes:
     print_msg("Plotting changes")
-    # for t_id in to_change:
     for t_id in labeled:
         peak = SpikeInfo['time'][t_id]
-        t = long_waveforms_align[t_id].T
+        t = long_waveforms_align[t_id]
 
         zoom = [peak - neighbors_t, peak + neighbors_t]
-        # print(t_id)
+
         fig, axes = plot_compared_fitted_spikes(Seg, 0, Templates[:40, :], SpikeInfo, [unit_column, new_column], zoom=zoom, save=None, colors=colors)
         axes[0].plot([peak, next_peak],[1, 1],'.',markersize=5, color='r')
         axes[1].plot([peak, next_peak],[1, 1],'.',markersize=5, color='r')
@@ -301,23 +300,21 @@ if plotting_changes:
         # WARNING: do not add plt.close; figure clears by definition
         #         (arg: num=1, clear=True) adding plt.close leaks memory
 
+        try:
+            temp = aligned_templates[t_id][:,:lim]
+        except:
+            temp = aligned_templates[:,:lim]
+
         if complete_grid:
             title = "spike %d from unit %s"%(t_id, unit_titles[SpikeInfo[unit_column][t_id]])
             outpath = plots_folder / ('spike_'+str(t_id)+'_templates_grid_all' + fig_format)
-            try:
-                plot_combined_templates(aligned_templates[t_id][:lim,:],templates_labels, ncols=8, org_spike=t, distances=distances[t_id],title=title, save=outpath)
-            except:
-                plot_combined_templates(aligned_templates[:lim,:],templates_labels, ncols=8, org_spike=t, distances=distances[t_id],title=title, save=outpath)
 
-            #TODO change when combined templates is general not working
-            #     plot_combined_templates(combined_templates, templates_labels, ncols=5)
+            plot_combined_templates(temp, templates_labels, ncols=ncols, org_spike=t, distances=distances[t_id],title=title, save=outpath)
 
         title = "spike %d from unit %s"%(t_id, unit_titles[SpikeInfo[unit_column][t_id]])
         outpath = plots_folder / ('-2_spike_'+str(t_id)+'_templates_grid' + fig_format)
-        try:
-            plot_combined_templates_bests(aligned_templates[t_id][:lim,:],templates_labels, org_spike=t[:lim],distances=distances[t_id],title=title, save=outpath)
-        except:
-            plot_combined_templates_bests(aligned_templates[:lim,:],templates_labels, org_spike=t[:lim],distances=distances[t_id],title=title, save=outpath)
+
+        plot_combined_templates_bests(temp, templates_labels, org_spike=t,distances=distances[t_id],title=title, save=outpath)
 
         # WARNING: do not add plt.close; figure clears by definition
         #         (arg: num=1, clear=True) adding plt.close leaks memory

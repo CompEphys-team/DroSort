@@ -127,7 +127,7 @@ def plot_combined_templates(combined_templates, templates_labels, ncols=5, org_s
     nrows = int(np.ceil(combined_templates.shape[0] / ncols))
 
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols, sharex=True, sharey=True, figsize=(ncols * 2, nrows), num=1, clear=True)
-
+    
     for c, ct in enumerate(combined_templates):
         i, j = c // ncols, c % ncols
 
@@ -176,8 +176,12 @@ def plot_combined_templates_bests(combined_templates, templates_labels, org_spik
         axes[i].plot(org_spike, color='k', label="spike")
         axes[i].plot(combined_templates[ind], label="template")
 
-        axes[i].text(x=0.8, y=0.8, s=str(templates_labels[ind]), fontsize=15, transform=axes[i].transAxes)
-        axes[i].text(x=0.6, y=0.2, s="distance = %.3f" % distances[ind], fontsize=15, color='k', transform=axes[i].transAxes)
+        axes[i].text(x=0.6, y=0.8, s=str(templates_labels[ind]), transform=axes[i].transAxes)
+        axes[i].text(x=0.6, y=0.2, s="distance = \n%.3f" % distances[ind], color='k', transform=axes[i].transAxes)
+        
+        # axes[i].text(x=0.6, y=0.8, s=str(templates_labels[ind]), fontsize=15, transform=axes[i].transAxes)
+        # axes[i].text(x=0.6, y=0.2, s="distance = \n%.3f" % distances[ind], fontsize=15, color='k', transform=axes[i].transAxes)
+
 
     plt.legend()
     plt.suptitle(title)

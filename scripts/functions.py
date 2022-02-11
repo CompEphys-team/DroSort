@@ -1066,6 +1066,8 @@ def align_to(spike,mode='peak'):
             mn = spike[0]
         else:
             print("fail")
+            return spike
+            
         if mn != 0:
             spike = spike-mn
     
