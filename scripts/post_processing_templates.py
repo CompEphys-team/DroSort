@@ -392,7 +392,7 @@ for j, Seg in enumerate(Blk.segments):
 
 
 
-#TODO: fix memory rising: loop & plt.close...
+# #TODO: fix memory rising: loop & plt.close...
 # plot all sorted spikes
 max_window = 0.3  # AG: TODO add to config file
 plot_fitted_spikes_complete(Blk, Templates[:t_lim, :], SpikeInfo, unit_column,
@@ -412,6 +412,12 @@ if plotting_changes:
     # Plot every change
     for t_id, label in zip(all_changes, labels):
         peak = SpikeInfo['time'][t_id]
+
+        # TODO check sum spikes error. Change restriction to type and not label.
+        if label == 'sum_spikes_':
+            # iloc necessary for duplicated spikes:
+            peak = peak.iloc[0]
+
         if label == 'non_spike_':  # a non-spike is removed at the previous peak
             id_ = t_id - 1
         else:
@@ -423,9 +429,9 @@ if plotting_changes:
         title = "spike %d from unit %s" % (t_id, unit_titles[SpikeInfo[unit_column].iloc[t_id]])
 
         zoom = [peak - neighbors_t, peak + neighbors_t]
-        # print(t_id)
 
         fig, axes = plot_compared_fitted_spikes(Seg, 0, Templates[:t_lim, :], SpikeInfo, [unit_column, new_column], zoom=zoom, save=None, title=title)
+
         axes[0].plot([peak, next_peak], [1, 1], '.', markersize=5, color='r')
         axes[1].plot([peak, next_peak], [1, 1], '.', markersize=5, color='r')
         outpath = plots_folder / (label + str(t_id) + '_signal' + fig_format)
