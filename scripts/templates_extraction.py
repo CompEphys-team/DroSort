@@ -140,7 +140,7 @@ except Exception as e:
 bad_segments = []
 for i, seg in enumerate(Blk.segments):
     AnalogSignal, = select_by_dict(seg.analogsignals, kind='original')
-    bounds = [MAD(AnalogSignal)*mad_thresh, sp.inf] * AnalogSignal.units
+    bounds = [MAD(AnalogSignal)*mad_thresh, sp.inf] * AnalogSignal.units  # TN: Isn't this applying AnalogSignal.units twice (in MAD and here explicitly)?
     bounds_neg = [MAD(AnalogSignal)*(mad_thresh-2), sp.inf] * AnalogSignal.units #TODO hardcode mad_thresh lower
     # bounds_neg = [-sp.inf,-MAD(AnalogSignal)*(mad_thresh-2)] * AnalogSignal.units #TODO hardcode mad_thresh lower
 
@@ -265,7 +265,7 @@ for j,Seg in enumerate(Blk.segments):
     plot_templates_on_trace(Seg, j, Templates, save=outpath,wsize=n_samples,zoom=zoom)
 
 
-#Save all into disk
+#Save all to disk
 
 # templates to disk
 outpath = results_folder / 'Templates_ini.npy'

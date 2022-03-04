@@ -259,6 +259,9 @@ def double_spike_detect_v2(AnalogSignal, bounds_pos,bounds_neg, lowpass_freq=100
     #Ignore spikes detected twice 
     #TODO: fix misses spikes that are in the range. 
     diffs = [c2-c1 for c1,c2 in zip(combined_times[:-1],combined_times[1:])]
+    # TN: isn't this just np.diff:
+    # diffs= np.diff(combined_times)
+    # TN: shouldn't "true duplicates" be more or less exactly the same times?
     inds = np.where(diffs > ((wsize/3)/fs))[0]
     times_unique = combined_times[inds] * AnalogSignal.times.units
     waveforms = waveforms[inds]
@@ -575,7 +578,7 @@ def reject_spikes(Templates, SpikeInfo, unit_column, n_neighbors=80, verbose=Fal
         a = outlier_reject(Templates[:,ix], n_neighbors)
         b = peak_reject(Templates[:,ix])
         good_inds_unit = ~sp.logical_or(a,b)
-
+        # TN: Why peak reject?
         SpikeInfo.loc[ix,'good'] = good_inds_unit
 
         if verbose:
@@ -864,7 +867,7 @@ def calculate_pairwise_distances(Templates, SpikeInfo, unit_column, n_comp=5):
             Sds[i,j] = sp.std(D_pw)
     return Avgs, Sds
 
-def best_merge(Avgs, Sds, units, alpha=1):
+def best_merge(Avgs, Sds, units, alpha=1, illegal_merge=[]):
     """ merge two units if their average between distance is lower than within distance.
     SD scaling by factor alpha regulates aggressive vs. conservative merging """
     Q = copy.copy(Avgs)
@@ -879,6 +882,19 @@ def best_merge(Avgs, Sds, units, alpha=1):
         for i in range(Q.shape[0]):
             try:
                 merge_candidates.remove((i,i))
+            except ValueError:
+                pass
+
+        # sort the merge candidate pairs and make them unique
+        merge_candidates= [ tuple(sorted(x)) for x in merge_candidates ]
+        merge_candidates= list(set(merge_candidates))
+
+        # remove illegal merges
+        for x in illegal_merge:
+            try:
+                i= units.index(x[0])
+                j= units.index(x[1])
+                merge_candidates.remove((i,j))
             except ValueError:
                 pass
 

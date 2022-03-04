@@ -6,7 +6,7 @@ d = sys.argv[1]
 
 smr_files = glob.glob(d+"/*.smr")
 
-print("Files to analize:")
+print("Files to analyze:")
 print(smr_files)
 
 for file in smr_files:

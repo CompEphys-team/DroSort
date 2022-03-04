@@ -137,6 +137,7 @@ print_msg("initial kmeans with %i clusters" % n_clusters_init)
 pca = PCA(n_components=5) # FIXME HARDCODED PARAMETER
 X = pca.fit_transform(Templates.T)
 kmeans_labels = KMeans(n_clusters=n_clusters_init).fit_predict(X)
+#print("labels that are -1: {}".format(np.sum(kmeans_labels == -1)))
 spike_labels = kmeans_labels.astype('U')
 
 """
@@ -180,7 +181,7 @@ n_neighbors = Config.getint('spike model','template_reject')
 reject_spikes(Templates, SpikeInfo, 'unit', n_neighbors, verbose=True)
 
 # unassign spikes if unit has too little good spikes
-SpikeInfo = unassign_spikes(SpikeInfo, 'unit',min_good=15)
+SpikeInfo = unassign_spikes(SpikeInfo, 'unit',min_good=15) # FIXME hardcoded parameter min_good
 
 
 outpath = plots_folder / ("templates_init" + fig_format)
@@ -250,6 +251,11 @@ units = get_units(SpikeInfo, 'unit_0')
 n_units = len(units)
 penalty = Config.getfloat('spike sort','penalty')
 sorting_noise = Config.getfloat('spike sort','f_noise')
+try:
+    approve_merge = Config.getboolean('spike sort', 'approve_merge')
+except Exception:
+    approve_merge= False
+
 ScoresSum = []
 AICs = []
 
@@ -263,6 +269,7 @@ not_merge =0
 
 change_cluster=Config.getint('spike sort','cluster_limit_train')
 last = False
+illegal_merge= []
 
 while n_units >= n_final_clusters and not last:
     if n_units == n_final_clusters:
@@ -294,9 +301,14 @@ while n_units >= n_final_clusters and not last:
         new_labels = sp.array([units[i] for i in min_ix],dtype='object')
 
     else: #stop clusters changes and force merging
+        new_labels = sp.array(SpikeInfo[prev_unit_col])
         it_merge = 1
         clust_alpha = 10
-        new_labels = sp.array(SpikeInfo[prev_unit_col])
+        # assign new labels just for spikes with unit "-1"
+        mone_spikes= SpikeInfo[prev_unit_col].values == '-1'
+        if np.sum(mone_spikes) > 0:
+            min_ix = sp.argmin(Scores[mone_spikes,:], axis=1)
+            new_labels[mone_spikes] = sp.array([units[i] for i in min_ix],dtype='object')
 
     SpikeInfo[this_unit_col] = new_labels
     n_changes = np.sum(~(SpikeInfo[prev_unit_col]==SpikeInfo[this_unit_col]))
@@ -326,24 +338,35 @@ while n_units >= n_final_clusters and not last:
     if (it > first_merge) and (it % it_merge) == 0 and not last:
         print_msg("check for merges ... ")
         Avgs, Sds = calculate_pairwise_distances(Templates, SpikeInfo, this_unit_col)
-        merge = best_merge(Avgs, Sds, units, clust_alpha)
+        merge = best_merge(Avgs, Sds, units, clust_alpha, illegal_merge=illegal_merge)
 
         if len(merge) > 0:
             print_msg("########merging: " + ' '.join(merge))
-            ix = SpikeInfo.groupby(this_unit_col).get_group(merge[1])['id']
-            SpikeInfo.loc[ix, this_unit_col] = merge[0]
+            if approve_merge:
+                fig, ax= plot_Models(Models)
+                fig.show()
+                do_merge= input("Go ahead (Y/N)?").upper() == 'Y'
+                plt.close(fig)
+            else:
+                do_merge= True
+
+            if do_merge:
+                ix = SpikeInfo.groupby(this_unit_col).get_group(merge[1])['id']
+                SpikeInfo.loc[ix, this_unit_col] = merge[0]
             
-            #reset merging parameters
-            not_merge =0
-            it_merge = Config.getint('spike sort','it_merge')
-            it_no_merge = Config.getint('spike sort','it_no_merge')
+                #reset merging parameters
+                not_merge =0
+                it_merge = Config.getint('spike sort','it_merge')
+                it_no_merge = Config.getint('spike sort','it_no_merge')
+            else:
+                illegal_merge.append(merge)
+                not_merge+= 1
         else:
             not_merge +=1
 
     #Increase merge probability after n failed merges
     if not_merge > it_no_merge:
         clust_alpha +=0.1
-
         it_merge = max(it_merge-1,1)
         it_no_merge = max(it_no_merge-1,1)
 

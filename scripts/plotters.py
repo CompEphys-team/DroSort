@@ -163,6 +163,8 @@ def plot_spike_events(Segment,thres=2,max_window=1,max_row=5,save=None,save_form
         max_window = int(max_window*asig.sampling_rate) #FIX conversion from secs to points
 
         asig=asig.reshape(asig.shape[0])
+        asig_max= np.amax(asig)
+        asig_min= np.amin(asig)
         n_rows = asig.shape[0]//max_window #compute number of rows needed to plot complete signal
         n_plots = n_rows//max_row+ int(not(n_rows/max_row).is_integer())
 
@@ -196,9 +198,9 @@ def plot_spike_events(Segment,thres=2,max_window=1,max_row=5,save=None,save_form
                     chunk_r = rejs[np.where((rejs > t_ini) & (rejs < t_end))]
                     axes[idx].plot(chunk_r,np.ones(chunk_r.shape),'|',markersize=5,color='r',label='rejected_spikes')
 
-                axes[idx].plot(t_events,a_events,'|',markersize=5,label='detected_spikes')
+                axes[idx].plot(t_events,a_events,'|',markersize=5,label='detected_spikes',c=[ 0.5, 1.0, 0.5])
                 axes[idx].plot(asig.times[ini:end],np.ones(asig.times[ini:end].shape)*thres,linewidth=0.5)
-
+                axes[idx].set_ylim(asig_min*1.1,asig_max*1.1)
             if idx ==0:
                 break
 
