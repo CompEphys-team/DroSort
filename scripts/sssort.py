@@ -345,8 +345,13 @@ while n_units >= n_final_clusters and not last:
             if approve_merge:
                 fig, ax= plot_Models(Models)
                 fig.show()
+                Blk = populate_block(Blk,SpikeInfo,this_unit_col,units)
+                Seg = Blk.segments[0]
+                fig2, ax2= plot_fitted_spikes(Seg, 0, Models, SpikeInfo, this_unit_col, zoom=zoom, wsize=n_samples,rejs=rej_spikes)
+                fig2.show()
                 do_merge= input("Go ahead (Y/N)?").upper() == 'Y'
                 plt.close(fig)
+                plt.close(fig2)
             else:
                 do_merge= True
 

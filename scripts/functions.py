@@ -66,7 +66,7 @@ def print_msg(msg, log=True):
         timestr = tp.humantime(sp.around(time.time()-t0,2))
         print(colorama.Fore.CYAN + timestr + '\t' +  memstr + '\t' +
               # colorama.Fore.GREEN + msg)
-              colorama.Fore.WHITE + msg)
+              colorama.Fore.BLACK + msg)
         if log:
             with open('log.log', 'a+') as fH:
                 log_str = timestr + '\t' +  memstr + '\t' + msg + '\n'
@@ -1080,6 +1080,8 @@ def align_to(spike,mode='peak'):
             mn = spike[-1]
         elif mode == 'ini':
             mn = spike[0]
+        elif mode == 'mean':
+            mn= np.mean(spike)
         else:
             print("fail")
             return spike
@@ -1088,3 +1090,78 @@ def align_to(spike,mode='peak'):
             spike = spike-mn
     
     return spike
+
+
+# generate a template from a model at a given firing rate
+def make_single_template(Model, frate):
+    d= Model.predict(frate)
+    return d
+
+
+# calculate the distance between a data trace and a template at a shift
+def dist(d, t, shift, ax= None):
+    maxlen= max(len(d),len(t))
+    maxlen+= np.abs(2*shift)
+    d2= np.zeros(maxlen)
+    t2= np.zeros(maxlen)
+    start= int(maxlen/2-len(t)/2+shift)
+    stop= int(start+len(t))
+    t2[start:stop]= t
+    d_start= max(start-shift,0)
+    d_stop= min(d_start+len(t), len(d))
+    d2[start:start+d_stop-d_start]= d[d_start:d_stop] 
+    dst= np.linalg.norm(d2-t2)
+    if ax is not None:
+        ax.plot(d2)
+        ax.plot(t2)
+        ax.set_ylim(-1.2,1.2)
+        ax.set_title(dst)
+    #return dst/len(t)
+    return dst
+
+# calculate the distance between a data trace and a template at a shift
+def dist(d, t, pos, ax= None):
+    t2= np.zeros(len(d))
+    start= max(int(pos-len(t)/2), 0)
+    stop= min(int(pos+len(t)/2), len(d))
+    t_start= max(int(len(t)/2-pos),0)
+    t_stop= min(int(len(t)/2-pos+len(d)), len(t))
+    t2[start:stop]+= t[t_start:t_stop]
+    d2= np.zeros(len(d))
+    d2[start:stop]= d[start:stop]
+    dst= np.linalg.norm(d2-t2)
+    if ax is not None:
+        ax.plot(d,'.',markersize=1)
+        ax.plot(d2)
+        ax.plot(t2)
+        ax.set_ylim(-1.2,1.2)
+        ax.set_title(dst)
+    return dst/len(t)
+    #return dst
+
+# calculate the distance between a data trace and a compound template 
+def compound_dist(d, t1, t2, pos1, pos2, ax= None):
+    t= np.zeros(len(d))
+    start1= max(int(pos1-len(t1)/2), 0)
+    stop1= min(int(pos1+len(t1)/2), len(d))
+    t_start1= max(int(len(t1)/2-pos1),0)
+    t_stop1= min(int(len(t1)/2-pos1+len(d)), len(t1))
+    t[start1:stop1]+= t1[t_start1:t_stop1]
+    start2= max(int(pos2-len(t2)/2), 0)
+    stop2= min(int(pos2+len(t2)/2), len(d))
+    t_start2= max(int(len(t2)/2-pos2),0)
+    t_stop2= min(int(len(t2)/2-pos2+len(d)), len(t1))
+    t[start2:stop2]+= t2[t_start2:t_stop2]
+    d2= np.zeros(len(d))
+    start_l= min(start1,start2)
+    stop_r= max(stop1,stop2)
+    d2[start_l:stop_r]= d[start_l:stop_r]
+    dst= np.linalg.norm(d2-t)
+    if ax is not None:
+        ax.plot(d,'.',markersize=1)
+        ax.plot(d2)
+        ax.plot(t)
+        ax.set_ylim(-1.2,1.2)
+        ax.set_title(dst)
+    return dst/(stop_r-start_l)
+    #return dst 

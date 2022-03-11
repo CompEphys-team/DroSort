@@ -25,6 +25,7 @@ import configparser
 
 # get config
 config_path = Path(os.path.abspath(sys.argv[1]))
+sssort_path = os.path.dirname(os.path.abspath(sys.argv[0]))
 Config = configparser.ConfigParser()
 Config.read(config_path)
 print_msg('config file read from %s' % config_path)
@@ -125,8 +126,8 @@ if not default_templates:
 else:
     print_msg("Getting average templates from disk")
 
-    A = np.load("./templates/template_a.npy")
-    B = np.load("./templates/template_b.npy")
+    A = np.load(os.path.join(sssort_path,"templates/template_a.npy"))
+    B = np.load(os.path.join(sssort_path,"templates/template_b.npy"))
 
     average_spikes = [A, B]
 

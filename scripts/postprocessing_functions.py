@@ -126,8 +126,10 @@ def combine_templates(combined_templates, A, B, dt, max_len, align_mode):
 def plot_combined_templates(combined_templates, templates_labels, ncols=5, org_spike=[],distances=None, title='',save=None):
     nrows = int(np.ceil(combined_templates.shape[0] / ncols))
 
-    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, sharex=True, sharey=True, figsize=(ncols * 2, nrows), num=1, clear=True)
-    
+    #plt.rc('font', size=4)
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, sharex=True, sharey=True, num=1, clear=True)
+    fig.set_figheight(nrows*1.5)
+    fig.set_figwidth(ncols*3)
     for c, ct in enumerate(combined_templates):
         i, j = c // ncols, c % ncols
 
@@ -159,8 +161,8 @@ def plot_combined_templates(combined_templates, templates_labels, ncols=5, org_s
     plt.tight_layout()
 
     if save is not None:
-        fig.savefig(save)
-        # plt.close(fig)
+        fig.savefig(save,dpi=100)
+    plt.close(fig)
         # plt.close()
 
         # WARNING: do not add plt.close; figure clears by definition
@@ -182,11 +184,11 @@ def plot_combined_templates_bests(combined_templates, templates_labels, org_spik
         # axes[i].text(x=0.6, y=0.8, s=str(templates_labels[ind]), fontsize=15, transform=axes[i].transAxes)
         # axes[i].text(x=0.6, y=0.2, s="distance = \n%.3f" % distances[ind], fontsize=15, color='k', transform=axes[i].transAxes)
 
-
     plt.legend()
     plt.suptitle(title)
     plt.tight_layout()
 
+    
     if save is not None:
         fig.savefig(save)
         # WARNING: do not add plt.close; figure clears by definition

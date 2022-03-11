@@ -36,6 +36,7 @@ fig_format = '.png'
 
 # get config
 config_path = Path(os.path.abspath(sys.argv[1]))
+sssort_path = os.path.dirname(os.path.abspath(sys.argv[0]))
 Config = configparser.ConfigParser()
 Config.read(config_path)
 print_msg('config file read from %s' % config_path)
@@ -64,19 +65,19 @@ n_samples = Waveforms[:,0].size
 
 new_column = 'unit_labeled'
 
-if len(units) != 3:
-	print("Three units needed, only %d found in SpikeInfo"%len(units))
-	exit()
+#if len(units) != 3:
+#	print("Three units needed, only %d found in SpikeInfo"%len(units))
+#	exit()
 
-if '-2' in units or new_column in SpikeInfo.keys():
+if new_column in SpikeInfo.keys():
     print_msg("Clusters already assigned")
     print(SpikeInfo[unit_column].value_counts())
     exit()
 
 
 #Load model templates 
-template_a = np.load("./templates/template_a.npy")
-template_b = np.load("./templates/template_b.npy")
+template_a = np.load(os.path.join(sssort_path,"templates/template_a.npy"))
+template_b = np.load(os.path.join(sssort_path,"templates/template_b.npy"))
 
 template_a = template_a[:Waveforms.shape[0]]
 template_b = template_b[:Waveforms.shape[0]]
@@ -89,7 +90,7 @@ means=[]
 
 mode='peak'
 
-print_msg("Computing best assignation")
+print_msg("Computing best assignment")
 #Compare units to templates
 for unit in units:
     unit_ids = SpikeInfo.groupby(unit_column).get_group(unit)['id']
@@ -118,27 +119,31 @@ print_msg("Distances to b: ")
 print_msg("\t\t%s" % str(units))
 print_msg("\t\t%s" % str(distances_b))
 
-# Get best assignations
+# Get best assignments
 a_unit = units[np.argmin(distances_a)]
 b_unit = units[np.argmin(distances_b)]
-non_unit = [unit for unit in units if a_unit not in unit and b_unit not in unit][0]
+if len(units) > 2:
+    non_unit = [unit for unit in units if a_unit not in unit and b_unit not in unit][0]
 
 
-asigs = {a_unit: 'A', b_unit: 'B', non_unit: '?'}
+asigs = {a_unit: 'A', b_unit: 'B'}
+if len(units) > 2:
+    asigs[non_unit]= '?'
 print_msg("Final assignation: %s" % asigs)
 
-# plot assignation
-outpath = plots_folder / ("cluster_reassignation" + fig_format)
+# plot assignments
+outpath = plots_folder / ("cluster_reassignments" + fig_format)
 plot_means(means, units, template_a, template_b, asigs=asigs, outpath=outpath)
 
 # create new column with reassigned labels
 SpikeInfo[new_column] = copy.deepcopy(SpikeInfo[unit_column].values)
-non_unit_rows = SpikeInfo.groupby(new_column).get_group(non_unit)
-a_unit_rows = SpikeInfo.groupby(new_column).get_group(a_unit)
-b_unit_rows = SpikeInfo.groupby(new_column).get_group(b_unit)
+if len(units) > 2:
+    non_unit_rows = SpikeInfo.groupby(new_column).get_group(non_unit)
+    SpikeInfo.loc[non_unit_rows.index, new_column] = '-2'
 
-SpikeInfo.loc[non_unit_rows.index, new_column] = '-2'
+a_unit_rows = SpikeInfo.groupby(new_column).get_group(a_unit)
 SpikeInfo.loc[a_unit_rows.index, new_column] = 'a'
+b_unit_rows = SpikeInfo.groupby(new_column).get_group(b_unit)
 SpikeInfo.loc[b_unit_rows.index, new_column] = 'b'
 
 units = get_units(SpikeInfo, new_column)
