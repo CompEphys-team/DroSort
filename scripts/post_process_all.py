@@ -15,8 +15,6 @@ import configparser
 ################################################################
 
 def insert_row(df, idx, df_insert):
-    print(idx)
-    print(df_insert)
     dfA = df.iloc[:idx, ]
     dfB = df.iloc[idx:, ]
 
@@ -127,9 +125,6 @@ for i in range(1,len(unit_ids)-1):
                 d.append(dist(v,templates[unit],pos))
                 sh.append(pos)
                 un.append(unit)
-        #print(d)
-        #print(sh)
-        #print(un)
         d2= []
         sh2= []
         for pos1 in range(n_wd):
@@ -185,9 +180,9 @@ for i in range(1,len(unit_ids)-1):
             if abs(stimes[o_spike_id]-o_spike_time)*10000 < same_spike_tolerance:
                 # the other spike coincides with the previous spike in the original list
                 # make sure that the previous decision is consistent with the current one
-                print(SpikeInfo[unit_column][o_spike_id])
-                print(o_spike_unit)
                 assert((SpikeInfo[unit_column][o_spike_id] == o_spike_unit) or (SpikeInfo[unit_column][o_spike_id] == '-2'))
+                if SpikeInfo[unit_column][o_spike_id] == '-2':
+                    nSpikeInfo[new_column][o_spike_id+offset]= o_spike_unit
             else:
                 # the other spike does not yet exist in the list: insert new row
                 nSpikeInfo= insert_spike(nSpikeInfo, new_column, i, o_spike_id, o_spike_time, o_spike_unit)
