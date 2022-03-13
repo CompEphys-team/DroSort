@@ -660,3 +660,56 @@ def plot_means(means,units,template_a,template_b,asigs,outpath=None,show=False,c
         plt.savefig(outpath)
     if show:
         plt.show()
+
+
+def plot_postproc_context(Segment, j, Models, SpikeInfo, unit_column, unit_order=None, zoom=None, box= None, save=None, colors=None,wsize=40,rejs=None):
+    """ plot to inspect fitted spikes """
+    fig, axes = plt.subplots(nrows=2, sharex=True, sharey=True, num=1, clear=True)
+    
+    asig = Segment.analogsignals[0]
+    axes[0].plot(asig.times, asig.data, color='k', lw=1)
+    axes[1].plot(asig.times, asig.data, color='k', lw=1)
+
+    st = Segment.spiketrains[0]  # get all spike trains (assuming there's only one spike train)
+    # get events amplitude value (spike)
+    # a_events = st.waveforms
+    # a_events = [max(a) for a in a_events]
+
+    axes[1].plot(st.times, np.ones(st.times.shape), '|', markersize=1, label="spike_time_ref")
+    if rejs is not None:
+        axes[1].plot(rejs, np.ones(rejs.shape), '|', markersize=1, color='r', label="rejected_spike")
+
+    plot_by_unit(axes[1], st, asig, Models, SpikeInfo, unit_column, unit_order,
+                 colors, wsize, j)
+
+    if box is not None:
+        plot_box(axes[0], box)
+        plot_box(axes[1], box)
+        
+    if zoom is not None:
+        for ax in axes:
+            ax.set_xlim(zoom)
+            
+    stim_name = Path(Segment.annotations['filename']).stem
+    fig.suptitle(stim_name)
+    fig.tight_layout()
+    #fig.subplots_adjust(top=0.9)
+    #sns.despine(fig)
+    
+    fig.legend()
+
+    if save is not None:
+        fig.savefig(save)
+        # plt.close(fig)
+
+    return fig, axes
+
+def plot_box(ax, box):
+    bot= ax.get_ylim()[0]
+    top= ax.get_ylim()[1]
+    left= box[0]-box[1]/2
+    right= box[0]+box[1]/2
+    x= [ left, left, right, right, left ]
+    y= [ bot, top, top, bot, bot ]
+    ax.plot(x,y, 'r', lw= 1)
+    

@@ -1121,12 +1121,15 @@ def dist(d, t, shift, ax= None):
 
 # calculate the distance between a data trace and a template at a shift
 def dist(d, t, pos, ax= None):
+    # Make a template at position pos
     t2= np.zeros(len(d))
     start= max(int(pos-len(t)/2), 0)
     stop= min(int(pos+len(t)/2), len(d))
     t_start= max(int(len(t)/2-pos),0)
     t_stop= min(int(len(t)/2-pos+len(d)), len(t))
-    t2[start:stop]+= t[t_start:t_stop]
+    t2[start:stop]= t[t_start:t_stop]
+    # data outside where the template sits is zeroed, so that those
+    # regions are not considered during the comparison
     d2= np.zeros(len(d))
     d2[start:stop]= d[start:stop]
     dst= np.linalg.norm(d2-t2)
@@ -1135,12 +1138,13 @@ def dist(d, t, pos, ax= None):
         ax.plot(d2)
         ax.plot(t2)
         ax.set_ylim(-1.2,1.2)
-        ax.set_title(dst)
+        ax.set_title(dst/len(t))
     return dst/len(t)
     #return dst
 
 # calculate the distance between a data trace and a compound template 
 def compound_dist(d, t1, t2, pos1, pos2, ax= None):
+    # assemble a compound template with positions pos1 and pos2
     t= np.zeros(len(d))
     start1= max(int(pos1-len(t1)/2), 0)
     stop1= min(int(pos1+len(t1)/2), len(d))
@@ -1152,6 +1156,10 @@ def compound_dist(d, t1, t2, pos1, pos2, ax= None):
     t_start2= max(int(len(t2)/2-pos2),0)
     t_stop2= min(int(len(t2)/2-pos2+len(d)), len(t1))
     t[start2:stop2]+= t2[t_start2:t_stop2]
+    # blank out data left and right of compound template
+    # NOTE: we are not blanking between templates if there is a gap
+    # This is deliberate; such cases get thus penalized - they should
+    # be treated as individual spikes
     d2= np.zeros(len(d))
     start_l= min(start1,start2)
     stop_r= max(stop1,stop2)
@@ -1162,6 +1170,6 @@ def compound_dist(d, t1, t2, pos1, pos2, ax= None):
         ax.plot(d2)
         ax.plot(t)
         ax.set_ylim(-1.2,1.2)
-        ax.set_title(dst)
+        ax.set_title(dst/(stop_r-start_l))
     return dst/(stop_r-start_l)
     #return dst 
