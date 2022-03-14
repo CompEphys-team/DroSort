@@ -138,38 +138,43 @@ for i in range(1,len(unit_ids)-1):
         best= np.argmin(d)
         best2= np.argmin(d2)
         d_min= min(d[best],d2[best2])
-        choice= 0 if d[best] <= d2[best2] else 1
+        choice= 1 if d[best] <= d2[best2] else 2
         d_diff= abs(d[best]-d2[best2])
-        print(d_min, d_diff)
+        print_msg("Single spike d={}, compound spike d={}, difference={}".format(d[best], d2[best2], d_diff))
+        # show some plots first
+        zoom= (float(stimes[i])-sz_wd/1000*20,float(stimes[i])+sz_wd/1000*20)
+        fig2, ax2= plot_postproc_context(Seg, 0, Models, nSpikeInfo, new_column, zoom=zoom, box= (float(stimes[i]),sz_wd/1000))
+        outpath = plots_folder / (str(i)+'_context_plot' + fig_format)
+        fig2.savefig(outpath)
+        fig, ax= plt.subplots(ncols=2, sharey= True)
+        s_best_d= dist(v,templates[un[best]],sh[best],ax[0])
+        c_best_d= compound_dist(v,templates['a'],templates['b'],sh2[best2][0],sh2[best2][1],ax[1])
+        outpath = plots_folder / (str(i)+'_template_matches' + fig_format)
+        fig.savefig(outpath)
         if d_min < d_accept and d_diff > min_diff:
             pass
         else:
             # ask user
-            # show some plots first
-            zoom= (float(stimes[i])-sz_wd/1000*20,float(stimes[i])+sz_wd/1000*20)
-            fig2, ax2= plot_postproc_context(Seg, 0, Models, SpikeInfo, unit_column, zoom=zoom, box= (float(stimes[i]),sz_wd/1000))
             fig2.show()
-            fig, ax= plt.subplots(ncols=2, sharey= True)
             fig.show()
-            s_best_d= dist(v,templates[un[best]],sh[best],ax[0])
-            c_best_d= compound_dist(v,templates['a'],templates['b'],sh2[best2][0],sh2[best2][1],ax[1])
-        
-            outpath = plots_folder / (str(i)+'_template_matches' + fig_format)
-            fig.savefig(outpath)
             reason= "no good match" if d_min >= d_accept else "two very close matches"
             print("User feedback required: "+reason)
-            choice= int(input("Single spike (0), Compound spike (1), no spike (2)?"))
-            plt.close(fig2)
-            plt.close(fig)
+            choice= int(input("Single spike (1), Compound spike (2), no spike (0)?"))
+        plt.close(fig2)
+        plt.close(fig)
         # apply choice 
-        if choice == 0:
+        if choice == 1:
             # it;s a single spike - choose the appropriate single spike unit
             nSpikeInfo[new_column][i+offset]= un[best]
-        elif choice == 1:
+            print_msg("Spike {}: Single spike of type {}".format(i,un[best]))
+            print("i={}, offset={}, unit={}".format(i, offset, un[best])) 
+        elif choice == 2:
             # it's a compound spike - choose the appropriate spike unit and handle second spike
             orig_spike= np.argmin(abs(np.array(sh2[best2])-n_wdh))
             other_spike= 1-orig_spike
-            nSpikeInfo[new_column][i+offset]= 'a' if orig_spike == 0 else 'b'
+            spike_unit= 'a' if orig_spike == 0 else 'b'
+            nSpikeInfo[new_column][i+offset]= spike_unit
+            print_msg("Spike {}: Compound spike, first spike of type {}".format(i,spike_unit))
             if sh2[best2][other_spike] < n_wdh:
                 o_spike_id= i-1
             else:
@@ -183,15 +188,22 @@ for i in range(1,len(unit_ids)-1):
                 assert((SpikeInfo[unit_column][o_spike_id] == o_spike_unit) or (SpikeInfo[unit_column][o_spike_id] == '-2'))
                 if SpikeInfo[unit_column][o_spike_id] == '-2':
                     nSpikeInfo[new_column][o_spike_id+offset]= o_spike_unit
+                    print_msg("Spike {}: Compound spike, second spike was unknown type, now of type {}".format(i,o_spike_unit))
+                else:
+                    print_msg("Spike {}: Compound spike, second spike was already known, unchanged of type {}".format(i,o_spike_unit))
+                    
             else:
                 # the other spike does not yet exist in the list: insert new row
                 nSpikeInfo= insert_spike(nSpikeInfo, new_column, i, o_spike_id, o_spike_time, o_spike_unit)
                 offset+= 1
+                print_msg("Spike {}: Compound spike, second spike was undetected, inserted new spike of type {}".format(i,o_spike_unit))
+               
         else:
             # it's a non-spike - delete it
-            nSpikeInfo= delete_row(nSpikeInfo, i)
+            nSpikeInfo= delete_row(nSpikeInfo, i+offset)
+            print_msg("Spike {}: Not a spike, deleted".format(i))
             offset-= 1
-        nSpikeInfo.to_csv(results_folder/"nSpikeInfo.csv")
-nSpikeInfo.to_csv(results_folder/"SpikeInfo.csv")
+        #nSpikeInfo.to_csv(results_folder/"nSpikeInfo.csv",index= False)
+nSpikeInfo.to_csv(results_folder/"SpikeInfo.csv", index= False)
         
 
