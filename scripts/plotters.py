@@ -22,7 +22,7 @@ from functions import *
 def get_colors(units, palette='hls', desat=None, keep=True):
     """ return dict mapping unit labels to colors """
     if 'a' in units:
-        n_colors = 2
+        n_colors = len(units)
     else:
         if keep:
             n_colors = np.array(units).astype('int32').max()+1
@@ -133,13 +133,13 @@ def plot_segment(Seg, units, sigma=0.05, zscore=False, save=None, colors=None):
     for i, unit in enumerate(units):
         St, = select_by_dict(Seg.spiketrains, unit=unit)
         for t in St.times:
-            axes[0].plot([t,t],[i-0.4, i+0.4], color=colors[unit])
+            axes[0].plot([t,t],[i-0.4, i+0.4], lw= 0.5, color=colors[unit])
         tvec = sp.linspace(asig.times.magnitude[0], asig.times.magnitude[-1], 1000)
         fr = est_rate(St.times.magnitude, tvec, sigma)
         if zscore:
             fr = ele.signal_processing.zscore(fr)
-        axes[1].plot(tvec,fr,color=colors[unit])
-    axes[2].plot(asig.times, asig.data, color='k',lw=0.5)
+        axes[1].plot(tvec,fr, lw= 0.5, color=colors[unit])
+    axes[2].plot(asig.times, asig.data, color='k',lw=0.3)
 
     # deco
     axes[0].set_yticks(range(len(units)))
@@ -361,7 +361,7 @@ def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, co
     units = get_units(SpikeInfo,unit_column)
     if unit_order is not None:
         units = [units[i] for i in unit_order]
-    
+
     if colors is None:
         colors = get_colors(units)
 
@@ -377,11 +377,14 @@ def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, co
         # get times from SpikeInfo so units are extracted 
         # from Spike and not from annotation in spiketrains
         times = SpikeInfo.groupby([unit_column]).get_group((unit))['time'].values
-        fr = (asig.times[1]-asig.times[0]).simplified.magnitude.astype('int32')
-        Inds = [np.where(np.isclose(t,np.array(st.times),atol=fr))[0][0] for t in np.array(times)]
 
-        inds = (st.times[Inds]*fs).simplified.magnitude.astype('int32')
+        # TN: I don't see the point in this & it breaks where new spikes are inserted
+        #fr = (asig.times[1]-asig.times[0]).simplified.magnitude.astype('int32')
+        #Inds = [np.where(np.isclose(t,np.array(st.times),atol=fr))[0][0] for t in np.array(times)]
 
+        #inds = (st.times[Inds]*fs).simplified.magnitude.astype('int32')
+        inds = (times*fs).simplified.magnitude.astype('int32')
+        
         offset = (st.t_start * fs).simplified.magnitude.astype('int32')
         inds = inds - offset
 
@@ -403,13 +406,13 @@ def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, co
                     # thrown when first or last spike smaller than reconstruction window
                     continue
                 # asig_recons[int(inds[i]):int(inds[i]+wsize/2)] = spike[spike.size//2:]
-
             ax.plot(asig.times, asig_recons, lw=2.0, color=colors[unit], alpha=0.8)
-
+            
+                  
         except KeyError:
             # thrown when no spikes are present in this segment
             pass
-
+        
 #TODO add "rej" spikes in function
 def plot_compared_fitted_spikes(Segment, j, Models, SpikeInfo, unit_columns, unit_order=None, zoom=None, save=None, colors=None,wsize=40,rejs=None,title=None):
     """ plot to inspect fitted spikes """
@@ -667,8 +670,19 @@ def plot_postproc_context(Segment, j, Models, SpikeInfo, unit_column, unit_order
     fig, axes = plt.subplots(nrows=2, sharex=True, sharey=True, num=1, clear=True)
     
     asig = Segment.analogsignals[0]
-    axes[0].plot(asig.times, asig.data, color='k', lw=1)
-    axes[1].plot(asig.times, asig.data, color='k', lw=1)
+    fs = asig.sampling_rate
+    
+    if zoom is not None:
+        left= max(int(zoom[0]*fs),0)
+        right= min(int(zoom[1]*fs),len(asig.data))
+    else:
+        left= 0
+        right= len(asig.data)
+
+    print(left)
+    print(right)
+    axes[0].plot(asig.times[left:right], asig.data[left:right], color='k', lw=1)
+    axes[1].plot(asig.times[left:right], asig.data[left:right], color='k', lw=1)
 
     st = Segment.spiketrains[0]  # get all spike trains (assuming there's only one spike train)
     # get events amplitude value (spike)

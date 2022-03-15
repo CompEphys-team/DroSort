@@ -62,7 +62,7 @@ def print_msg(msg, log=True):
         mem_used = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1e6
         # msg = "%s%s\t%s\t%s%s" % (colorama.Fore.CYAN, timestr, memstr, colorama.Fore.GREEN, msg)
         mem_used = sp.around(mem_used, 2)
-        memstr = '('+str(mem_used) + ' MB): '
+        memstr = '('+str(mem_used) + ' GB): '
         timestr = tp.humantime(sp.around(time.time()-t0,2))
         print(colorama.Fore.CYAN + timestr + '\t' +  memstr + '\t' +
               # colorama.Fore.GREEN + msg)

@@ -7,6 +7,8 @@ from sys import path
 from postprocessing_functions import *
 
 import configparser
+import tracemalloc
+import gc
 
 ################################################################
 ##  
@@ -105,11 +107,13 @@ n_wd= int(sz_wd*10)
 n_wdh= n_wd//2
 
 new_column = 'unit_final'
-empty= [""] * len(SpikeInfo.index)
-nSpikeInfo[new_column]= empty
+nSpikeInfo[new_column]= SpikeInfo[unit_column][:]
+nSpikeInfo.to_csv("test.csv")
 offset= 0   # will keep track of shifts due to inserted and deleted spikes 
 # don't consider first and last spike to avoid corner cases; these do not matter in practice anyway
-for i in range(1,len(unit_ids)-1):
+tracemalloc.start()
+
+for i in range(1,5): #len(unit_ids)-1):
     start= int((float(stimes[i])*1000-sz_wd/2)*10)
     stop= start+n_wd
     if (start > 0) and (stop < len(asig)):   # only do something if the spike is not too close to the start or end of the recording, otherwise ignore
@@ -159,9 +163,12 @@ for i in range(1,len(unit_ids)-1):
             fig.show()
             reason= "no good match" if d_min >= d_accept else "two very close matches"
             print("User feedback required: "+reason)
-            choice= int(input("Single spike (1), Compound spike (2), no spike (0)?"))
+            choice= int(input("Single spike (1), Compound spike (2), no spike (0)? "))
+        fig2.clf()
         plt.close(fig2)
+        fig.clf()
         plt.close(fig)
+        gc.collect()
         # apply choice 
         if choice == 1:
             # it;s a single spike - choose the appropriate single spike unit
@@ -185,12 +192,13 @@ for i in range(1,len(unit_ids)-1):
             if abs(stimes[o_spike_id]-o_spike_time)*10000 < same_spike_tolerance:
                 # the other spike coincides with the previous spike in the original list
                 # make sure that the previous decision is consistent with the current one
-                assert((SpikeInfo[unit_column][o_spike_id] == o_spike_unit) or (SpikeInfo[unit_column][o_spike_id] == '-2'))
+                if (SpikeInfo[unit_column][o_spike_id] != o_spike_unit) and (SpikeInfo[unit_column][o_spike_id] != '-2'):
+                    print_msg("Warning: Spike re-assigned retro-actively through later compound spike")
+                nSpikeInfo[new_column][o_spike_id+offset]= o_spike_unit
                 if SpikeInfo[unit_column][o_spike_id] == '-2':
-                    nSpikeInfo[new_column][o_spike_id+offset]= o_spike_unit
                     print_msg("Spike {}: Compound spike, second spike was unknown type, now of type {}".format(i,o_spike_unit))
                 else:
-                    print_msg("Spike {}: Compound spike, second spike was already known, unchanged of type {}".format(i,o_spike_unit))
+                    print_msg("Spike {}: Compound spike, second spike was already known, final of type {}".format(i,o_spike_unit))
                     
             else:
                 # the other spike does not yet exist in the list: insert new row
@@ -205,5 +213,56 @@ for i in range(1,len(unit_ids)-1):
             offset-= 1
         #nSpikeInfo.to_csv(results_folder/"nSpikeInfo.csv",index= False)
 nSpikeInfo.to_csv(results_folder/"SpikeInfo.csv", index= False)
-        
 
+# Saving
+kernel = ele.kernels.GaussianKernel(sigma=kernel_fast * pq.s)
+for i, seg in tqdm(enumerate(Blk.segments),desc="populating block for output"):
+    fs = seg.analogsignals[0].sampling_rate
+    spike_labels = nSpikeInfo.groupby(('segment')).get_group((i))[new_column].values
+    times= nSpikeInfo.groupby(('segment')).get_group((i))['time'].values
+    St = seg.spiketrains[0]
+    seg.spiketrains[0]= neo.core.SpikeTrain(times, units='sec', t_start = St.t_start,t_stop=St.t_stop)
+    seg.spiketrains[0].array_annotate(unit_labels= list(spike_labels))
+    
+    # make spiketrains
+    St = seg.spiketrains[0]
+    sts = [St]
+
+    for unit in units:
+        times = St.times[sp.array(spike_labels) == unit]
+        st = neo.core.SpikeTrain(times, t_start = St.t_start, t_stop=St.t_stop)
+        st.annotate(unit=unit)
+        sts.append(st)
+    seg.spiketrains=sts
+
+    # est firing rates
+    asigs = [seg.analogsignals[0]]
+    for unit in units:
+        St, = select_by_dict(seg.spiketrains, unit=unit)
+        frate = ele.statistics.instantaneous_rate(St, kernel=kernel, sampling_period=1/fs)
+        frate.annotate(kind='frate_fast', unit=unit)
+        asigs.append(frate)
+    seg.analogsignals = asigs
+
+
+#save all
+units = get_units(SpikeInfo,unit_column)
+print_msg("Number of spikes in trace: %d"%SpikeInfo[unit_column].size)
+print_msg("Number of bad spikes: %d"%len(SpikeInfo.groupby(['good']).get_group(True)[unit_column]))
+# print_msg("Number of good spikes: %d"%len(SpikeInfo.groupby(['good']).get_group(False)[unit_column]))
+print_msg("Number of clusters: %d"%len(units))
+
+output_csv = Config.getboolean('output', 'csv')
+# warning firing rates not saved, too high memory use.
+save_all(results_folder, output_csv, SpikeInfo, Blk, units, Frates=False)
+
+seg_name = Path(Seg.annotations['filename']).stem
+outpath = plots_folder / (seg_name + '_overview' + fig_format)
+plot_segment(Seg, units, save=outpath)
+
+snapshot = tracemalloc.take_snapshot()
+top_stats = snapshot.statistics('lineno')
+
+print("[ Top 10 ]")
+for stat in top_stats[:10]:
+    print(stat)
