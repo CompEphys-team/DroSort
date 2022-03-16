@@ -27,7 +27,7 @@ from functions import *
 from plotters import *
 from sssio import *
 # from superpos_functions import *
- 
+import matplotlib.pyplot as plt 
 
 #Load file
 mpl.rcParams['figure.dpi'] = 300
@@ -92,16 +92,30 @@ mode='peak'
 
 print_msg("Computing best assignment")
 #Compare units to templates
+mean_waveforms= {}
+amplitude= []
 for unit in units:
     unit_ids = SpikeInfo.groupby(unit_column).get_group(unit)['id']
     waveforms = Waveforms[:,unit_ids]
 
     waveforms = np.array([np.array(align_to(t,mode)) for t in waveforms.T])
 
-    mean_waveforms = np.average(waveforms,axis=0)
+    mean_waveforms[unit] = np.average(waveforms,axis=0)
+    amplitude.append(np.max(mean_waveforms[unit])-np.min(mean_waveforms[unit]))
 
-    d_a = metrics.pairwise.euclidean_distances(mean_waveforms.reshape(1,-1),template_a.reshape(1,-1)).reshape(-1)[0]
-    d_b = metrics.pairwise.euclidean_distances(mean_waveforms.reshape(1,-1),template_b.reshape(1,-1)).reshape(-1)[0]
+max_ampl= np.max(amplitude)
+norm_factor= (np.max(template_a)-np.min(template_a))/max_ampl
+
+for unit in units:
+    plt.figure()
+    plt.plot(mean_waveforms[unit]*norm_factor)
+    plt.plot(template_a)
+    plt.plot(template_b)
+    plt.show()
+    d_a = np.linalg.norm(mean_waveforms[unit]*norm_factor-template_a)
+    d_b = np.linalg.norm(mean_waveforms[unit]*norm_factor-template_b)
+    #d_a = metrics.pairwise.euclidean_distances(mean_waveforms.reshape(1,-1),template_a.reshape(1,-1)).reshape(-1)[0]
+    #d_b = metrics.pairwise.euclidean_distances(mean_waveforms.reshape(1,-1),template_b.reshape(1,-1)).reshape(-1)[0]
     
     #compute distances by mean of distances
     # distances_a = metrics.pairwise.euclidean_distances(waveforms,template_a.reshape(1,-1)).reshape(-1)

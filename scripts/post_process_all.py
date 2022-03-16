@@ -99,6 +99,7 @@ align_mode= Config.get('postprocessing','vertical_align_mode')
 same_spike_tolerance= Config.getfloat('postprocessing','spike_position_tolerance')
 same_spike_tolerance= int(same_spike_tolerance*fs) # in time steps
 d_accept= Config.getfloat('postprocessing','max_dist_for_auto_accept')
+d_reject= Config.getfloat('postprocessing','min_dist_for_auto_reject')
 min_diff= Config.getfloat('postprocessing','min_diff_for_auto_accept')
 max_spike_diff= int(Config.getfloat('postprocessing','max_compound_spike_diff')*fs)
 
@@ -156,16 +157,21 @@ for i in range(1,len(unit_ids)-1):
         s_best_d= dist(v,templates[un[best]],sh[best],ax[0])
         c_best_d= compound_dist(v,templates['a'],templates['b'],sh2[best2][0],sh2[best2][1],ax[1])
         outpath = plots_folder / (str(i)+'_template_matches' + fig_format)
-        fig.savefig(outpath)
-        if d_min < d_accept and d_diff > min_diff:
-            pass
-        else:
+        print("d_min= {}, d_reject={}".format(d_min,d_reject))
+        if d_min > d_reject:
+            choice= 0
+            fig.savefig(outpath)
+        elif d_min >= d_accept or (200*d_diff/(d[best]+d2[best2]) < min_diff):
             # ask user
             fig2.show()
             fig.show()
-            reason= "no good match" if d_min >= d_accept else "two very close matches"
+            if (200*d_diff/(d[best]+d2[best2]) <= min_diff):
+                reason= "two very close matches"
+            elif d_min >= d_accept:
+                reason= "no good match but not bad enought to reject"
             print("User feedback required: "+reason)
             choice= int(input("Single spike (1), Compound spike (2), no spike (0)? "))
+            fig.savefig(outpath)
         plt.close(fig2)
         plt.close(fig)
         # apply choice 
