@@ -121,7 +121,6 @@ for i in range(1,len(unit_ids)-1):
         un= []
         templates= {}
         for unit in units[:2]:
-            print("{}. frate= {}".format(i,unit,frate[i]))
             templates[unit]= make_single_template(Models[unit], frate[i])
             templates[unit]= align_to(templates[unit],align_mode)
             for pos in range(n_wdh-same_spike_tolerance,n_wdh+same_spike_tolerance):
@@ -170,7 +169,7 @@ for i in range(1,len(unit_ids)-1):
             # it;s a single spike - choose the appropriate single spike unit
             nSpikeInfo[new_column][i+offset]= un[best]
             print_msg("Spike {}: Single spike of type {}".format(i,un[best]))
-            print("i={}, offset={}, unit={}".format(i, offset, un[best])) 
+            #print("i={}, offset={}, unit={}".format(i, offset, un[best])) 
         elif choice == 2:
             # it's a compound spike - choose the appropriate spike unit and handle second spike
             orig_spike= np.argmin(abs(np.array(sh2[best2])-n_wdh))

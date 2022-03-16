@@ -679,8 +679,6 @@ def plot_postproc_context(Segment, j, Models, SpikeInfo, unit_column, unit_order
         left= 0
         right= len(asig.data)
 
-    print(left)
-    print(right)
     axes[0].plot(asig.times[left:right], asig.data[left:right], color='k', lw=1)
     axes[1].plot(asig.times[left:right], asig.data[left:right], color='k', lw=1)
 
