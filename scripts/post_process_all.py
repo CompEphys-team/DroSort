@@ -86,7 +86,7 @@ templates_path = config_path.parent / results_folder / "Templates_ini.npy"
 Templates= np.load(templates_path)
 print_msg('templates read from %s' % templates_path)
 n_model_comp = Config.getint('spike model','n_model_comp')
-Models = train_Models(nSpikeInfo, unit_column, Templates, n_comp=n_model_comp, verbose=True)
+Models = train_Models(nSpikeInfo, unit_column, Templates, n_comp=n_model_comp, verbose=True, model_type= Spike_Model_Nlin)
 
 unit_ids= nSpikeInfo[unit_column]
 units = get_units(nSpikeInfo, unit_column)
@@ -116,7 +116,7 @@ offset= 0   # will keep track of shifts due to inserted and deleted spikes
 # don't consider first and last spike to avoid corner cases; these do not matter in practice anyway
 #tracemalloc.start()
 
-for i in range(1,10): # len(unit_ids)-1):
+for i in range(1,len(unit_ids)-1):
     start= int((float(stimes[i])*1000-sz_wd/2)*ifs)
     stop= start+n_wd
     if (start > 0) and (stop < len(asig)):   # only do something if the spike is not too close to the start or end of the recording, otherwise ignore
@@ -126,8 +126,11 @@ for i in range(1,10): # len(unit_ids)-1):
         un= []
         templates= {}
         for unit in units[:2]:
+            print(unit)
+            print(frate[unit][i])
             templates[unit]= make_single_template(Models[unit], frate[unit][i])
             templates[unit]= align_to(templates[unit],align_mode)
+            print(templates[unit])
             for pos in range(n_wdh-same_spike_tolerance,n_wdh+same_spike_tolerance):
                 d.append(dist(v,templates[unit],pos))
                 sh.append(pos)
@@ -150,30 +153,31 @@ for i in range(1,10): # len(unit_ids)-1):
         print_msg("Single spike d={}, compound spike d={}, difference={}".format(d[best], d2[best2], d_diff))
         # show some plots first
         zoom= (float(stimes[i])-sz_wd/1000*20,float(stimes[i])+sz_wd/1000*20)
-        fig2, ax2= plot_postproc_context(Seg, 0, Models, nSpikeInfo, new_column, zoom=zoom, box= (float(stimes[i]),sz_wd/1000))
-        outpath = plots_folder / (str(i)+'_context_plot' + fig_format)
-        fig2.savefig(outpath)
-        fig, ax= plt.subplots(ncols=2, sharey= True)
-        s_best_d= dist(v,templates[un[best]],sh[best],ax[0])
-        c_best_d= compound_dist(v,templates['a'],templates['b'],sh2[best2][0],sh2[best2][1],ax[1])
-        outpath = plots_folder / (str(i)+'_template_matches' + fig_format)
         print("d_min= {}, d_reject={}".format(d_min,d_reject))
-        if d_min > d_reject:
-            choice= 0
+        if (d_min > d_reject) or (d_min >= d_accept or (200*d_diff/(d[best]+d2[best2]) < min_diff)):
+            # make plots and save them
+            fig2, ax2= plot_postproc_context(Seg, 0, Models, nSpikeInfo, new_column, zoom=zoom, box= (float(stimes[i]),sz_wd/1000))
+            outpath = plots_folder / (str(i)+'_context_plot' + fig_format)
+            fig2.savefig(outpath)
+            fig, ax= plt.subplots(ncols=2, sharey= True)
+            dist(v,templates[un[best]],sh[best],ax[0])
+            compound_dist(v,templates['a'],templates['b'],sh2[best2][0],sh2[best2][1],ax[1])
+            outpath = plots_folder / (str(i)+'_template_matches' + fig_format)
             fig.savefig(outpath)
-        elif d_min >= d_accept or (200*d_diff/(d[best]+d2[best2]) < min_diff):
-            # ask user
-            fig2.show()
-            fig.show()
-            if (200*d_diff/(d[best]+d2[best2]) <= min_diff):
-                reason= "two very close matches"
-            elif d_min >= d_accept:
-                reason= "no good match but not bad enought to reject"
-            print("User feedback required: "+reason)
-            choice= int(input("Single spike (1), Compound spike (2), no spike (0)? "))
-            fig.savefig(outpath)
-        plt.close(fig2)
-        plt.close(fig)
+            if d_min > d_reject:
+                choice= 0
+            elif d_min >= d_accept or (200*d_diff/(d[best]+d2[best2]) < min_diff):
+                # ask user
+                fig2.show()
+                fig.show()
+                if (200*d_diff/(d[best]+d2[best2]) <= min_diff):
+                    reason= "two very close matches"
+                elif d_min >= d_accept:
+                    reason= "no good match but not bad enough to reject"
+                print("User feedback required: "+reason)
+                choice= int(input("Single spike (1), Compound spike (2), no spike (0)? "))
+            plt.close(fig2)
+            plt.close(fig)
         # apply choice 
         if choice == 1:
             # it;s a single spike - choose the appropriate single spike unit

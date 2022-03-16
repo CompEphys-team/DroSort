@@ -13,6 +13,7 @@ import threading
 import scipy as sp
 import numpy as np
 from scipy import stats, signal
+from scipy.optimize import least_squares
 import quantities as pq
 import pandas as pd
 
@@ -640,7 +641,66 @@ class Spike_Model():
         pca_i = [lin(fr,*self.pfits[i]) for i in range(len(self.pfits))]
         return self.pca.inverse_transform(pca_i)
 
-def train_Models(SpikeInfo, unit_column, Templates, n_comp=5, verbose=True):
+class Spike_Model_Nlin():
+    """ models how firing rate influences spike shape. Assumes that predominantly,
+spikes are changed by rescaling positive and negative part in a firing rate dependent
+(potentially non-linear) way. """
+
+    def __init__(self, n_comp=5):
+         self.Templates = None
+         self.frates = None
+
+    def align_templates(self):
+        self.Templates= self.Templates-np.outer(np.ones((self.Templates.shape[0],1)),np.mean(self.Templates,axis=0))
+        #plt.figure()
+        #plt.plot(self.Templates)
+        #plt.show()
+
+    def fun(self, x, t, y):
+        return self.base_fun(x,t) - y
+
+    def base_fun(self, x, t):
+        return x[0]+ x[1]*np.tanh(x[2]*(t-x[3]))
+    
+    def fit(self, Templates, frates):
+        """ fits the model for spike rescaling """
+        
+        # keep data
+        self.Templates = Templates
+        self.frates = frates
+
+        # extract the rescaling of positive and negative part
+        self.align_templates()
+        mx= np.amax(Templates, axis= 0)
+        mn= np.amin(Templates, axis= 0)
+        x0= np.array([ 0.75, 0.1, -10, 40 ]) 
+        #up = sp.stats.linregress(frates, mx)
+        #dn = sp.stats.linregress(frates, mn)
+        up = least_squares(self.fun, x0, loss='soft_l1', f_scale=0.1, args=(frates, mx))
+        fr_test= np.linspace(np.amin(frates),np.amax(frates),100)
+        mx_test= self.base_fun(up.x, fr_test)
+        x0= np.array([ -0.75, 0.1, 10, 40 ]) 
+        dn= least_squares(self.fun, x0, loss='soft_l1', f_scale=0.1, args=(frates, mn))
+        mn_test= self.base_fun(dn.x, fr_test)
+        self.xup= up.x
+        self.xdn= dn.x
+        self.mean_template= np.mean(Templates, axis= 1)
+        self.mean_template[self.mean_template > 0]/= np.amax(self.mean_template[self.mean_template > 0])
+        self.mean_template[self.mean_template < 0]/= abs(np.amin(self.mean_template[self.mean_template < 0]))
+        
+    def predict(self, fr):
+        """ predicts spike shape at firing rate fr, in PC space, returns
+        inverse transform: the actual spike shape as it would be measured """
+        scale_up= self.base_fun(self.xup,fr)
+        scale_dn= abs(self.base_fun(self.xdn,fr))
+        template= self.mean_template.copy()
+        template[template > 0]= template[template > 0]*scale_up
+        template[template < 0]= template[template < 0]*scale_dn
+        return template
+   
+
+    
+def train_Models(SpikeInfo, unit_column, Templates, n_comp=5, verbose=True, model_type= Spike_Model):
     """ trains models for all units, using labels from given unit_column """
 
     if verbose:
@@ -658,7 +718,7 @@ def train_Models(SpikeInfo, unit_column, Templates, n_comp=5, verbose=True):
         # frates
         frates = SInfo['frate_fast']
         # model
-        Models[unit] = Spike_Model(n_comp=n_comp)
+        Models[unit] = model_type(n_comp=n_comp)
         Models[unit].fit(T, frates)
     
     return Models

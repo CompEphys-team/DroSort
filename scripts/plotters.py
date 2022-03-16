@@ -350,14 +350,16 @@ def plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column,max_window, 
 
         for n_plot in range(0,n_plots):
             outpath = plots_folder / (seg_name + '_fitted_spikes%s_%s_%d'%(extension,max_window,n_plot) + fig_format)
-            ini = n_plot*max_window + max_window
+            ini = n_plot*max_window 
             end = ini + max_window
             end = min(end, Seg.analogsignals[0].shape[0])
             zoom = [ini,end]/asig.sampling_rate
-
+            
             plot_function(Seg, j, Models, SpikeInfo, unit_column, zoom=zoom, save=outpath,wsize=wsize, rejs=rejs)
 
-def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, colors=None,wsize=40,j=0):
+def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, colors=None,wsize=40,j=0,frate_source= 'frate_fast'):
+    if frate_source == 'frate_fast':
+        the_frate= 'frate_fast'
     units = get_units(SpikeInfo,unit_column)
     if unit_order is not None:
         units = [units[i] for i in unit_order]
@@ -390,7 +392,9 @@ def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, co
 
         try:
             if type(Models).__name__=='dict':
-                frates = SpikeInfo.groupby([unit_column, 'segment']).get_group((unit,j))['frate_fast'].values
+                if frate_source == 'variable':
+                    the_frate= 'frate_'+unit
+                frates = SpikeInfo.groupby([unit_column, 'segment']).get_group((unit,j))[the_frate].values
                 pred_spikes = [Models[unit].predict(f) for f in frates]
             else:
                 Templates = Models
@@ -692,7 +696,7 @@ def plot_postproc_context(Segment, j, Models, SpikeInfo, unit_column, unit_order
         axes[1].plot(rejs, np.ones(rejs.shape), '|', markersize=1, color='r', label="rejected_spike")
 
     plot_by_unit(axes[1], st, asig, Models, SpikeInfo, unit_column, unit_order,
-                 colors, wsize, j)
+                 colors, wsize, j,frate_source='variable')
 
     if box is not None:
         plot_box(axes[0], box)
