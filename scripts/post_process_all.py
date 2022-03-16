@@ -111,7 +111,7 @@ offset= 0   # will keep track of shifts due to inserted and deleted spikes
 # don't consider first and last spike to avoid corner cases; these do not matter in practice anyway
 tracemalloc.start()
 
-for i in range(1:len(unit_ids)-1):
+for i in range(1,len(unit_ids)-1):
     start= int((float(stimes[i])*1000-sz_wd/2)*10)
     stop= start+n_wd
     if (start > 0) and (stop < len(asig)):   # only do something if the spike is not too close to the start or end of the recording, otherwise ignore
