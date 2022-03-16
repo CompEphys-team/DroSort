@@ -116,6 +116,8 @@ def get_units(SpikeInfo, unit_column, remove_unassinged=True):
     if remove_unassinged:
         if '-1' in units:
             units.remove('-1')
+        if '-2' in units:
+            units.remove('-2')
     return sort_units(units)
 
 def get_asig_at_st_times(asig, st):
@@ -730,6 +732,30 @@ def calc_update_frates(Segments, SpikeInfo, unit_column, kernel_fast, kernel_slo
                 except:
                     # similar: when no spikes in this segment, can not set
                     pass
+
+def calc_update_final_frates(Segments, SpikeInfo, unit_column, kernel_fast):
+    """ calculate all firing rates for all units, based on unit_column. This is for after units
+have been identified as 'a' or 'b' (or unknown). Updates SpikeInfo with new columns frate_a, frate_b"""
+    # TODO - mix of new and old syntax - Segments are not needed
+    
+    from_units = get_units(SpikeInfo, unit_column, remove_unassinged=True)
+
+    # estimating firing rate profile for "from unit" and getting the rate at "to unit" timepoints
+    for i, seg  in enumerate(Segments):
+        for j, from_unit in enumerate(from_units):
+            try:
+                SInfo = SpikeInfo.groupby([unit_column,'segment']).get_group((from_unit,i))
+
+                # spike times
+                from_times = SInfo['time'].values
+                to_times = SpikeInfo['time'].values
+                # estimate its own rate at its own spike times
+                rate = est_rate(from_times, to_times, kernel_fast)
+                # set
+                SpikeInfo['frate_'+from_unit] = rate
+            except:
+                # can not set it's own rate, when there are no spikes in this segment for this unit
+                pass
 
 
 """
