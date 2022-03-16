@@ -107,11 +107,11 @@ max_ampl= np.max(amplitude)
 norm_factor= (np.max(template_a)-np.min(template_a))/max_ampl
 
 for unit in units:
-    plt.figure()
-    plt.plot(mean_waveforms[unit]*norm_factor)
-    plt.plot(template_a)
-    plt.plot(template_b)
-    plt.show()
+    #plt.figure()
+    #plt.plot(mean_waveforms[unit]*norm_factor)
+    #plt.plot(template_a)
+    #plt.plot(template_b)
+    #plt.show()
     d_a = np.linalg.norm(mean_waveforms[unit]*norm_factor-template_a)
     d_b = np.linalg.norm(mean_waveforms[unit]*norm_factor-template_b)
     #d_a = metrics.pairwise.euclidean_distances(mean_waveforms.reshape(1,-1),template_a.reshape(1,-1)).reshape(-1)[0]
@@ -123,7 +123,7 @@ for unit in units:
 
     distances_a.append(d_a)
     distances_b.append(d_b)
-    means.append(mean_waveforms)
+    means.append(mean_waveforms[unit])
 
 
 print_msg("Distances to a: ")

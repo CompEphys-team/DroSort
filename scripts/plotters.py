@@ -305,8 +305,8 @@ def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=No
     fig, axes = plt.subplots(nrows=2, sharex=True, sharey=True, num=1, clear=True)
     
     asig = Segment.analogsignals[0]
-    axes[0].plot(asig.times, asig.data, color='k', lw=1)
-    axes[1].plot(asig.times, asig.data, color='k', lw=1)
+    axes[0].plot(asig.times, asig.data, color='k', lw=0.5)
+    axes[1].plot(asig.times, asig.data, color='k', lw=0.5)
 
     st = Segment.spiketrains[0]  # get all spike trains (assuming there's only one spike train)
     # get events amplitude value (spike)
@@ -406,7 +406,7 @@ def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, co
                     # thrown when first or last spike smaller than reconstruction window
                     continue
                 # asig_recons[int(inds[i]):int(inds[i]+wsize/2)] = spike[spike.size//2:]
-            ax.plot(asig.times, asig_recons, lw=2.0, color=colors[unit], alpha=0.8)
+            ax.plot(asig.times, asig_recons, lw=1.0, color=colors[unit], alpha=0.8)
             
                   
         except KeyError:
@@ -650,7 +650,7 @@ def plot_means(means,units,template_a,template_b,asigs,outpath=None,show=False,c
 
     if colors is None:
         colors = {'A':'b','B':'g','?':'r'}
-    
+
     for i,(mean,unit) in enumerate(zip(means,units)):
         axes[i].plot(mean,label=unit,color='k',linewidth=0.7)
         axes[i].plot(mean,color=colors[asigs[unit]],alpha=0.3,linewidth=5)

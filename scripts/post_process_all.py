@@ -75,38 +75,38 @@ fig_format = Config.get('output','fig_format')
 
 stimes= SpikeInfo['time']
 Seg = Blk.segments[0]
-fs= int(Seg.analogsignals[0].sampling_rate)//1000   # sampling rate in kHz as integer value to convert ms to bins
+ifs= int(Seg.analogsignals[0].sampling_rate)//1000   # sampling rate in kHz as integer value to convert ms to bins
 
 # recalculate the latest firing rates according to spike assignments in unit_column
 #kernel_slow = Config.getfloat('kernels','sigma_slow')
 kernel_fast = Config.getfloat('kernels','sigma_fast')
-calc_update_final_frates(Blk.segments, SpikeInfo, unit_column, kernel_fast)
+calc_update_final_frates(Blk.segments, nSpikeInfo, unit_column, kernel_fast)
 
 templates_path = config_path.parent / results_folder / "Templates_ini.npy"
 Templates= np.load(templates_path)
 print_msg('templates read from %s' % templates_path)
 n_model_comp = Config.getint('spike model','n_model_comp')
-Models = train_Models(SpikeInfo, unit_column, Templates, n_comp=n_model_comp, verbose=True)
+Models = train_Models(nSpikeInfo, unit_column, Templates, n_comp=n_model_comp, verbose=True)
 
-unit_ids= SpikeInfo[unit_column]
-units = get_units(SpikeInfo, unit_column)
+unit_ids= nSpikeInfo[unit_column]
+units = get_units(nSpikeInfo, unit_column)
 frate= {}
 for unit in units:
-    frate[unit]= SpikeInfo['frate_'+unit]
+    frate[unit]= nSpikeInfo['frate_'+unit]
 
 sz_wd= Config.getfloat('postprocessing','spike_window_width')
 align_mode= Config.get('postprocessing','vertical_align_mode')
 same_spike_tolerance= Config.getfloat('postprocessing','spike_position_tolerance')
-same_spike_tolerance= int(same_spike_tolerance*fs) # in time steps
+same_spike_tolerance= int(same_spike_tolerance*ifs) # in time steps
 d_accept= Config.getfloat('postprocessing','max_dist_for_auto_accept')
 d_reject= Config.getfloat('postprocessing','min_dist_for_auto_reject')
 min_diff= Config.getfloat('postprocessing','min_diff_for_auto_accept')
-max_spike_diff= int(Config.getfloat('postprocessing','max_compound_spike_diff')*fs)
+max_spike_diff= int(Config.getfloat('postprocessing','max_compound_spike_diff')*ifs)
 
 asig= Seg.analogsignals[0]
 asig= asig.reshape(asig.shape[0])
 asig= align_to(asig,align_mode)
-n_wd= int(sz_wd*fs)
+n_wd= int(sz_wd*ifs)
 n_wdh= n_wd//2
 
 new_column = 'unit_final'
@@ -116,8 +116,8 @@ offset= 0   # will keep track of shifts due to inserted and deleted spikes
 # don't consider first and last spike to avoid corner cases; these do not matter in practice anyway
 #tracemalloc.start()
 
-for i in range(1,len(unit_ids)-1):
-    start= int((float(stimes[i])*1000-sz_wd/2)*fs)
+for i in range(1,10): # len(unit_ids)-1):
+    start= int((float(stimes[i])*1000-sz_wd/2)*ifs)
     stop= start+n_wd
     if (start > 0) and (stop < len(asig)):   # only do something if the spike is not too close to the start or end of the recording, otherwise ignore
         v= np.array(asig[start:stop],dtype= float)
@@ -192,9 +192,9 @@ for i in range(1,len(unit_ids)-1):
             else:
                 o_spike_id= i+1
             o_spike_unit= 'a' if other_spike == 0 else 'b'
-            o_spike_time= stimes[i]-n_wdh/1000/fs+sh2[best2][other_spike]/1000/fs  # spike time in seconds
+            o_spike_time= stimes[i]-n_wdh/1000/ifs+sh2[best2][other_spike]/1000/ifs  # spike time in seconds
             # the other spike is earlier
-            if abs(stimes[o_spike_id]-o_spike_time)*1000*fs < same_spike_tolerance:
+            if abs(stimes[o_spike_id]-o_spike_time)*1000*ifs < same_spike_tolerance:
                 # the other spike coincides with the previous spike in the original list
                 # make sure that the previous decision is consistent with the current one
                 if (SpikeInfo[unit_column][o_spike_id] != o_spike_unit) and (SpikeInfo[unit_column][o_spike_id] != '-2'):
@@ -216,6 +216,7 @@ for i in range(1,len(unit_ids)-1):
             nSpikeInfo= delete_row(nSpikeInfo, i+offset)
             print_msg("Spike {}: Not a spike, deleted".format(i))
             offset-= 1
+
 nSpikeInfo.to_csv(results_folder/"SpikeInfo.csv", index= False)
 
 # Saving
@@ -263,6 +264,13 @@ save_all(results_folder, output_csv, SpikeInfo, Blk, units, Frates=False)
 seg_name = Path(Seg.annotations['filename']).stem
 outpath = plots_folder / (seg_name + '_overview' + fig_format)
 plot_segment(Seg, units, save=outpath)
+
+
+max_window= Config.getfloat('output','max_window_fitted_spikes_overview')
+wsize = Config.getfloat('spike detect', 'wsize') * pq.ms
+n_samples = (wsize * fs).simplified.magnitude.astype('int32')
+plot_fitted_spikes_complete(Blk, Models, nSpikeInfo, new_column, max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates')
+
 
 """
 snapshot = tracemalloc.take_snapshot()

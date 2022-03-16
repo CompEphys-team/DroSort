@@ -436,6 +436,7 @@ plot_Models(Models, save=outpath)
 
 # Remove the smallest cluster
 # TODO change for smallest amplitude?
+max_window= Config.getfloat('output','max_window_fitted_spikes_overview')
 if rm_smaller_cluster:
     SpikeInfo['last_remove_save'] = copy.deepcopy(SpikeInfo[unit_column].values)
     remove_spikes(SpikeInfo,unit_column,'min')
@@ -447,7 +448,6 @@ if rm_smaller_cluster:
     outpath = plots_folder / ("Models_final%s" % (fig_format))
     plot_Models(Models, save=outpath)
 
-    max_window = 0.3
     plot_fitted_spikes_complete(Blk, Templates, SpikeInfo, [ 'last_remove_sae',unit_column], max_window, plots_folder, fig_format,wsize=n_samples,extension='_last_remove',plot_function=plot_compared_fitted_spikes,rejs=rej_spikes)
 
 
@@ -579,7 +579,6 @@ for j, Seg in enumerate(Blk.segments):
     plot_segment(Seg, units, save=outpath)
 
 # plot all sorted spikes
-max_window = 0.3 #AG: TODO add to config file
 plot_fitted_spikes_complete(Blk, Templates, SpikeInfo, unit_column, max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates',rejs=rej_spikes)
 
 print_msg("plotting done")
