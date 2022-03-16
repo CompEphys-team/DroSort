@@ -89,9 +89,7 @@ Models = train_Models(SpikeInfo, unit_column, Templates, n_comp=n_model_comp, ve
 
 unit_ids= SpikeInfo[unit_column]
 units = get_units(SpikeInfo, unit_column)
-frate= {}
-for unit in units:
-    frate[unit]= SpikeInfo['frate_from_'+unit]
+frate= SpikeInfo['frate_fast']
 
 sz_wd= Config.getfloat('postprocessing','spike_window_width')
 align_mode= Config.get('postprocessing','vertical_align_mode')
@@ -113,7 +111,7 @@ offset= 0   # will keep track of shifts due to inserted and deleted spikes
 # don't consider first and last spike to avoid corner cases; these do not matter in practice anyway
 tracemalloc.start()
 
-for i in range(1,5): #len(unit_ids)-1):
+for i in range(1:len(unit_ids)-1):
     start= int((float(stimes[i])*1000-sz_wd/2)*10)
     stop= start+n_wd
     if (start > 0) and (stop < len(asig)):   # only do something if the spike is not too close to the start or end of the recording, otherwise ignore
@@ -123,7 +121,8 @@ for i in range(1,5): #len(unit_ids)-1):
         un= []
         templates= {}
         for unit in units[:2]:
-            templates[unit]= make_single_template(Models[unit], frate[unit][i])
+            print("{}. frate= {}".format(i,unit,frate[i]))
+            templates[unit]= make_single_template(Models[unit], frate[i])
             templates[unit]= align_to(templates[unit],align_mode)
             for pos in range(n_wdh-same_spike_tolerance,n_wdh+same_spike_tolerance):
                 d.append(dist(v,templates[unit],pos))
@@ -164,11 +163,8 @@ for i in range(1,5): #len(unit_ids)-1):
             reason= "no good match" if d_min >= d_accept else "two very close matches"
             print("User feedback required: "+reason)
             choice= int(input("Single spike (1), Compound spike (2), no spike (0)? "))
-        fig2.clf()
         plt.close(fig2)
-        fig.clf()
         plt.close(fig)
-        gc.collect()
         # apply choice 
         if choice == 1:
             # it;s a single spike - choose the appropriate single spike unit
@@ -211,7 +207,6 @@ for i in range(1,5): #len(unit_ids)-1):
             nSpikeInfo= delete_row(nSpikeInfo, i+offset)
             print_msg("Spike {}: Not a spike, deleted".format(i))
             offset-= 1
-        #nSpikeInfo.to_csv(results_folder/"nSpikeInfo.csv",index= False)
 nSpikeInfo.to_csv(results_folder/"SpikeInfo.csv", index= False)
 
 # Saving
