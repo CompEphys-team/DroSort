@@ -126,11 +126,8 @@ for i in range(1,len(unit_ids)-1):
         un= []
         templates= {}
         for unit in units[:2]:
-            print(unit)
-            print(frate[unit][i])
             templates[unit]= make_single_template(Models[unit], frate[unit][i])
             templates[unit]= align_to(templates[unit],align_mode)
-            print(templates[unit])
             for pos in range(n_wdh-same_spike_tolerance,n_wdh+same_spike_tolerance):
                 d.append(dist(v,templates[unit],pos))
                 sh.append(pos)
@@ -153,7 +150,6 @@ for i in range(1,len(unit_ids)-1):
         print_msg("Single spike d={}, compound spike d={}, difference={}".format(d[best], d2[best2], d_diff))
         # show some plots first
         zoom= (float(stimes[i])-sz_wd/1000*20,float(stimes[i])+sz_wd/1000*20)
-        print("d_min= {}, d_reject={}".format(d_min,d_reject))
         if (d_min > d_reject) or (d_min >= d_accept or (200*d_diff/(d[best]+d2[best2]) < min_diff)):
             # make plots and save them
             fig2, ax2= plot_postproc_context(Seg, 0, Models, nSpikeInfo, new_column, zoom=zoom, box= (float(stimes[i]),sz_wd/1000))
