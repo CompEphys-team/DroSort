@@ -357,9 +357,7 @@ def plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column,max_window, 
             
             plot_function(Seg, j, Models, SpikeInfo, unit_column, zoom=zoom, save=outpath,wsize=wsize, rejs=rejs)
 
-def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, colors=None,wsize=40,j=0,frate_source= 'frate_fast'):
-    if frate_source == 'frate_fast':
-        the_frate= 'frate_fast'
+def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, colors=None,wsize=40,j=0):
     units = get_units(SpikeInfo,unit_column)
     if unit_order is not None:
         units = [units[i] for i in unit_order]
@@ -392,9 +390,7 @@ def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, co
 
         try:
             if type(Models).__name__=='dict':
-                if frate_source == 'variable':
-                    the_frate= 'frate_'+unit
-                frates = SpikeInfo.groupby([unit_column, 'segment']).get_group((unit,j))[the_frate].values
+                frates = SpikeInfo.groupby([unit_column, 'segment']).get_group((unit,j))['frate_fast'].values
                 pred_spikes = [Models[unit].predict(f) for f in frates]
             else:
                 Templates = Models
@@ -671,7 +667,7 @@ def plot_means(means,units,template_a,template_b,asigs,outpath=None,show=False,c
 
 def plot_postproc_context(Segment, j, Models, SpikeInfo, unit_column, unit_order=None, zoom=None, box= None, save=None, colors=None,wsize=40,rejs=None):
     """ plot to inspect fitted spikes """
-    fig, axes = plt.subplots(nrows=2, sharex=True, sharey=True, num=1, clear=True)
+    fig, axes = plt.subplots(nrows=2, sharex=True, sharey=True, num=1, clear=True, figsize= [ 4, 3 ])
     
     asig = Segment.analogsignals[0]
     fs = asig.sampling_rate
@@ -683,8 +679,8 @@ def plot_postproc_context(Segment, j, Models, SpikeInfo, unit_column, unit_order
         left= 0
         right= len(asig.data)
 
-    axes[0].plot(asig.times[left:right], asig.data[left:right], color='k', lw=1)
-    axes[1].plot(asig.times[left:right], asig.data[left:right], color='k', lw=1)
+    axes[0].plot(asig.times[left:right], asig.data[left:right], color='k', lw=0.5)
+    axes[1].plot(asig.times[left:right], asig.data[left:right], color='k', lw=0.5)
 
     st = Segment.spiketrains[0]  # get all spike trains (assuming there's only one spike train)
     # get events amplitude value (spike)
@@ -696,7 +692,7 @@ def plot_postproc_context(Segment, j, Models, SpikeInfo, unit_column, unit_order
         axes[1].plot(rejs, np.ones(rejs.shape), '|', markersize=1, color='r', label="rejected_spike")
 
     plot_by_unit(axes[1], st, asig, Models, SpikeInfo, unit_column, unit_order,
-                 colors, wsize, j,frate_source='variable')
+                 colors, wsize, j)
 
     if box is not None:
         plot_box(axes[0], box)

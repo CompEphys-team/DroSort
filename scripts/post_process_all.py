@@ -10,6 +10,9 @@ import configparser
 #import tracemalloc
 import gc
 
+
+plt.rcParams.update({'font.size': 6})
+
 ################################################################
 ##  
 ##  Some tools 
@@ -33,6 +36,8 @@ def insert_spike(SpikeInfo, new_column, i, o_spike, o_spike_time, o_spike_unit):
     SpikeInfo[new_column][idx]= o_spike_unit
     SpikeInfo['id'][idx]= str(SpikeInfo['id'][idx])+'b'
     SpikeInfo['time'][idx]= o_spike_time
+    SpikeInfo['good'][idx]= False   # do not use for building templates!
+    SpikeInfo['frate_fast'][idx]= SpikeInfo['frate_'+o_spike_unit][idx]   # update rate_fast to the correct rate for the nwe spike's identity
     return SpikeInfo
 
     
@@ -64,7 +69,7 @@ Blk=get_data(results_folder/"result.dill")
 SpikeInfo = pd.read_csv(results_folder/"SpikeInfo.csv")
 nSpikeInfo= SpikeInfo.copy()
 
-unit_column = [col for col in SpikeInfo.columns if col.startswith('unit')][-1]
+unit_column = 'unit_labeled'
 SpikeInfo = SpikeInfo.astype({unit_column: str})
 units = get_units(SpikeInfo, unit_column)
 
@@ -102,7 +107,12 @@ d_accept= Config.getfloat('postprocessing','max_dist_for_auto_accept')
 d_reject= Config.getfloat('postprocessing','min_dist_for_auto_reject')
 min_diff= Config.getfloat('postprocessing','min_diff_for_auto_accept')
 max_spike_diff= int(Config.getfloat('postprocessing','max_compound_spike_diff')*ifs)
-
+try:
+    spkr = sp.array(Config.get('postprocessing','spike_range').split(','),dtype='int')
+    spike_range= range(spkr[0], spkr[1])
+except:
+    spike_range = range(1,len(unit_ids)-1)
+    
 asig= Seg.analogsignals[0]
 asig= asig.reshape(asig.shape[0])
 asig= align_to(asig,align_mode)
@@ -116,11 +126,12 @@ offset= 0   # will keep track of shifts due to inserted and deleted spikes
 # don't consider first and last spike to avoid corner cases; these do not matter in practice anyway
 #tracemalloc.start()
 
-for i in range(1,len(unit_ids)-1):
+for i in spike_range:
     start= int((float(stimes[i])*1000-sz_wd/2)*ifs)
     stop= start+n_wd
     if (start > 0) and (stop < len(asig)):   # only do something if the spike is not too close to the start or end of the recording, otherwise ignore
         v= np.array(asig[start:stop],dtype= float)
+        v= align_to(v,align_mode)
         d= []
         sh= []
         un= []
@@ -155,7 +166,7 @@ for i in range(1,len(unit_ids)-1):
             fig2, ax2= plot_postproc_context(Seg, 0, Models, nSpikeInfo, new_column, zoom=zoom, box= (float(stimes[i]),sz_wd/1000))
             outpath = plots_folder / (str(i)+'_context_plot' + fig_format)
             fig2.savefig(outpath)
-            fig, ax= plt.subplots(ncols=2, sharey= True)
+            fig, ax= plt.subplots(ncols=2, sharey= True, figsize=[ 4, 2])
             dist(v,templates[un[best]],sh[best],ax[0])
             compound_dist(v,templates['a'],templates['b'],sh2[best2][0],sh2[best2][1],ax[1])
             outpath = plots_folder / (str(i)+'_template_matches' + fig_format)
@@ -193,17 +204,14 @@ for i in range(1,len(unit_ids)-1):
                 o_spike_id= i+1
             o_spike_unit= 'a' if other_spike == 0 else 'b'
             o_spike_time= stimes[i]-n_wdh/1000/ifs+sh2[best2][other_spike]/1000/ifs  # spike time in seconds
-            # the other spike is earlier
             if abs(stimes[o_spike_id]-o_spike_time)*1000*ifs < same_spike_tolerance:
                 # the other spike coincides with the previous spike in the original list
                 # make sure that the previous decision is consistent with the current one
-                if (SpikeInfo[unit_column][o_spike_id] != o_spike_unit) and (SpikeInfo[unit_column][o_spike_id] != '-2'):
-                    print_msg("Warning: Spike re-assigned retro-actively through later compound spike")
                 nSpikeInfo[new_column][o_spike_id+offset]= o_spike_unit
                 if SpikeInfo[unit_column][o_spike_id] == '-2':
                     print_msg("Spike {}: Compound spike, second spike was unknown type, now of type {}".format(i,o_spike_unit))
                 else:
-                    print_msg("Spike {}: Compound spike, second spike was already known, final of type {}".format(i,o_spike_unit))
+                    print_msg("Spike {}: Compound spike, second spike was known as {}, now of type {}".format(i,SpikeInfo[unit_column][o_spike_id],o_spike_unit))
                     
             else:
                 # the other spike does not yet exist in the list: insert new row
@@ -213,11 +221,12 @@ for i in range(1,len(unit_ids)-1):
                
         else:
             # it's a non-spike - delete it
-            nSpikeInfo= delete_row(nSpikeInfo, i+offset)
-            print_msg("Spike {}: Not a spike, deleted".format(i))
-            offset-= 1
+            #nSpikeInfo= delete_row(nSpikeInfo, i+offset)
+            nSpikeInfo[new_column][i+offset]= '-3'
+            print_msg("Spike {}: Not a spike, marked for deletion".format(i))
+            #offset-= 1
 
-nSpikeInfo.to_csv(results_folder/"SpikeInfo.csv", index= False)
+calc_update_final_frates(Blk.segments, nSpikeInfo, unit_column, kernel_fast)
 
 # Saving
 kernel = ele.kernels.GaussianKernel(sigma=kernel_fast * pq.s)
@@ -259,7 +268,7 @@ print_msg("Number of clusters: %d"%len(units))
 
 output_csv = Config.getboolean('output', 'csv')
 # warning firing rates not saved, too high memory use.
-save_all(results_folder, output_csv, SpikeInfo, Blk, units, Frates=False)
+save_all(results_folder, output_csv, nSpikeInfo, Blk, units, Frates=False)
 
 seg_name = Path(Seg.annotations['filename']).stem
 outpath = plots_folder / (seg_name + '_overview' + fig_format)
