@@ -30,6 +30,7 @@ def insert_row(df, idx, df_insert):
 def delete_row(df, idx):
     return df.iloc[:idx, ].append(df.iloc[idx+1:]).reset_index(drop = True)
     seg.analogsignals[0].sampling_rate
+    
 def insert_spike(SpikeInfo, new_column, i, o_spike, o_spike_time, o_spike_unit):
     idx= max(i,o_spike)
     SpikeInfo= insert_row(SpikeInfo, idx, SpikeInfo.iloc[i, ]) # insert a copy of row i 
@@ -189,6 +190,7 @@ for i in spike_range:
         if choice == 1:
             # it;s a single spike - choose the appropriate single spike unit
             nSpikeInfo[new_column][i+offset]= un[best]
+            nSpikeInfo['frate_fast'][i+offset]= nSpikeInfo['frate_'+un[best]][i+offset]
             print_msg("Spike {}: Single spike of type {}".format(i,un[best]))
             #print("i={}, offset={}, unit={}".format(i, offset, un[best])) 
         elif choice == 2:
@@ -197,8 +199,10 @@ for i in spike_range:
             other_spike= 1-orig_spike
             spike_unit= 'a' if orig_spike == 0 else 'b'
             nSpikeInfo[new_column][i+offset]= spike_unit
+            nSpikeInfo['good'][i+offset]= False   # do not use compound spikes for Model building
+            nSpikeInfo['frate_fast'][i+offset]= nSpikeInfo['frate_'+spike_unit][i+offset]
             print_msg("Spike {}: Compound spike, first spike of type {}".format(i,spike_unit))
-            if sh2[best2][other_spike] < n_wdh:
+            if sh2[best2][other_spike] < sh2[best2][orig_spike]:
                 o_spike_id= i-1
             else:
                 o_spike_id= i+1
@@ -208,6 +212,8 @@ for i in spike_range:
                 # the other spike coincides with the previous spike in the original list
                 # make sure that the previous decision is consistent with the current one
                 nSpikeInfo[new_column][o_spike_id+offset]= o_spike_unit
+                nSpikeInfo['good'][o_spike_id+offset]= False   # do not use compound spikes for Model building
+                nSpikeInfo['frate_fast'][o_spike_id+offset]= nSpikeInfo['frate_'+o_spike_unit][o_spike_id+offset]
                 if SpikeInfo[unit_column][o_spike_id] == '-2':
                     print_msg("Spike {}: Compound spike, second spike was unknown type, now of type {}".format(i,o_spike_unit))
                 else:
@@ -223,6 +229,7 @@ for i in spike_range:
             # it's a non-spike - delete it
             #nSpikeInfo= delete_row(nSpikeInfo, i+offset)
             nSpikeInfo[new_column][i+offset]= '-3'
+            nSpikeInfo['good'][i+offset]= False   # definitively do not use for model building
             print_msg("Spike {}: Not a spike, marked for deletion".format(i))
             #offset-= 1
 
