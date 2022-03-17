@@ -117,6 +117,9 @@ except:
 asig= Seg.analogsignals[0]
 asig= asig.reshape(asig.shape[0])
 asig= align_to(asig,align_mode)
+as_min= np.amin(asig)
+as_max= np.amax(asig)
+y_lim= [ 1.05*as_min, 1.05*as_max ]
 n_wd= int(sz_wd*ifs)
 n_wdh= n_wd//2
 
@@ -164,12 +167,14 @@ for i in spike_range:
         zoom= (float(stimes[i])-sz_wd/1000*20,float(stimes[i])+sz_wd/1000*20)
         if (d_min > d_reject) or (d_min >= d_accept or (200*d_diff/(d[best]+d2[best2]) < min_diff)):
             # make plots and save them
-            fig2, ax2= plot_postproc_context(Seg, 0, Models, nSpikeInfo, new_column, zoom=zoom, box= (float(stimes[i]),sz_wd/1000))
+            fig2, ax2= plot_postproc_context(Seg, 0, Models, nSpikeInfo, new_column, zoom=zoom, box= (float(stimes[i]),sz_wd/1000), ylim= y_lim)
             outpath = plots_folder / (str(i)+'_context_plot' + fig_format)
             fig2.savefig(outpath)
             fig, ax= plt.subplots(ncols=2, sharey= True, figsize=[ 4, 2])
             dist(v,templates[un[best]],sh[best],unit= un[best],ax= ax[0])
+            ax[0].set_ylim(y_lim)
             compound_dist(v,templates['a'],templates['b'],sh2[best2][0],sh2[best2][1],ax[1])
+            ax[1].set_ylim(y_lim)
             outpath = plots_folder / (str(i)+'_template_matches' + fig_format)
             fig.savefig(outpath)
             if d_min > d_reject:

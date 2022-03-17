@@ -1221,8 +1221,8 @@ def dist(d, t, pos, unit= None, ax= None):
     dst= np.linalg.norm(d2-t2)
     if ax is not None:
         ax.plot(d,'.',markersize=1)
-        ax.plot(d2)
-        ax.plot(t2)
+        ax.plot(d2,linewidth= 0.7)
+        ax.plot(t2,linewidth= 0.7)
         ax.set_ylim(-1.2,1.2)
         lbl= unit+': d=' if unit is not None else ''
         ax.set_title(lbl+('%.4f' % (dst/len(t))))
@@ -1254,8 +1254,8 @@ def compound_dist(d, t1, t2, pos1, pos2, ax= None):
     dst= np.linalg.norm(d2-t)
     if ax is not None:
         ax.plot(d,'.',markersize=1)
-        ax.plot(d2)
-        ax.plot(t)
+        ax.plot(d2, linewidth= 0.7)
+        ax.plot(t, linewidth= 0.7)
         ax.set_ylim(-1.2,1.2)
         lbl= 'a+b: d=' if pos1 <= pos2 else 'b+a: d='
         ax.set_title(lbl+('%.4f' % (dst/(stop_r-start_l))))
