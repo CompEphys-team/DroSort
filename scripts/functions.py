@@ -1206,7 +1206,7 @@ def dist(d, t, shift, ax= None):
     return dst
 
 # calculate the distance between a data trace and a template at a shift
-def dist(d, t, pos, ax= None):
+def dist(d, t, pos, unit= None, ax= None):
     # Make a template at position pos
     t2= np.zeros(len(d))
     start= max(int(pos-len(t)/2), 0)
@@ -1224,7 +1224,8 @@ def dist(d, t, pos, ax= None):
         ax.plot(d2)
         ax.plot(t2)
         ax.set_ylim(-1.2,1.2)
-        ax.set_title(dst/len(t))
+        lbl= unit+': d=' if unit is not None else ''
+        ax.set_title(lbl+('%.4f' % (dst/len(t))))
     return dst/len(t)
     #return dst
 
@@ -1256,6 +1257,7 @@ def compound_dist(d, t1, t2, pos1, pos2, ax= None):
         ax.plot(d2)
         ax.plot(t)
         ax.set_ylim(-1.2,1.2)
-        ax.set_title(dst/(stop_r-start_l))
+        lbl= 'a+b: d=' if pos1 <= pos2 else 'b+a: d='
+        ax.set_title(lbl+('%.4f' % (dst/(stop_r-start_l))))
     return dst/(stop_r-start_l)
     #return dst 

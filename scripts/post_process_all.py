@@ -168,7 +168,7 @@ for i in spike_range:
             outpath = plots_folder / (str(i)+'_context_plot' + fig_format)
             fig2.savefig(outpath)
             fig, ax= plt.subplots(ncols=2, sharey= True, figsize=[ 4, 2])
-            dist(v,templates[un[best]],sh[best],ax[0])
+            dist(v,templates[un[best]],sh[best],unit= un[best],ax= ax[0])
             compound_dist(v,templates['a'],templates['b'],sh2[best2][0],sh2[best2][1],ax[1])
             outpath = plots_folder / (str(i)+'_template_matches' + fig_format)
             fig.savefig(outpath)
