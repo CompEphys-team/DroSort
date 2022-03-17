@@ -174,7 +174,7 @@ for i in spike_range:
             fig.savefig(outpath)
             if d_min > d_reject:
                 choice= 0
-            elif d_min >= d_accept or (200*d_diff/(d[best]+d2[best2]) < min_diff):
+            elif (d_min >= d_accept or (200*d_diff/(d[best]+d2[best2]) < min_diff)) and not (d2[best2] > d_reject):
                 # ask user
                 fig2.show()
                 fig.show()
