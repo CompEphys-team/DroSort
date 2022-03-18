@@ -524,7 +524,7 @@ def get_all_peaks(Segments, lowpass_freq=1*pq.kHz,t_max=None):
 def get_Templates(data, inds, n_samples):
     """ slice windows of n_samples (symmetric) out of data at inds """
 
-    if type(n_samples) is tuple:
+    if len(n_samples) > 1:
         wsizel = n_samples[0]
         wsizer = n_samples[1]
     else:
@@ -1183,36 +1183,19 @@ def make_single_template(Model, frate):
     d= Model.predict(frate)
     return d
 
+# add a template at defined position into frame of length ln1
+def bounds(ln, n_samples, pos):
+    start= max(int(pos-n_samples[0]), 0)
+    stop= min(int(pos+n_samples[1]), ln)
+    t_start= max(int(n_samples[0]-pos),0)
+    t_stop= min(int(n_samples[0]-pos+ln), np.sum(n_samples))
+    return (start, stop, t_start, t_stop)
 
 # calculate the distance between a data trace and a template at a shift
-def dist(d, t, shift, ax= None):
-    maxlen= max(len(d),len(t))
-    maxlen+= np.abs(2*shift)
-    d2= np.zeros(maxlen)
-    t2= np.zeros(maxlen)
-    start= int(maxlen/2-len(t)/2+shift)
-    stop= int(start+len(t))
-    t2[start:stop]= t
-    d_start= max(start-shift,0)
-    d_stop= min(d_start+len(t), len(d))
-    d2[start:start+d_stop-d_start]= d[d_start:d_stop] 
-    dst= np.linalg.norm(d2-t2)
-    if ax is not None:
-        ax.plot(d2)
-        ax.plot(t2)
-        ax.set_ylim(-1.2,1.2)
-        ax.set_title(dst)
-    #return dst/len(t)
-    return dst
-
-# calculate the distance between a data trace and a template at a shift
-def dist(d, t, pos, unit= None, ax= None):
+def dist(d, t, n_samples, pos, unit= None, ax= None):
     # Make a template at position pos
     t2= np.zeros(len(d))
-    start= max(int(pos-len(t)/2), 0)
-    stop= min(int(pos+len(t)/2), len(d))
-    t_start= max(int(len(t)/2-pos),0)
-    t_stop= min(int(len(t)/2-pos+len(d)), len(t))
+    start, stop, t_start, t_stop= bounds(len(d), n_samples, pos)
     t2[start:stop]= t[t_start:t_stop]
     # data outside where the template sits is zeroed, so that those
     # regions are not considered during the comparison
@@ -1230,18 +1213,12 @@ def dist(d, t, pos, unit= None, ax= None):
     #return dst
 
 # calculate the distance between a data trace and a compound template 
-def compound_dist(d, t1, t2, pos1, pos2, ax= None):
+def compound_dist(d, t1, t2, n_samples, pos1, pos2, ax= None):
     # assemble a compound template with positions pos1 and pos2
     t= np.zeros(len(d))
-    start1= max(int(pos1-len(t1)/2), 0)
-    stop1= min(int(pos1+len(t1)/2), len(d))
-    t_start1= max(int(len(t1)/2-pos1),0)
-    t_stop1= min(int(len(t1)/2-pos1+len(d)), len(t1))
+    start1, stop1, t_start1, t_stop1= bounds(len(d), n_samples, pos1)
     t[start1:stop1]+= t1[t_start1:t_stop1]
-    start2= max(int(pos2-len(t2)/2), 0)
-    stop2= min(int(pos2+len(t2)/2), len(d))
-    t_start2= max(int(len(t2)/2-pos2),0)
-    t_stop2= min(int(len(t2)/2-pos2+len(d)), len(t1))
+    start2, stop2, t_start2, t_stop2= bounds(len(d), n_samples, pos2)
     t[start2:stop2]+= t2[t_start2:t_stop2]
     # blank out data left and right of compound template
     # NOTE: we are not blanking between templates if there is a gap

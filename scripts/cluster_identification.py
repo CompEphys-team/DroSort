@@ -61,7 +61,9 @@ units = get_units(SpikeInfo,unit_column)
 
 #Load Templates
 Waveforms= np.load(results_folder/"Templates_ini.npy")
-n_samples = Waveforms[:,0].size
+fs = Blk.segments[0].analogsignals[0].sampling_rate
+n_samples= np.array(Config.get('spike model','template_window').split(','),dtype='float32')/1000.0
+n_samples= np.array(n_samples*fs, dtype= int)
 
 new_column = 'unit_labeled'
 
@@ -79,8 +81,15 @@ if new_column in SpikeInfo.keys():
 template_a = np.load(os.path.join(sssort_path,"templates/template_a.npy"))
 template_b = np.load(os.path.join(sssort_path,"templates/template_b.npy"))
 
-template_a = template_a[:Waveforms.shape[0]]
-template_b = template_b[:Waveforms.shape[0]]
+# templates and waveforms need to be put on comparable shape and size
+tmid_a= np.argmax(template_a)
+tmid_b= np.argmax(template_b)
+left= np.amin([ tmid_a, tmid_b, n_samples[0] ])
+right= np.amin([ len(template_a)-tmid_a, len(template_b)-tmid_b, n_samples[1] ])
+
+template_a = template_a[tmid_a-left:tmid_a+right]
+template_b = template_b[tmid_b-left:tmid_b+right]
+Waveforms= Waveforms[n_samples[0]-left:n_samples[0]+right,:]
 
 print_msg("Current units: %s"%units)
 

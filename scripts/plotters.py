@@ -340,7 +340,7 @@ def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=No
 
 
 def plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column,max_window, plots_folder, fig_format, unit_order=None, save=None, colors=None,wsize=40,extension='',plot_function=plot_fitted_spikes,rejs=None):
-
+    
     for j, Seg in enumerate(Blk.segments):
         seg_name = Path(Seg.annotations['filename']).stem
 
@@ -358,6 +358,14 @@ def plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column,max_window, 
             plot_function(Seg, j, Models, SpikeInfo, unit_column, zoom=zoom, save=outpath,wsize=wsize, rejs=rejs)
 
 def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, colors=None,wsize=40,j=0):
+
+    try:
+        left= wsize[0]
+        right= wsize[1]
+    except:
+        left= wsize//2
+        right= wsize//2
+
     units = get_units(SpikeInfo,unit_column)
     if unit_order is not None:
         units = [units[i] for i in unit_order]
@@ -399,7 +407,7 @@ def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, co
 
             for i, spike in enumerate(pred_spikes):
                 try:
-                    asig_recons[int(inds[i]-wsize/2):int(inds[i]+wsize/2)] = spike[spike.size//2-wsize//2:spike.size//2+wsize//2]
+                    asig_recons[inds[i]-left:inds[i]+right] = spike
 
                 except ValueError as e:
                     print("In plot by unit exception:",e.args)
@@ -499,7 +507,13 @@ def plot_compared_fitted_spikes(Segment, j, Models, SpikeInfo, unit_columns, uni
 def plot_templates_on_trace(Segment, j, Templates, zoom=None, save=None,wsize=40):
     """ plot to inspect fitted spikes """
     fig, axes =plt.subplots(nrows=2, sharex=True, sharey=True)
-    
+    try:
+        left= wsize[0]
+        right= wsize[1]
+    except:        
+        left= wsize//2
+        right= wsize//2
+
     asig = Segment.analogsignals[0]
     axes[0].plot(asig.times, asig.data, color='k', lw=1)
     axes[1].plot(asig.times, asig.data, color='k', lw=1)
@@ -518,7 +532,7 @@ def plot_templates_on_trace(Segment, j, Templates, zoom=None, save=None,wsize=40
     pred_spikes = Templates[:, :].T
 
     for i, spike in enumerate(pred_spikes):
-        asig_recons[int(inds[i] - wsize/2):int(inds[i] + wsize/2)] = spike
+        asig_recons[inds[i] - left:inds[i] + right] = spike
 
     axes[1].plot(asig.times, asig_recons, lw=1.5, color='b')
 
@@ -668,7 +682,7 @@ def plot_means(means,units,template_a,template_b,asigs,outpath=None,show=False,c
 def plot_postproc_context(Segment, j, Models, SpikeInfo, unit_column, unit_order=None, zoom=None, box= None, save=None, colors=None,wsize=40,rejs=None, ylim=None):
     """ plot to inspect fitted spikes """
     fig, axes = plt.subplots(nrows=2, sharex=True, sharey=True, num=1, clear=True, figsize= [ 4, 3 ])
-    
+
     asig = Segment.analogsignals[0]
     fs = asig.sampling_rate
     

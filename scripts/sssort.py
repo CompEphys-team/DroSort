@@ -100,7 +100,9 @@ except:
 # Data info
 wsize = Config.getfloat('spike detect', 'wsize') * pq.ms
 fs = Blk.segments[0].analogsignals[0].sampling_rate
-n_samples = (wsize * fs).simplified.magnitude.astype('int32')
+#n_samples = (wsize * fs).simplified.magnitude.astype('int32')
+n_samples= np.array(Config.get('spike model','template_window').split(','),dtype='float32')/1000.0
+n_samples= np.array(n_samples*fs, dtype= int)
 
 
 # plotting

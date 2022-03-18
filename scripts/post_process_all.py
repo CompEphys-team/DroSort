@@ -81,7 +81,8 @@ fig_format = Config.get('output','fig_format')
 
 stimes= SpikeInfo['time']
 Seg = Blk.segments[0]
-ifs= int(Seg.analogsignals[0].sampling_rate)//1000   # sampling rate in kHz as integer value to convert ms to bins
+fs= Seg.analogsignals[0].sampling_rate
+ifs= int(fs/1000)   # sampling rate in kHz as integer value to convert ms to bins
 
 # recalculate the latest firing rates according to spike assignments in unit_column
 #kernel_slow = Config.getfloat('kernels','sigma_slow')
@@ -108,6 +109,8 @@ d_accept= Config.getfloat('postprocessing','max_dist_for_auto_accept')
 d_reject= Config.getfloat('postprocessing','min_dist_for_auto_reject')
 min_diff= Config.getfloat('postprocessing','min_diff_for_auto_accept')
 max_spike_diff= int(Config.getfloat('postprocessing','max_compound_spike_diff')*ifs)
+n_samples= np.array(Config.get('spike model','template_window').split(','),dtype='float32')/1000.0
+n_samples= np.array(n_samples*fs, dtype= int)
 try:
     spkr = sp.array(Config.get('postprocessing','spike_range').split(','),dtype='int')
     spike_range= range(spkr[0], spkr[1])
@@ -144,7 +147,7 @@ for i in spike_range:
             templates[unit]= make_single_template(Models[unit], frate[unit][i])
             templates[unit]= align_to(templates[unit],align_mode)
             for pos in range(n_wdh-same_spike_tolerance,n_wdh+same_spike_tolerance):
-                d.append(dist(v,templates[unit],pos))
+                d.append(dist(v,templates[unit],n_samples,pos))
                 sh.append(pos)
                 un.append(unit)
         d2= []
@@ -153,7 +156,7 @@ for i in spike_range:
             for pos2 in range(n_wd):
                 # one of the spikes must be close to the spike time under consideration
                 if ((abs(pos1-n_wdh) <= same_spike_tolerance) or (abs(pos2-n_wdh) <= same_spike_tolerance)) and (abs(pos1-pos2) < max_spike_diff):
-                    d2.append(compound_dist(v,templates['a'],templates['b'],pos1,pos2))
+                    d2.append(compound_dist(v,templates['a'],templates['b'],n_samples,pos1,pos2))
                     sh2.append((pos1,pos2))
 
         # work out the final decision
@@ -167,13 +170,13 @@ for i in spike_range:
         zoom= (float(stimes[i])-sz_wd/1000*20,float(stimes[i])+sz_wd/1000*20)
         if (d_min > d_reject) or (d_min >= d_accept or (200*d_diff/(d[best]+d2[best2]) < min_diff)):
             # make plots and save them
-            fig2, ax2= plot_postproc_context(Seg, 0, Models, nSpikeInfo, new_column, zoom=zoom, box= (float(stimes[i]),sz_wd/1000), ylim= y_lim)
+            fig2, ax2= plot_postproc_context(Seg, 0, Models, nSpikeInfo, new_column, zoom=zoom, box= (float(stimes[i]),sz_wd/1000), wsize= n_samples, ylim= y_lim)
             outpath = plots_folder / (str(i)+'_context_plot' + fig_format)
             fig2.savefig(outpath)
             fig, ax= plt.subplots(ncols=2, sharey= True, figsize=[ 4, 2])
-            dist(v,templates[un[best]],sh[best],unit= un[best],ax= ax[0])
+            dist(v,templates[un[best]],n_samples,sh[best],unit= un[best],ax= ax[0])
             ax[0].set_ylim(y_lim)
-            compound_dist(v,templates['a'],templates['b'],sh2[best2][0],sh2[best2][1],ax[1])
+            compound_dist(v,templates['a'],templates['b'],n_samples,sh2[best2][0],sh2[best2][1],ax[1])
             ax[1].set_ylim(y_lim)
             outpath = plots_folder / (str(i)+'_template_matches' + fig_format)
             fig.savefig(outpath)
@@ -226,7 +229,7 @@ for i in spike_range:
                     
             else:
                 # the other spike does not yet exist in the list: insert new row
-                nSpikeInfo= insert_spike(nSpikeInfo, new_column, i, o_spike_id, o_spike_time, o_spike_unit)
+                nSpikeInfo= insert_spike(nSpikeInfo, new_column, i+offset, o_spike_id+offset, o_spike_time, o_spike_unit)
                 offset+= 1
                 print_msg("Spike {}: Compound spike, second spike was undetected, inserted new spike of type {}".format(i,o_spike_unit))
                
@@ -288,8 +291,6 @@ plot_segment(Seg, units, save=outpath)
 
 
 max_window= Config.getfloat('output','max_window_fitted_spikes_overview')
-wsize = Config.getfloat('spike detect', 'wsize') * pq.ms
-n_samples = (wsize * fs).simplified.magnitude.astype('int32')
 plot_fitted_spikes_complete(Blk, Models, nSpikeInfo, new_column, max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates')
 
 
