@@ -713,7 +713,7 @@ def train_Models(SpikeInfo, unit_column, Templates, n_comp=5, verbose=True, mode
         # get the corresponding spikes - restrict training to good spikes
         SInfo = SpikeInfo.groupby([unit_column,'good']).get_group((unit,True))
         # data
-        ix = SInfo['id']
+        ix = SInfo['id'].astype(int)
         T = Templates[:,ix.values]
         # frates
         frates = SInfo['frate_fast']
