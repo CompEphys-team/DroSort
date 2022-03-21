@@ -132,8 +132,11 @@ nSpikeInfo.to_csv("test.csv")
 offset= 0   # will keep track of shifts due to inserted and deleted spikes 
 # don't consider first and last spike to avoid corner cases; these do not matter in practice anyway
 #tracemalloc.start()
-
+skip= False
 for i in spike_range:
+    if skip:
+        skip= False
+        continue
     start= int((float(stimes[i])*1000-sz_wd/2)*ifs)
     stop= start+n_wd
     if (start > 0) and (stop < len(asig)):   # only do something if the spike is not too close to the start or end of the recording, otherwise ignore
@@ -168,7 +171,7 @@ for i in spike_range:
         print_msg("Single spike d={}, compound spike d={}, difference={}".format(d[best], d2[best2], d_diff))
         # show some plots first
         zoom= (float(stimes[i])-sz_wd/1000*20,float(stimes[i])+sz_wd/1000*20)
-        if (d_min > d_reject) or (d_min >= d_accept or (200*d_diff/(d[best]+d2[best2]) < min_diff)):
+        if d_min >= d_accept or 200*d_diff/(d[best]+d2[best2]) < min_diff:
             # make plots and save them
             fig2, ax2= plot_postproc_context(Seg, 0, Models, nSpikeInfo, new_column, zoom=zoom, box= (float(stimes[i]),sz_wd/1000), wsize= n_samples, ylim= y_lim)
             outpath = plots_folder / (str(i)+'_context_plot' + fig_format)
@@ -182,7 +185,7 @@ for i in spike_range:
             fig.savefig(outpath)
             if d_min > d_reject:
                 choice= 0
-            elif (d_min >= d_accept or (200*d_diff/(d[best]+d2[best2]) < min_diff)) and not (d2[best2] > d_reject):
+            elif (d_min >= d_accept or (200*d_diff/(d[best]+d2[best2]) < min_diff)):
                 # ask user
                 fig2.show()
                 fig.show()
@@ -197,50 +200,61 @@ for i in spike_range:
         # apply choice 
         if choice == 1:
             # it;s a single spike - choose the appropriate single spike unit
-            nSpikeInfo[new_column][i+offset]= un[best]
-            nSpikeInfo['frate_fast'][i+offset]= nSpikeInfo['frate_'+un[best]][i+offset]
-            print_msg("Spike {}: Single spike of type {}".format(i,un[best]))
-            #print("i={}, offset={}, unit={}".format(i, offset, un[best])) 
+            spike_time= stimes[i]-n_wdh/1000/ifs+sh[best]/1000/ifs  # spike time in seconds
+            if (abs(stimes[i-1]-spike_time)*1000*ifs < same_spike_tolerance) and nSpikeInfo[new_column][i-1+offset] == un[best]:
+                # this spikes is already recorded with the same type
+                print_msg("Spike {}: time= {}: Single spike, was type {} but already exists as spike {}; marked for deletion (-3)".format(i,stimes[i],SpikeInfo[unit_column][i],nSpikeInfo['id'][i-1+offset]))
+                nSpikeInfo[new_column][i+offset]= -3
+                nSpikeInfo['good'][i+offset]= False
+                nSpikeInfo['frate_fast'][i+offset]= nSpikeInfo['frate_'+un[best]][i+offset]
+            else:
+                print_msg("Spike {}: time= {}: Single spike, was type {}, now  of type {}, time= {}".format(i,stimes[i],SpikeInfo[unit_column][i],un[best],spike_time))
+                nSpikeInfo[new_column][i+offset]= un[best]
+                nSpikeInfo['time'][i+offset]= spike_time
+                nSpikeInfo['frate_fast'][i+offset]= nSpikeInfo['frate_'+un[best]][i+offset]
         elif choice == 2:
             # it's a compound spike - choose the appropriate spike unit and handle second spike
             orig_spike= np.argmin(abs(np.array(sh2[best2])-n_wdh))
             other_spike= 1-orig_spike
             spike_unit= 'a' if orig_spike == 0 else 'b'
+            spike_time= stimes[i]-n_wdh/1000/ifs+sh2[best2][orig_spike]/1000/ifs  # spike time in seconds
+            print_msg("Spike {}: time= {}: Compound spike, first spike of type {}, time= {}".format(i,SpikeInfo['time'][i],spike_unit,spike_time))
             nSpikeInfo[new_column][i+offset]= spike_unit
+            nSpikeInfo['time'][i+offset]= spike_time
             nSpikeInfo['good'][i+offset]= False   # do not use compound spikes for Model building
             nSpikeInfo['frate_fast'][i+offset]= nSpikeInfo['frate_'+spike_unit][i+offset]
-            print_msg("Spike {}: Compound spike, first spike of type {}".format(i,spike_unit))
             if sh2[best2][other_spike] < sh2[best2][orig_spike]:
                 o_spike_id= i-1
             else:
                 o_spike_id= i+1
+                skip= True
             o_spike_unit= 'a' if other_spike == 0 else 'b'
             o_spike_time= stimes[i]-n_wdh/1000/ifs+sh2[best2][other_spike]/1000/ifs  # spike time in seconds
             if abs(stimes[o_spike_id]-o_spike_time)*1000*ifs < same_spike_tolerance:
                 # the other spike coincides with the previous spike in the original list
                 # make sure that the previous decision is consistent with the current one
+                print_msg("Spike {}: time= {}: Compound spike, second spike was known as {}, now of type {}, time= {}".format(i,SpikeInfo['time'][i],SpikeInfo[unit_column][o_spike_id],o_spike_unit,o_spike_time))
                 nSpikeInfo[new_column][o_spike_id+offset]= o_spike_unit
                 nSpikeInfo['good'][o_spike_id+offset]= False   # do not use compound spikes for Model building
                 nSpikeInfo['frate_fast'][o_spike_id+offset]= nSpikeInfo['frate_'+o_spike_unit][o_spike_id+offset]
-                if SpikeInfo[unit_column][o_spike_id] == '-2':
-                    print_msg("Spike {}: Compound spike, second spike was unknown type, now of type {}".format(i,o_spike_unit))
-                else:
-                    print_msg("Spike {}: Compound spike, second spike was known as {}, now of type {}".format(i,SpikeInfo[unit_column][o_spike_id],o_spike_unit))
                     
             else:
                 # the other spike does not yet exist in the list: insert new row
+                print_msg("Spike {}: Compound spike, second spike was undetected, inserted new spike of type {}, time= {}".format(i,SpikeInfo['time'][i],o_spike_unit,o_spike_time))
                 nSpikeInfo= insert_spike(nSpikeInfo, new_column, i+offset, o_spike_id+offset, o_spike_time, o_spike_unit)
                 offset+= 1
-                print_msg("Spike {}: Compound spike, second spike was undetected, inserted new spike of type {}".format(i,o_spike_unit))
+
                
         else:
             # it's a non-spike - delete it
             #nSpikeInfo= delete_row(nSpikeInfo, i+offset)
             nSpikeInfo[new_column][i+offset]= '-3'
             nSpikeInfo['good'][i+offset]= False   # definitively do not use for model building
-            print_msg("Spike {}: Not a spike, marked for deletion".format(i))
+            print_msg("Spike {}: Not a spike, marked for deletion (-3)".format(i))
             #offset-= 1
-
+        if skip:
+            i= i+1
+            
 calc_update_final_frates(Blk.segments, nSpikeInfo, unit_column, kernel_fast)
 
 # Saving
