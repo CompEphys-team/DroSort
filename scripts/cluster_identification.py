@@ -91,6 +91,8 @@ template_a = template_a[tmid_a-left:tmid_a+right]
 template_b = template_b[tmid_b-left:tmid_b+right]
 Waveforms= Waveforms[n_samples[0]-left:n_samples[0]+right,:]
 
+
+
 print_msg("Current units: %s"%units)
 
 distances_a=[]
@@ -132,8 +134,7 @@ for unit in units:
 
     distances_a.append(d_a)
     distances_b.append(d_b)
-    means.append(mean_waveforms[unit])
-
+    means.append(mean_waveforms[unit]*norm_factor)
 
 print_msg("Distances to a: ")
 print_msg("\t\t%s" % str(units))

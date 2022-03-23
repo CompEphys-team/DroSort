@@ -128,7 +128,7 @@ n_wdh= n_wd//2
 
 new_column = 'unit_final'
 if new_column not in nSpikeInfo.keys():
-    nSpikeInfo[new_column]= SpikeInfo[unit_column][:]
+    nSpikeInfo[new_column]= ''
 offset= 0   # will keep track of shifts due to inserted and deleted spikes 
 # don't consider first and last spike to avoid corner cases; these do not matter in practice anyway
 #tracemalloc.start()
