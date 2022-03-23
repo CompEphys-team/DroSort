@@ -1188,7 +1188,8 @@ def bounds(ln, n_samples, pos):
     start= max(int(pos-n_samples[0]), 0)
     stop= min(int(pos+n_samples[1]), ln)
     t_start= max(int(n_samples[0]-pos),0)
-    t_stop= min(int(n_samples[0]-pos+ln), np.sum(n_samples))
+    t_stop= min(int(np.sum(n_samples)), t_start+stop-start)
+    stop= start+min(stop-start, t_stop-t_start)
     return (start, stop, t_start, t_stop)
 
 # calculate the distance between a data trace and a template at a shift
