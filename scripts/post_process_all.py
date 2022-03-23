@@ -105,8 +105,9 @@ n_wd= int(sz_wd*10)
 n_wdh= n_wd//2
 
 new_column = 'unit_final'
-empty= [""] * len(SpikeInfo.index)
-nSpikeInfo[new_column]= empty
+if new_column not in nSpikeInfo.keys():
+    empty= [""] * len(SpikeInfo.index)
+    nSpikeInfo[new_column]= empty
 offset= 0   # will keep track of shifts due to inserted and deleted spikes 
 # don't consider first and last spike to avoid corner cases; these do not matter in practice anyway
 for i in range(1,len(unit_ids)-1):
