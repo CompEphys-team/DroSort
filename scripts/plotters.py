@@ -21,7 +21,7 @@ from functions import *
 
 def get_colors(units, palette='hls', desat=None, keep=True):
     """ return dict mapping unit labels to colors """
-    if 'a' in units:
+    if 'a' in units or 'b' in units or ' ' in units:
         n_colors = len(units)
     else:
         if keep:
