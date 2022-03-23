@@ -13,6 +13,7 @@ import threading
 import scipy as sp
 import numpy as np
 from scipy import stats, signal
+from scipy.optimize import least_squares
 import quantities as pq
 import pandas as pd
 
@@ -116,6 +117,8 @@ def get_units(SpikeInfo, unit_column, remove_unassinged=True):
     if remove_unassinged:
         if '-1' in units:
             units.remove('-1')
+        if '-2' in units:
+            units.remove('-2')
     return sort_units(units)
 
 def get_asig_at_st_times(asig, st):
@@ -521,7 +524,7 @@ def get_all_peaks(Segments, lowpass_freq=1*pq.kHz,t_max=None):
 def get_Templates(data, inds, n_samples):
     """ slice windows of n_samples (symmetric) out of data at inds """
 
-    if type(n_samples) is tuple:
+    if len(n_samples) > 1:
         wsizel = n_samples[0]
         wsizer = n_samples[1]
     else:
@@ -638,7 +641,66 @@ class Spike_Model():
         pca_i = [lin(fr,*self.pfits[i]) for i in range(len(self.pfits))]
         return self.pca.inverse_transform(pca_i)
 
-def train_Models(SpikeInfo, unit_column, Templates, n_comp=5, verbose=True):
+class Spike_Model_Nlin():
+    """ models how firing rate influences spike shape. Assumes that predominantly,
+spikes are changed by rescaling positive and negative part in a firing rate dependent
+(potentially non-linear) way. """
+
+    def __init__(self, n_comp=5):
+         self.Templates = None
+         self.frates = None
+
+    def align_templates(self):
+        self.Templates= self.Templates-np.outer(np.ones((self.Templates.shape[0],1)),np.mean(self.Templates,axis=0))
+        #plt.figure()
+        #plt.plot(self.Templates)
+        #plt.show()
+
+    def fun(self, x, t, y):
+        return self.base_fun(x,t) - y
+
+    def base_fun(self, x, t):
+        return x[0]+ x[1]*np.tanh(x[2]*(t-x[3]))
+    
+    def fit(self, Templates, frates):
+        """ fits the model for spike rescaling """
+        
+        # keep data
+        self.Templates = Templates
+        self.frates = frates
+
+        # extract the rescaling of positive and negative part
+        self.align_templates()
+        mx= np.amax(Templates, axis= 0)
+        mn= np.amin(Templates, axis= 0)
+        x0= np.array([ 0.75, 0.1, -10, 40 ]) 
+        #up = sp.stats.linregress(frates, mx)
+        #dn = sp.stats.linregress(frates, mn)
+        up = least_squares(self.fun, x0, loss='soft_l1', f_scale=0.1, args=(frates, mx))
+        fr_test= np.linspace(np.amin(frates),np.amax(frates),100)
+        mx_test= self.base_fun(up.x, fr_test)
+        x0= np.array([ -0.75, 0.1, 10, 40 ]) 
+        dn= least_squares(self.fun, x0, loss='soft_l1', f_scale=0.1, args=(frates, mn))
+        mn_test= self.base_fun(dn.x, fr_test)
+        self.xup= up.x
+        self.xdn= dn.x
+        self.mean_template= np.mean(Templates, axis= 1)
+        self.mean_template[self.mean_template > 0]/= np.amax(self.mean_template[self.mean_template > 0])
+        self.mean_template[self.mean_template < 0]/= abs(np.amin(self.mean_template[self.mean_template < 0]))
+        
+    def predict(self, fr):
+        """ predicts spike shape at firing rate fr, in PC space, returns
+        inverse transform: the actual spike shape as it would be measured """
+        scale_up= self.base_fun(self.xup,fr)
+        scale_dn= abs(self.base_fun(self.xdn,fr))
+        template= self.mean_template.copy()
+        template[template > 0]= template[template > 0]*scale_up
+        template[template < 0]= template[template < 0]*scale_dn
+        return template
+   
+
+    
+def train_Models(SpikeInfo, unit_column, Templates, n_comp=5, verbose=True, model_type= Spike_Model):
     """ trains models for all units, using labels from given unit_column """
 
     if verbose:
@@ -651,12 +713,12 @@ def train_Models(SpikeInfo, unit_column, Templates, n_comp=5, verbose=True):
         # get the corresponding spikes - restrict training to good spikes
         SInfo = SpikeInfo.groupby([unit_column,'good']).get_group((unit,True))
         # data
-        ix = SInfo['id']
+        ix = SInfo['id'].astype(int)
         T = Templates[:,ix.values]
         # frates
         frates = SInfo['frate_fast']
         # model
-        Models[unit] = Spike_Model(n_comp=n_comp)
+        Models[unit] = model_type(n_comp=n_comp)
         Models[unit].fit(T, frates)
     
     return Models
@@ -730,6 +792,30 @@ def calc_update_frates(Segments, SpikeInfo, unit_column, kernel_fast, kernel_slo
                 except:
                     # similar: when no spikes in this segment, can not set
                     pass
+
+def calc_update_final_frates(Segments, SpikeInfo, unit_column, kernel_fast):
+    """ calculate all firing rates for all units, based on unit_column. This is for after units
+have been identified as 'a' or 'b' (or unknown). Updates SpikeInfo with new columns frate_a, frate_b"""
+    # TODO - mix of new and old syntax - Segments are not needed
+    
+    from_units = get_units(SpikeInfo, unit_column, remove_unassinged=True)
+
+    # estimating firing rate profile for "from unit" and getting the rate at "to unit" timepoints
+    for i, seg  in enumerate(Segments):
+        for j, from_unit in enumerate(from_units):
+            try:
+                SInfo = SpikeInfo.groupby([unit_column,'segment']).get_group((from_unit,i))
+
+                # spike times
+                from_times = SInfo['time'].values
+                to_times = SpikeInfo['time'].values
+                # estimate its own rate at its own spike times
+                rate = est_rate(from_times, to_times, kernel_fast)
+                # set
+                SpikeInfo['frate_'+from_unit] = rate
+            except:
+                # can not set it's own rate, when there are no spikes in this segment for this unit
+                pass
 
 
 """
@@ -1097,36 +1183,19 @@ def make_single_template(Model, frate):
     d= Model.predict(frate)
     return d
 
+# add a template at defined position into frame of length ln1
+def bounds(ln, n_samples, pos):
+    start= max(int(pos-n_samples[0]), 0)
+    stop= min(int(pos+n_samples[1]), ln)
+    t_start= max(int(n_samples[0]-pos),0)
+    t_stop= min(int(n_samples[0]-pos+ln), np.sum(n_samples))
+    return (start, stop, t_start, t_stop)
 
 # calculate the distance between a data trace and a template at a shift
-def dist(d, t, shift, ax= None):
-    maxlen= max(len(d),len(t))
-    maxlen+= np.abs(2*shift)
-    d2= np.zeros(maxlen)
-    t2= np.zeros(maxlen)
-    start= int(maxlen/2-len(t)/2+shift)
-    stop= int(start+len(t))
-    t2[start:stop]= t
-    d_start= max(start-shift,0)
-    d_stop= min(d_start+len(t), len(d))
-    d2[start:start+d_stop-d_start]= d[d_start:d_stop] 
-    dst= np.linalg.norm(d2-t2)
-    if ax is not None:
-        ax.plot(d2)
-        ax.plot(t2)
-        ax.set_ylim(-1.2,1.2)
-        ax.set_title(dst)
-    #return dst/len(t)
-    return dst
-
-# calculate the distance between a data trace and a template at a shift
-def dist(d, t, pos, ax= None):
+def dist(d, t, n_samples, pos, unit= None, ax= None):
     # Make a template at position pos
     t2= np.zeros(len(d))
-    start= max(int(pos-len(t)/2), 0)
-    stop= min(int(pos+len(t)/2), len(d))
-    t_start= max(int(len(t)/2-pos),0)
-    t_stop= min(int(len(t)/2-pos+len(d)), len(t))
+    start, stop, t_start, t_stop= bounds(len(d), n_samples, pos)
     t2[start:stop]= t[t_start:t_stop]
     # data outside where the template sits is zeroed, so that those
     # regions are not considered during the comparison
@@ -1135,26 +1204,21 @@ def dist(d, t, pos, ax= None):
     dst= np.linalg.norm(d2-t2)
     if ax is not None:
         ax.plot(d,'.',markersize=1)
-        ax.plot(d2)
-        ax.plot(t2)
+        ax.plot(d2,linewidth= 0.7)
+        ax.plot(t2,linewidth= 0.7)
         ax.set_ylim(-1.2,1.2)
-        ax.set_title(dst/len(t))
+        lbl= unit+': d=' if unit is not None else ''
+        ax.set_title(lbl+('%.4f' % (dst/len(t))))
     return dst/len(t)
     #return dst
 
 # calculate the distance between a data trace and a compound template 
-def compound_dist(d, t1, t2, pos1, pos2, ax= None):
+def compound_dist(d, t1, t2, n_samples, pos1, pos2, ax= None):
     # assemble a compound template with positions pos1 and pos2
     t= np.zeros(len(d))
-    start1= max(int(pos1-len(t1)/2), 0)
-    stop1= min(int(pos1+len(t1)/2), len(d))
-    t_start1= max(int(len(t1)/2-pos1),0)
-    t_stop1= min(int(len(t1)/2-pos1+len(d)), len(t1))
+    start1, stop1, t_start1, t_stop1= bounds(len(d), n_samples, pos1)
     t[start1:stop1]+= t1[t_start1:t_stop1]
-    start2= max(int(pos2-len(t2)/2), 0)
-    stop2= min(int(pos2+len(t2)/2), len(d))
-    t_start2= max(int(len(t2)/2-pos2),0)
-    t_stop2= min(int(len(t2)/2-pos2+len(d)), len(t1))
+    start2, stop2, t_start2, t_stop2= bounds(len(d), n_samples, pos2)
     t[start2:stop2]+= t2[t_start2:t_stop2]
     # blank out data left and right of compound template
     # NOTE: we are not blanking between templates if there is a gap
@@ -1167,9 +1231,10 @@ def compound_dist(d, t1, t2, pos1, pos2, ax= None):
     dst= np.linalg.norm(d2-t)
     if ax is not None:
         ax.plot(d,'.',markersize=1)
-        ax.plot(d2)
-        ax.plot(t)
+        ax.plot(d2, linewidth= 0.7)
+        ax.plot(t, linewidth= 0.7)
         ax.set_ylim(-1.2,1.2)
-        ax.set_title(dst/(stop_r-start_l))
+        lbl= 'a+b: d=' if pos1 <= pos2 else 'b+a: d='
+        ax.set_title(lbl+('%.4f' % (dst/(stop_r-start_l))))
     return dst/(stop_r-start_l)
     #return dst 

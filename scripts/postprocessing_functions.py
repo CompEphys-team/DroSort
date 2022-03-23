@@ -213,7 +213,7 @@ def save_all(results_folder, output_csv, SpikeInfo, Blk, units, Frates=False):
     # store SpikeInfo
     outpath = results_folder / 'SpikeInfo.csv'
     print_msg("saving SpikeInfo to %s" % outpath)
-    SpikeInfo.to_csv(outpath)
+    SpikeInfo.to_csv(outpath,index= False)
 
     # store Block
     outpath = results_folder / 'result.dill'
@@ -247,7 +247,7 @@ def save_all(results_folder, output_csv, SpikeInfo, Blk, units, Frates=False):
                     FratesDf[unit] = asig.magnitude.flatten()
 
                 outpath = results_folder / ("Segment_%s_frates.csv" % seg_name)
-                FratesDf.to_csv(outpath)
+                FratesDf.to_csv(outpath,index=False)
 
 
 def add_spikes_to_SpikeTrain(Blk, new_times, new_waveforms):

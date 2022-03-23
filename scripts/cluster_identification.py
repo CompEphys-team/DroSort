@@ -27,7 +27,7 @@ from functions import *
 from plotters import *
 from sssio import *
 # from superpos_functions import *
- 
+import matplotlib.pyplot as plt 
 
 #Load file
 mpl.rcParams['figure.dpi'] = 300
@@ -61,7 +61,9 @@ units = get_units(SpikeInfo,unit_column)
 
 #Load Templates
 Waveforms= np.load(results_folder/"Templates_ini.npy")
-n_samples = Waveforms[:,0].size
+fs = Blk.segments[0].analogsignals[0].sampling_rate
+n_samples= np.array(Config.get('spike model','template_window').split(','),dtype='float32')/1000.0
+n_samples= np.array(n_samples*fs, dtype= int)
 
 new_column = 'unit_labeled'
 
@@ -79,8 +81,15 @@ if new_column in SpikeInfo.keys():
 template_a = np.load(os.path.join(sssort_path,"templates/template_a.npy"))
 template_b = np.load(os.path.join(sssort_path,"templates/template_b.npy"))
 
-template_a = template_a[:Waveforms.shape[0]]
-template_b = template_b[:Waveforms.shape[0]]
+# templates and waveforms need to be put on comparable shape and size
+tmid_a= np.argmax(template_a)
+tmid_b= np.argmax(template_b)
+left= np.amin([ tmid_a, tmid_b, n_samples[0] ])
+right= np.amin([ len(template_a)-tmid_a, len(template_b)-tmid_b, n_samples[1] ])
+
+template_a = template_a[tmid_a-left:tmid_a+right]
+template_b = template_b[tmid_b-left:tmid_b+right]
+Waveforms= Waveforms[n_samples[0]-left:n_samples[0]+right,:]
 
 print_msg("Current units: %s"%units)
 
@@ -92,16 +101,30 @@ mode='peak'
 
 print_msg("Computing best assignment")
 #Compare units to templates
+mean_waveforms= {}
+amplitude= []
 for unit in units:
     unit_ids = SpikeInfo.groupby(unit_column).get_group(unit)['id']
     waveforms = Waveforms[:,unit_ids]
 
     waveforms = np.array([np.array(align_to(t,mode)) for t in waveforms.T])
 
-    mean_waveforms = np.average(waveforms,axis=0)
+    mean_waveforms[unit] = np.average(waveforms,axis=0)
+    amplitude.append(np.max(mean_waveforms[unit])-np.min(mean_waveforms[unit]))
 
-    d_a = metrics.pairwise.euclidean_distances(mean_waveforms.reshape(1,-1),template_a.reshape(1,-1)).reshape(-1)[0]
-    d_b = metrics.pairwise.euclidean_distances(mean_waveforms.reshape(1,-1),template_b.reshape(1,-1)).reshape(-1)[0]
+max_ampl= np.max(amplitude)
+norm_factor= (np.max(template_a)-np.min(template_a))/max_ampl
+
+for unit in units:
+    #plt.figure()
+    #plt.plot(mean_waveforms[unit]*norm_factor)
+    #plt.plot(template_a)
+    #plt.plot(template_b)
+    #plt.show()
+    d_a = np.linalg.norm(mean_waveforms[unit]*norm_factor-template_a)
+    d_b = np.linalg.norm(mean_waveforms[unit]*norm_factor-template_b)
+    #d_a = metrics.pairwise.euclidean_distances(mean_waveforms.reshape(1,-1),template_a.reshape(1,-1)).reshape(-1)[0]
+    #d_b = metrics.pairwise.euclidean_distances(mean_waveforms.reshape(1,-1),template_b.reshape(1,-1)).reshape(-1)[0]
     
     #compute distances by mean of distances
     # distances_a = metrics.pairwise.euclidean_distances(waveforms,template_a.reshape(1,-1)).reshape(-1)
@@ -109,7 +132,7 @@ for unit in units:
 
     distances_a.append(d_a)
     distances_b.append(d_b)
-    means.append(mean_waveforms)
+    means.append(mean_waveforms[unit])
 
 
 print_msg("Distances to a: ")

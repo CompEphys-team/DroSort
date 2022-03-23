@@ -22,7 +22,7 @@ from functions import *
 def get_colors(units, palette='hls', desat=None, keep=True):
     """ return dict mapping unit labels to colors """
     if 'a' in units:
-        n_colors = 2
+        n_colors = len(units)
     else:
         if keep:
             n_colors = np.array(units).astype('int32').max()+1
@@ -133,13 +133,13 @@ def plot_segment(Seg, units, sigma=0.05, zscore=False, save=None, colors=None):
     for i, unit in enumerate(units):
         St, = select_by_dict(Seg.spiketrains, unit=unit)
         for t in St.times:
-            axes[0].plot([t,t],[i-0.4, i+0.4], color=colors[unit])
+            axes[0].plot([t,t],[i-0.4, i+0.4], lw= 0.5, color=colors[unit])
         tvec = sp.linspace(asig.times.magnitude[0], asig.times.magnitude[-1], 1000)
         fr = est_rate(St.times.magnitude, tvec, sigma)
         if zscore:
             fr = ele.signal_processing.zscore(fr)
-        axes[1].plot(tvec,fr,color=colors[unit])
-    axes[2].plot(asig.times, asig.data, color='k',lw=0.5)
+        axes[1].plot(tvec,fr, lw= 0.5, color=colors[unit])
+    axes[2].plot(asig.times, asig.data, color='k',lw=0.3)
 
     # deco
     axes[0].set_yticks(range(len(units)))
@@ -305,8 +305,8 @@ def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=No
     fig, axes = plt.subplots(nrows=2, sharex=True, sharey=True, num=1, clear=True)
     
     asig = Segment.analogsignals[0]
-    axes[0].plot(asig.times, asig.data, color='k', lw=1)
-    axes[1].plot(asig.times, asig.data, color='k', lw=1)
+    axes[0].plot(asig.times, asig.data, color='k', lw=0.5)
+    axes[1].plot(asig.times, asig.data, color='k', lw=0.5)
 
     st = Segment.spiketrains[0]  # get all spike trains (assuming there's only one spike train)
     # get events amplitude value (spike)
@@ -340,7 +340,7 @@ def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=No
 
 
 def plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column,max_window, plots_folder, fig_format, unit_order=None, save=None, colors=None,wsize=40,extension='',plot_function=plot_fitted_spikes,rejs=None):
-
+    
     for j, Seg in enumerate(Blk.segments):
         seg_name = Path(Seg.annotations['filename']).stem
 
@@ -350,18 +350,26 @@ def plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column,max_window, 
 
         for n_plot in range(0,n_plots):
             outpath = plots_folder / (seg_name + '_fitted_spikes%s_%s_%d'%(extension,max_window,n_plot) + fig_format)
-            ini = n_plot*max_window + max_window
+            ini = n_plot*max_window 
             end = ini + max_window
             end = min(end, Seg.analogsignals[0].shape[0])
             zoom = [ini,end]/asig.sampling_rate
-
+            
             plot_function(Seg, j, Models, SpikeInfo, unit_column, zoom=zoom, save=outpath,wsize=wsize, rejs=rejs)
 
 def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, colors=None,wsize=40,j=0):
+
+    try:
+        left= wsize[0]
+        right= wsize[1]
+    except:
+        left= wsize//2
+        right= wsize//2
+
     units = get_units(SpikeInfo,unit_column)
     if unit_order is not None:
         units = [units[i] for i in unit_order]
-    
+
     if colors is None:
         colors = get_colors(units)
 
@@ -377,11 +385,14 @@ def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, co
         # get times from SpikeInfo so units are extracted 
         # from Spike and not from annotation in spiketrains
         times = SpikeInfo.groupby([unit_column]).get_group((unit))['time'].values
-        fr = (asig.times[1]-asig.times[0]).simplified.magnitude.astype('int32')
-        Inds = [np.where(np.isclose(t,np.array(st.times),atol=fr))[0][0] for t in np.array(times)]
 
-        inds = (st.times[Inds]*fs).simplified.magnitude.astype('int32')
+        # TN: I don't see the point in this & it breaks where new spikes are inserted
+        #fr = (asig.times[1]-asig.times[0]).simplified.magnitude.astype('int32')
+        #Inds = [np.where(np.isclose(t,np.array(st.times),atol=fr))[0][0] for t in np.array(times)]
 
+        #inds = (st.times[Inds]*fs).simplified.magnitude.astype('int32')
+        inds = (times*fs).simplified.magnitude.astype('int32')
+        
         offset = (st.t_start * fs).simplified.magnitude.astype('int32')
         inds = inds - offset
 
@@ -396,20 +407,20 @@ def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, co
 
             for i, spike in enumerate(pred_spikes):
                 try:
-                    asig_recons[int(inds[i]-wsize/2):int(inds[i]+wsize/2)] = spike[spike.size//2-wsize//2:spike.size//2+wsize//2]
+                    asig_recons[inds[i]-left:inds[i]+right] = spike
 
                 except ValueError as e:
                     print("In plot by unit exception:",e.args)
                     # thrown when first or last spike smaller than reconstruction window
                     continue
                 # asig_recons[int(inds[i]):int(inds[i]+wsize/2)] = spike[spike.size//2:]
-
-            ax.plot(asig.times, asig_recons, lw=2.0, color=colors[unit], alpha=0.8)
-
+            ax.plot(asig.times, asig_recons, lw=1.0, color=colors[unit], alpha=0.8)
+            
+                  
         except KeyError:
             # thrown when no spikes are present in this segment
             pass
-
+        
 #TODO add "rej" spikes in function
 def plot_compared_fitted_spikes(Segment, j, Models, SpikeInfo, unit_columns, unit_order=None, zoom=None, save=None, colors=None,wsize=40,rejs=None,title=None):
     """ plot to inspect fitted spikes """
@@ -496,7 +507,13 @@ def plot_compared_fitted_spikes(Segment, j, Models, SpikeInfo, unit_columns, uni
 def plot_templates_on_trace(Segment, j, Templates, zoom=None, save=None,wsize=40):
     """ plot to inspect fitted spikes """
     fig, axes =plt.subplots(nrows=2, sharex=True, sharey=True)
-    
+    try:
+        left= wsize[0]
+        right= wsize[1]
+    except:        
+        left= wsize//2
+        right= wsize//2
+
     asig = Segment.analogsignals[0]
     axes[0].plot(asig.times, asig.data, color='k', lw=1)
     axes[1].plot(asig.times, asig.data, color='k', lw=1)
@@ -515,7 +532,7 @@ def plot_templates_on_trace(Segment, j, Templates, zoom=None, save=None,wsize=40
     pred_spikes = Templates[:, :].T
 
     for i, spike in enumerate(pred_spikes):
-        asig_recons[int(inds[i] - wsize/2):int(inds[i] + wsize/2)] = spike
+        asig_recons[inds[i] - left:inds[i] + right] = spike
 
     axes[1].plot(asig.times, asig_recons, lw=1.5, color='b')
 
@@ -647,7 +664,7 @@ def plot_means(means,units,template_a,template_b,asigs,outpath=None,show=False,c
 
     if colors is None:
         colors = {'A':'b','B':'g','?':'r'}
-    
+
     for i,(mean,unit) in enumerate(zip(means,units)):
         axes[i].plot(mean,label=unit,color='k',linewidth=0.7)
         axes[i].plot(mean,color=colors[asigs[unit]],alpha=0.3,linewidth=5)
@@ -662,34 +679,51 @@ def plot_means(means,units,template_a,template_b,asigs,outpath=None,show=False,c
         plt.show()
 
 
-def plot_postproc_context(Segment, j, Models, SpikeInfo, unit_column, unit_order=None, zoom=None, box= None, save=None, colors=None,wsize=40,rejs=None):
+def plot_postproc_context(Segment, j, Models, SpikeInfo, unit_column, unit_order=None, zoom=None, box= None, save=None, colors=None,wsize=40,rejs=None, ylim=None):
     """ plot to inspect fitted spikes """
-    fig, axes = plt.subplots(nrows=2, sharex=True, sharey=True, num=1, clear=True)
-    
+    fig, axes = plt.subplots(nrows=2, sharex=True, sharey=True, num=1, clear=True, figsize= [ 4, 3 ])
+
     asig = Segment.analogsignals[0]
-    axes[0].plot(asig.times, asig.data, color='k', lw=1)
-    axes[1].plot(asig.times, asig.data, color='k', lw=1)
+    fs = asig.sampling_rate
+    
+    if zoom is not None:
+        left= max(int(zoom[0]*fs),0)
+        right= min(int(zoom[1]*fs),len(asig.data))
+    else:
+        left= 0
+        right= len(asig.data)
+
+    axes[0].plot(asig.times[left:right], asig.data[left:right], color='k', lw=0.5)
+    axes[1].plot(asig.times[left:right], asig.data[left:right], color='k', lw=0.5)
+
+    if ylim is not None:
+        for ax in axes:
+            ax.set_ylim(ylim)
 
     st = Segment.spiketrains[0]  # get all spike trains (assuming there's only one spike train)
     # get events amplitude value (spike)
     # a_events = st.waveforms
     # a_events = [max(a) for a in a_events]
-
-    axes[1].plot(st.times, np.ones(st.times.shape), '|', markersize=1, label="spike_time_ref")
+    fac= axes[1].get_ylim()[1]*0.95
+    axes[1].plot(st.times, np.ones(st.times.shape)*fac, '|', markersize=3, linewidth= 0.5, label='spike_time_ref')
     if rejs is not None:
         axes[1].plot(rejs, np.ones(rejs.shape), '|', markersize=1, color='r', label="rejected_spike")
 
     plot_by_unit(axes[1], st, asig, Models, SpikeInfo, unit_column, unit_order,
                  colors, wsize, j)
+    
+    if zoom is not None:
+        for ax in axes:
+            ax.set_xlim(zoom)
 
+    if ylim is not None:
+        for ax in axes:
+            ax.set_ylim(ylim)
+            
     if box is not None:
         plot_box(axes[0], box)
         plot_box(axes[1], box)
         
-    if zoom is not None:
-        for ax in axes:
-            ax.set_xlim(zoom)
-            
     stim_name = Path(Segment.annotations['filename']).stem
     fig.suptitle(stim_name)
     fig.tight_layout()
@@ -711,5 +745,5 @@ def plot_box(ax, box):
     right= box[0]+box[1]/2
     x= [ left, left, right, right, left ]
     y= [ bot, top, top, bot, bot ]
-    ax.plot(x,y, 'r', lw= 1)
+    ax.plot(x,y, 'r', lw= 0.5)
     
