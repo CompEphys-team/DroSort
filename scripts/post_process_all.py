@@ -116,6 +116,7 @@ try:
     spike_range= range(spkr[0], spkr[1])
 except:
     spike_range = range(1,len(unit_ids)-1)
+spike_label_interval=  Config.getint('output','spike_label_interval')
     
 asig= Seg.analogsignals[0]
 asig= asig.reshape(asig.shape[0])
@@ -129,7 +130,6 @@ n_wdh= n_wd//2
 new_column = 'unit_final'
 if new_column not in nSpikeInfo.keys():
     nSpikeInfo[new_column]= ' '
-print(nSpikeInfo[new_column])
 offset= 0   # will keep track of shifts due to inserted and deleted spikes 
 # don't consider first and last spike to avoid corner cases; these do not matter in practice anyway
 #tracemalloc.start()
@@ -174,7 +174,7 @@ for i in spike_range:
         zoom= (float(stimes[i])-sz_wd/1000*20,float(stimes[i])+sz_wd/1000*20)
         if d_min >= d_accept or 200*d_diff/(d[best]+d2[best2]) < min_diff:
             # make plots and save them
-            fig2, ax2= plot_postproc_context(Seg, 0, Models, nSpikeInfo, new_column, zoom=zoom, box= (float(stimes[i]),sz_wd/1000), wsize= n_samples, ylim= y_lim)
+            fig2, ax2= plot_postproc_context(Seg, 0, Models, nSpikeInfo, new_column, zoom=zoom, box= (float(stimes[i]),sz_wd/1000), wsize= n_samples, ylim= y_lim, spike_label_interval= spike_label_interval)
             outpath = plots_folder / (str(i)+'_context_plot' + fig_format)
             fig2.savefig(outpath)
             fig, ax= plt.subplots(ncols=2, sharey= True, figsize=[ 4, 2])
@@ -204,8 +204,8 @@ for i in spike_range:
             spike_time= stimes[i]-n_wdh/1000/ifs+sh[best]/1000/ifs  # spike time in seconds
             if (abs(stimes[i-1]-spike_time)*1000*ifs < same_spike_tolerance) and nSpikeInfo[new_column][i-1+offset] == un[best]:
                 # this spikes is already recorded with the same type
-                print_msg("Spike {}: time= {}: Single spike, was type {} but already exists as spike {}; marked for deletion (-3)".format(i,stimes[i],SpikeInfo[unit_column][i],nSpikeInfo['id'][i-1+offset]))
-                nSpikeInfo[new_column][i+offset]= -3
+                print_msg("Spike {}: time= {}: Single spike, was type {} but already exists as spike {}; marked for deletion (-2)".format(i,stimes[i],SpikeInfo[unit_column][i],nSpikeInfo['id'][i-1+offset]))
+                nSpikeInfo[new_column][i+offset]= '-2'
                 nSpikeInfo['good'][i+offset]= False
                 nSpikeInfo['frate_fast'][i+offset]= nSpikeInfo['frate_'+un[best]][i+offset]
             else:
@@ -249,9 +249,9 @@ for i in spike_range:
         else:
             # it's a non-spike - delete it
             #nSpikeInfo= delete_row(nSpikeInfo, i+offset)
-            nSpikeInfo[new_column][i+offset]= '-3'
+            nSpikeInfo[new_column][i+offset]= '-2'
             nSpikeInfo['good'][i+offset]= False   # definitively do not use for model building
-            print_msg("Spike {}: Not a spike, marked for deletion (-3)".format(i))
+            print_msg("Spike {}: Not a spike, marked for deletion (-2)".format(i))
             #offset-= 1
         if skip:
             i= i+1
@@ -306,7 +306,7 @@ plot_segment(Seg, units, save=outpath)
 
 
 max_window= Config.getfloat('output','max_window_fitted_spikes_overview')
-plot_fitted_spikes_complete(Blk, Models, nSpikeInfo, new_column, max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates')
+plot_fitted_spikes_complete(Blk, Models, nSpikeInfo, new_column, max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates',spike_label_interval=spike_label_interval)
 
 
 """

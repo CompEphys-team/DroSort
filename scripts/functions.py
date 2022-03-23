@@ -111,10 +111,13 @@ def sort_units(units):
         pass
     return list(units)
 
-def get_units(SpikeInfo, unit_column, remove_unassinged=True):
+def get_units(SpikeInfo, unit_column, remove_unassigned=True):
     """ helper that returns all units in a given unit column, with or without unassigned """
     units = list(pd.unique(SpikeInfo[unit_column]))
-    if remove_unassinged:
+    if ' ' in units:
+        # always remove the non-unit ' '
+        units.remove(' ')
+    if remove_unassigned:
         if '-1' in units:
             units.remove('-1')
         if '-2' in units:
@@ -707,7 +710,7 @@ def train_Models(SpikeInfo, unit_column, Templates, n_comp=5, verbose=True, mode
         print_msg("training model on: " + unit_column)
 
     units = get_units(SpikeInfo, unit_column)
-
+    
     Models = {}
     for unit in units:
         # get the corresponding spikes - restrict training to good spikes
@@ -754,8 +757,8 @@ def calc_update_frates(Segments, SpikeInfo, unit_column, kernel_fast, kernel_slo
     """ calculate all firing rates for all units, based on unit_column. Updates SpikeInfo """
     # TODO - mix of new and old syntax - Segments are not needed
     
-    from_units = get_units(SpikeInfo, unit_column, remove_unassinged=True)
-    to_units = get_units(SpikeInfo, unit_column, remove_unassinged=False)
+    from_units = get_units(SpikeInfo, unit_column, remove_unassigned=True)
+    to_units = get_units(SpikeInfo, unit_column, remove_unassigned=False)
 
     # estimating firing rate profile for "from unit" and getting the rate at "to unit" timepoints
     for i, seg  in enumerate(Segments):
@@ -798,7 +801,7 @@ def calc_update_final_frates(Segments, SpikeInfo, unit_column, kernel_fast):
 have been identified as 'a' or 'b' (or unknown). Updates SpikeInfo with new columns frate_a, frate_b"""
     # TODO - mix of new and old syntax - Segments are not needed
     
-    from_units = get_units(SpikeInfo, unit_column, remove_unassinged=True)
+    from_units = get_units(SpikeInfo, unit_column, remove_unassigned=True)
 
     # estimating firing rate profile for "from unit" and getting the rate at "to unit" timepoints
     for i, seg  in enumerate(Segments):
