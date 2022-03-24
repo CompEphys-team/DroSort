@@ -50,11 +50,15 @@ import seaborn as sns
  
 """
 
+plt.rcParams.update({'font.size': 6})
+
 # get config
 config_path = Path(os.path.abspath(sys.argv[1]))
 Config = configparser.ConfigParser()
 Config.read(config_path)
 print_msg('config file read from %s' % config_path)
+
+spike_label_interval= Config.getint('output','spike_label_interval')
 
 # handling paths and creating output directory
 data_path = Path(Config.get('path','data_path'))
@@ -224,7 +228,7 @@ Blk = populate_block(Blk,SpikeInfo,'unit',units)
 
 Seg = Blk.segments[0]
 outpath = plots_folder / (seg_name + '_fitted_spikes_init' + fig_format)
-plot_fitted_spikes(Seg, 0, Models, SpikeInfo, 'unit', zoom=zoom, save=outpath,wsize=n_samples,rejs=rej_spikes)
+plot_fitted_spikes(Seg, 0, Models, SpikeInfo, 'unit', zoom=zoom, save=outpath,wsize=n_samples,rejs=rej_spikes,spike_label_interval=spike_label_interval)
 
 
 """
@@ -349,7 +353,7 @@ while n_units >= n_final_clusters and not last:
                 fig.show()
                 Blk = populate_block(Blk,SpikeInfo,this_unit_col,units)
                 Seg = Blk.segments[0]
-                fig2, ax2= plot_fitted_spikes(Seg, 0, Models, SpikeInfo, this_unit_col, zoom=zoom, wsize=n_samples,rejs=rej_spikes)
+                fig2, ax2= plot_fitted_spikes(Seg, 0, Models, SpikeInfo, this_unit_col, zoom=zoom, wsize=n_samples,rejs=rej_spikes,spike_label_interval=spike_label_interval)
                 fig2.show()
                 do_merge= input("Go ahead (Y/N)?").upper() == 'Y'
                 plt.close(fig)
@@ -398,7 +402,7 @@ while n_units >= n_final_clusters and not last:
         Seg = Blk.segments[0]
 
         outpath = plots_folder / (seg_name + '_fitted_spikes_%d'%(it) + fig_format)
-        plot_fitted_spikes(Seg, 0, Models, SpikeInfo, this_unit_col, zoom=zoom, save=outpath,wsize=n_samples,rejs=rej_spikes)
+        plot_fitted_spikes(Seg, 0, Models, SpikeInfo, this_unit_col, zoom=zoom, save=outpath,wsize=n_samples,rejs=rej_spikes,spike_label_interval=spike_label_interval)
     except Exception as ex:
         print(ex.args)
         pass
@@ -450,7 +454,7 @@ if rm_smaller_cluster:
     outpath = plots_folder / ("Models_final%s" % (fig_format))
     plot_Models(Models, save=outpath)
 
-    plot_fitted_spikes_complete(Blk, Templates, SpikeInfo, [ 'last_remove_sae',unit_column], max_window, plots_folder, fig_format,wsize=n_samples,extension='_last_remove',plot_function=plot_compared_fitted_spikes,rejs=rej_spikes)
+    plot_fitted_spikes_complete(Blk, Templates, SpikeInfo, [ 'last_remove_sae',unit_column], max_window, plots_folder, fig_format,wsize=n_samples,extension='_last_remove',plot_function=plot_compared_fitted_spikes,rejs=rej_spikes,spike_label_interval=spike_label_interval)
 
 
 
@@ -581,7 +585,7 @@ for j, Seg in enumerate(Blk.segments):
     plot_segment(Seg, units, save=outpath)
 
 # plot all sorted spikes
-plot_fitted_spikes_complete(Blk, Templates, SpikeInfo, unit_column, max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates',rejs=rej_spikes)
+plot_fitted_spikes_complete(Blk, Templates, SpikeInfo, unit_column, max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates',rejs=rej_spikes,spike_label_interval=spike_label_interval)
 
 print_msg("plotting done")
 print_msg("all done - quitting")

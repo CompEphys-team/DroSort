@@ -120,7 +120,6 @@ spike_label_interval=  Config.getint('output','spike_label_interval')
     
 asig= Seg.analogsignals[0]
 asig= asig.reshape(asig.shape[0])
-asig= align_to(asig,align_mode)
 as_min= np.amin(asig)
 as_max= np.amax(asig)
 y_lim= [ 1.05*as_min, 1.05*as_max ]
@@ -174,15 +173,15 @@ for i in spike_range:
         zoom= (float(stimes[i])-sz_wd/1000*20,float(stimes[i])+sz_wd/1000*20)
         if d_min >= d_accept or 200*d_diff/(d[best]+d2[best2]) < min_diff:
             # make plots and save them
-            fig2, ax2= plot_postproc_context(Seg, 0, Models, nSpikeInfo, new_column, zoom=zoom, box= (float(stimes[i]),sz_wd/1000), wsize= n_samples, ylim= y_lim, spike_label_interval= spike_label_interval)
-            outpath = plots_folder / (str(i)+'_context_plot' + fig_format)
+            fig2, ax2= plot_fitted_spikes(Seg, 0, Models, nSpikeInfo, new_column, zoom=zoom, box= (float(stimes[i]),sz_wd/1000), wsize= n_samples, spike_label_interval= spike_label_interval)
+            outpath = plots_folder / (str(nSpikeInfo['id'][i+offset])+'_context_plot' + fig_format)
             fig2.savefig(outpath)
             fig, ax= plt.subplots(ncols=2, sharey= True, figsize=[ 4, 2])
             dist(v,templates[un[best]],n_samples,sh[best],unit= un[best],ax= ax[0])
             ax[0].set_ylim(y_lim)
             compound_dist(v,templates['a'],templates['b'],n_samples,sh2[best2][0],sh2[best2][1],ax[1])
             ax[1].set_ylim(y_lim)
-            outpath = plots_folder / (str(i)+'_template_matches' + fig_format)
+            outpath = plots_folder / (str(nSpikeInfo['id'][i+offset])+'_template_matches' + fig_format)
             fig.savefig(outpath)
             if d_min > d_reject:
                 choice= 0
@@ -204,12 +203,12 @@ for i in spike_range:
             spike_time= stimes[i]-n_wdh/1000/ifs+sh[best]/1000/ifs  # spike time in seconds
             if (abs(stimes[i-1]-spike_time)*1000*ifs < same_spike_tolerance) and nSpikeInfo[new_column][i-1+offset] == un[best]:
                 # this spikes is already recorded with the same type
-                print_msg("Spike {}: time= {}: Single spike, was type {} but already exists as spike {}; marked for deletion (-2)".format(i,stimes[i],SpikeInfo[unit_column][i],nSpikeInfo['id'][i-1+offset]))
+                print_msg("Spike {}: time= {}: Single spike, was type {} but already exists as spike {}; marked for deletion (-2)".format(nSpikeInfo['id'][i+offset],stimes[i],SpikeInfo[unit_column][i],nSpikeInfo['id'][i-1+offset]))
                 nSpikeInfo[new_column][i+offset]= '-2'
                 nSpikeInfo['good'][i+offset]= False
                 nSpikeInfo['frate_fast'][i+offset]= nSpikeInfo['frate_'+un[best]][i+offset]
             else:
-                print_msg("Spike {}: time= {}: Single spike, was type {}, now  of type {}, time= {}".format(i,stimes[i],SpikeInfo[unit_column][i],un[best],spike_time))
+                print_msg("Spike {}: time= {}: Single spike, was type {}, now  of type {}, time= {}".format(nSpikeInfo['id'][i+offset],stimes[i],SpikeInfo[unit_column][i],un[best],spike_time))
                 nSpikeInfo[new_column][i+offset]= un[best]
                 nSpikeInfo['time'][i+offset]= spike_time
                 nSpikeInfo['frate_fast'][i+offset]= nSpikeInfo['frate_'+un[best]][i+offset]
@@ -219,7 +218,7 @@ for i in spike_range:
             other_spike= 1-orig_spike
             spike_unit= 'a' if orig_spike == 0 else 'b'
             spike_time= stimes[i]-n_wdh/1000/ifs+sh2[best2][orig_spike]/1000/ifs  # spike time in seconds
-            print_msg("Spike {}: time= {}: Compound spike, first spike of type {}, time= {}".format(i,SpikeInfo['time'][i],spike_unit,spike_time))
+            print_msg("Spike {}: time= {}: Compound spike, first spike of type {}, time= {}".format(nSpikeInfo['id'][i+offset],SpikeInfo['time'][i],spike_unit,spike_time))
             nSpikeInfo[new_column][i+offset]= spike_unit
             nSpikeInfo['time'][i+offset]= spike_time
             nSpikeInfo['good'][i+offset]= False   # do not use compound spikes for Model building
@@ -228,20 +227,20 @@ for i in spike_range:
                 o_spike_id= i-1
             else:
                 o_spike_id= i+1
-                skip= True
             o_spike_unit= 'a' if other_spike == 0 else 'b'
             o_spike_time= stimes[i]-n_wdh/1000/ifs+sh2[best2][other_spike]/1000/ifs  # spike time in seconds
             if abs(stimes[o_spike_id]-o_spike_time)*1000*ifs < same_spike_tolerance:
                 # the other spike coincides with the previous spike in the original list
                 # make sure that the previous decision is consistent with the current one
-                print_msg("Spike {}: time= {}: Compound spike, second spike was known as {}, now of type {}, time= {}".format(i,SpikeInfo['time'][i],SpikeInfo[unit_column][o_spike_id],o_spike_unit,o_spike_time))
+                print_msg("Spike {}: time= {}: Compound spike, second spike was known as {}, now of type {}, time= {}".format(nSpikeInfo['id'][i+offset],SpikeInfo['time'][i],SpikeInfo[unit_column][o_spike_id],o_spike_unit,o_spike_time))
                 nSpikeInfo[new_column][o_spike_id+offset]= o_spike_unit
                 nSpikeInfo['good'][o_spike_id+offset]= False   # do not use compound spikes for Model building
                 nSpikeInfo['frate_fast'][o_spike_id+offset]= nSpikeInfo['frate_'+o_spike_unit][o_spike_id+offset]
-                    
+                if o_spike_id == i+1:
+                    skip= True
             else:
                 # the other spike does not yet exist in the list: insert new row
-                print_msg("Spike {}: Compound spike, second spike was undetected, inserted new spike of type {}, time= {}".format(i,SpikeInfo['time'][i],o_spike_unit,o_spike_time))
+                print_msg("Spike {}: Compound spike, second spike was undetected, inserted new spike of type {}, time= {}".format(nSpikeInfo['id'][i+offset],SpikeInfo['time'][i],o_spike_unit,o_spike_time))
                 nSpikeInfo= insert_spike(nSpikeInfo, new_column, i+offset, o_spike_id+offset, o_spike_time, o_spike_unit)
                 offset+= 1
 
@@ -251,7 +250,7 @@ for i in spike_range:
             #nSpikeInfo= delete_row(nSpikeInfo, i+offset)
             nSpikeInfo[new_column][i+offset]= '-2'
             nSpikeInfo['good'][i+offset]= False   # definitively do not use for model building
-            print_msg("Spike {}: Not a spike, marked for deletion (-2)".format(i))
+            print_msg("Spike {}: Not a spike, marked for deletion (-2)".format(nSpikeInfo['id'][i+offset]))
             #offset-= 1
         if skip:
             i= i+1
@@ -291,8 +290,8 @@ for i, seg in tqdm(enumerate(Blk.segments),desc="populating block for output"):
 
 #save all
 units = get_units(SpikeInfo,unit_column)
-print_msg("Number of spikes in trace: %d"%SpikeInfo[unit_column].size)
-print_msg("Number of bad spikes: %d"%len(SpikeInfo.groupby(['good']).get_group(True)[unit_column]))
+print_msg("Number of spikes in trace: %d"%nSpikeInfo[new_column].size)
+#print_msg("Number of good spikes: %d"%len(nSpikeInfo.groupby(['good']).get_group(True)[unit_column]))
 # print_msg("Number of good spikes: %d"%len(SpikeInfo.groupby(['good']).get_group(False)[unit_column]))
 print_msg("Number of clusters: %d"%len(units))
 

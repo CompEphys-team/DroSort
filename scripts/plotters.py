@@ -19,10 +19,10 @@ import seaborn as sns
 # own
 from functions import *
 
-def get_colors(units, palette='hls', desat=None, keep=True):
+def get_colors(units, palette='tab10', desat=None, keep=True):
     """ return dict mapping unit labels to colors """
     if 'a' in units or 'b' in units or ' ' in units:
-        n_colors = max(3, len(units))
+        n_colors = 2
         units= [ str(x) for x in units ]
     else:
         if keep:
@@ -300,39 +300,56 @@ def plot_compared_spike_events(Segment1,Segment2,thres=2,max_window=1,max_row=5,
 
     # return fig, axes
 
-
-def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=None, zoom=None, save=None, colors=None,wsize=40,rejs=None,spike_label_interval=0):
+def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=None, zoom=None, box= None, save=None, colors=None,wsize=40,rejs=None, spike_label_interval= 0):
     """ plot to inspect fitted spikes """
-    fig, axes = plt.subplots(nrows=2, sharex=True, sharey=True, num=1, clear=True)
-    
+    fig, axes = plt.subplots(nrows=2, sharex=True, sharey=True, num=1, clear=True, figsize= [ 4, 3 ])
+
     asig = Segment.analogsignals[0]
-    plot_spike_labels(axes[0], SpikeInfo, spike_label_interval)
-    plot_spike_labels(axes[1], SpikeInfo, spike_label_interval)
+    fs = asig.sampling_rate
+    as_min= np.amin(asig)
+    as_max= np.amax(asig)
+    ylim= [ 1.1*as_min, 1.1*as_max ]
+    
+    #if zoom is not None:
+        #left= max(int(zoom[0]*fs),0)
+        #right= min(int(zoom[1]*fs),len(asig.data))
+    #else:
+        #left= 0
+        #right= len(asig.data)
 
-    st = Segment.spiketrains[0]  # get all spike trains (assuming there's only one spike train)
-    # get events amplitude value (spike)
-    # a_events = st.waveforms
-    # a_events = [max(a) for a in a_events]
-
-    fac= axes[1].get_ylim()[1]*0.95
-    axes[1].plot(st.times, np.ones(st.times.shape)*fac, '|', markersize=3, label="spike_time_ref")
-    if rejs is not None:
-        axes[1].plot(rejs, np.ones(rejs.shape)*fac, '|', markersize=3, color='r', label="rejected_spike")
-
-    plot_by_unit(axes[1], st, asig, Models, SpikeInfo, unit_column, unit_order,
-                 colors, wsize, j)
+    #axes[0].plot(asig.times[left:right], asig.data[left:right], color='k', lw=0.5)
+    #axes[1].plot(asig.times[left:right], asig.data[left:right], color='k', lw=0.5)
+    axes[0].plot(asig.times, asig.data, color='k', lw=0.5)
+    axes[1].plot(asig.times, asig.data, color='k', lw=0.5)
 
     if zoom is not None:
         for ax in axes:
             ax.set_xlim(zoom)
+
+    for ax in axes:
+        ax.set_ylim(ylim)
+
+    st = Segment.spiketrains[0]  # get all spike trains (assuming there's only one spike train)
+    if rejs is None:
+        rejs= SpikeInfo["time"][SpikeInfo[unit_column] == '-2']
+    units = get_units(SpikeInfo,unit_column)
+    fac= axes[1].get_ylim()[1]*(0.95-len(units)*0.05)
+    axes[1].plot(rejs, np.ones(rejs.shape)*fac, '|', markersize=2, color='k', label="rejected_spike")
+
+    plot_by_unit(axes[1], st, asig, Models, SpikeInfo, unit_column, unit_order,
+                 colors, wsize, j)
             
-    axes[0].plot(asig.times, asig.data, color='k', lw=0.5)
-    axes[1].plot(asig.times, asig.data, color='k', lw=0.5)
+    if box is not None:
+        plot_box(axes[0], box)
+        plot_box(axes[1], box)
+       
+    plot_spike_labels(axes[0], SpikeInfo, spike_label_interval)
+    plot_spike_labels(axes[1], SpikeInfo, spike_label_interval)
     stim_name = Path(Segment.annotations['filename']).stem
     fig.suptitle(stim_name)
     fig.tight_layout()
-    fig.subplots_adjust(top=0.9)
-    sns.despine(fig)
+    #fig.subplots_adjust(top=0.9)
+    #sns.despine(fig)
     
     fig.legend()
 
@@ -342,13 +359,13 @@ def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=No
 
     return fig, axes
 
-
 def plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column,max_window, plots_folder, fig_format, unit_order=None, save=None, colors=None,wsize=40,extension='',plot_function=plot_fitted_spikes,rejs=None,spike_label_interval=0):
     
     for j, Seg in enumerate(Blk.segments):
         seg_name = Path(Seg.annotations['filename']).stem
 
         asig = Seg.analogsignals[0]
+
         max_window = int(max_window*asig.sampling_rate) #FIX conversion from secs to points
         n_plots = asig.shape[0]//max_window
 
@@ -356,7 +373,7 @@ def plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column,max_window, 
             outpath = plots_folder / (seg_name + '_fitted_spikes%s_%s_%d'%(extension,max_window,n_plot) + fig_format)
             ini = n_plot*max_window 
             end = ini + max_window
-            end = min(end, Seg.analogsignals[0].shape[0])
+            #end = min(end, Seg.analogsignals[0].shape[0])
             zoom = [ini,end]/asig.sampling_rate
 
             if rejs is None:
@@ -384,6 +401,9 @@ def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, co
 
     for u, unit in enumerate(units):
         # St, = select_by_dict(Segment.spiketrains, unit=unit)
+        fac= ax.get_ylim()[1]*(0.95-0.05*u)
+        times= SpikeInfo["time"][SpikeInfo[unit_column] == unit]
+        ax.plot(times, np.ones(times.shape)*fac, '|', markersize=2, linewidth= 0.5, label='spikes '+unit,color=colors[unit])
         asig_recons = sp.zeros(asig.shape[0])
         asig_recons[:] = sp.nan 
 
@@ -682,69 +702,6 @@ def plot_means(means,units,template_a,template_b,asigs,outpath=None,show=False,c
         plt.savefig(outpath)
     if show:
         plt.show()
-
-
-def plot_postproc_context(Segment, j, Models, SpikeInfo, unit_column, unit_order=None, zoom=None, box= None, save=None, colors=None,wsize=40,rejs=None, ylim=None, spike_label_interval= 0):
-    """ plot to inspect fitted spikes """
-    fig, axes = plt.subplots(nrows=2, sharex=True, sharey=True, num=1, clear=True, figsize= [ 4, 3 ])
-
-    asig = Segment.analogsignals[0]
-    fs = asig.sampling_rate
-    
-    if zoom is not None:
-        left= max(int(zoom[0]*fs),0)
-        right= min(int(zoom[1]*fs),len(asig.data))
-    else:
-        left= 0
-        right= len(asig.data)
-
-    axes[0].plot(asig.times[left:right], asig.data[left:right], color='k', lw=0.5)
-    axes[1].plot(asig.times[left:right], asig.data[left:right], color='k', lw=0.5)
-
-    if ylim is not None:
-        for ax in axes:
-            ax.set_ylim(ylim)
-
-    st = Segment.spiketrains[0]  # get all spike trains (assuming there's only one spike train)
-    # get events amplitude value (spike)
-    # a_events = st.waveforms
-    # a_events = [max(a) for a in a_events]
-    fac= axes[1].get_ylim()[1]*0.95
-    axes[1].plot(st.times, np.ones(st.times.shape)*fac, '|', markersize=3, linewidth= 0.5, label='spike_time_ref')
-    if rejs is None:
-        rejs= SpikeInfo["time"][SpikeInfo[unit_column] == '-2']
-    axes[1].plot(rejs, np.ones(rejs.shape)*fac, '|', markersize=3, color='r', label="rejected_spike")
-
-    plot_by_unit(axes[1], st, asig, Models, SpikeInfo, unit_column, unit_order,
-                 colors, wsize, j)
-    
-    if zoom is not None:
-        for ax in axes:
-            ax.set_xlim(zoom)
-
-    if ylim is not None:
-        for ax in axes:
-            ax.set_ylim(ylim)
-            
-    if box is not None:
-        plot_box(axes[0], box)
-        plot_box(axes[1], box)
-       
-    plot_spike_labels(axes[0], SpikeInfo, spike_label_interval)
-    plot_spike_labels(axes[1], SpikeInfo, spike_label_interval)
-    stim_name = Path(Segment.annotations['filename']).stem
-    fig.suptitle(stim_name)
-    fig.tight_layout()
-    #fig.subplots_adjust(top=0.9)
-    #sns.despine(fig)
-    
-    fig.legend()
-
-    if save is not None:
-        fig.savefig(save)
-        # plt.close(fig)
-
-    return fig, axes
 
 def plot_box(ax, box):
     bot= ax.get_ylim()[0]
