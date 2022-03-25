@@ -665,7 +665,7 @@ spikes are changed by rescaling positive and negative part in a firing rate depe
     def base_fun(self, x, t):
         return x[0]+ x[1]*np.tanh(x[2]*(t-x[3]))
     
-    def fit(self, Templates, frates):
+    def fit(self, Templates, frates, plot= False):
         """ fits the model for spike rescaling """
         
         # keep data
@@ -676,15 +676,28 @@ spikes are changed by rescaling positive and negative part in a firing rate depe
         self.align_templates()
         mx= np.amax(Templates, axis= 0)
         mn= np.amin(Templates, axis= 0)
-        x0= np.array([ 0.75, 0.1, -10, 40 ]) 
+        x0= np.array([ 0.75, 0.1, -0.1, 40 ]) 
         #up = sp.stats.linregress(frates, mx)
         #dn = sp.stats.linregress(frates, mn)
+        bot= np.array([ 0, 0, -1, -np.inf ]) # lower limit
+        top= np.array([ np.inf, np.inf, 0, np.inf ])  # upper limit
         up = least_squares(self.fun, x0, loss='soft_l1', f_scale=0.1, args=(frates, mx))
-        fr_test= np.linspace(np.amin(frates),np.amax(frates),100)
-        mx_test= self.base_fun(up.x, fr_test)
-        x0= np.array([ -0.75, 0.1, 10, 40 ]) 
+        x0= np.array([ -0.75, 0.1, 0.1, 40 ]) 
+        bot= np.array([ -np.inf, 0, 0, -np.inf ]) # lower limit
+        top= np.array([ 0, np.inf, 20, np.inf ])  # upper limit
         dn= least_squares(self.fun, x0, loss='soft_l1', f_scale=0.1, args=(frates, mn))
-        mn_test= self.base_fun(dn.x, fr_test)
+        if plot:
+            fr_test= np.linspace(np.amin(frates),np.amax(frates),100)
+            mx_test= self.base_fun(up.x, fr_test)
+            plt.figure()
+            plt.plot(frates, mx, '.')
+            plt.plot(fr_test,mx_test)
+            print(up.x)
+            mn_test= self.base_fun(dn.x, fr_test)
+            plt.plot(fr_test,mn_test)
+            plt.plot(frates, mn, '.')
+            print(dn.x)
+            plt.show()
         self.xup= up.x
         self.xdn= dn.x
         self.mean_template= np.mean(Templates, axis= 1)
@@ -722,6 +735,7 @@ def train_Models(SpikeInfo, unit_column, Templates, n_comp=5, verbose=True, mode
         frates = SInfo['frate_fast']
         # model
         Models[unit] = model_type(n_comp=n_comp)
+        #Models[unit].fit(T, frates,plot= True)
         Models[unit].fit(T, frates)
     
     return Models

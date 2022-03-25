@@ -112,8 +112,9 @@ max_spike_diff= int(Config.getfloat('postprocessing','max_compound_spike_diff')*
 n_samples= np.array(Config.get('spike model','template_window').split(','),dtype='float32')/1000.0
 n_samples= np.array(n_samples*fs, dtype= int)
 try:
-    spkr = sp.array(Config.get('postprocessing','spike_range').split(','),dtype='int')
-    spike_range= range(spkr[0], spkr[1])
+    spkr = Config.get('postprocessing','spike_range').replace(' ','').split(',')
+    ids= [ str(x) for x in SpikeInfo['id']]
+    spike_range= range(ids.index(spkr[0]), ids.index(spkr[1]))
 except:
     spike_range = range(1,len(unit_ids)-1)
 spike_label_interval=  Config.getint('output','spike_label_interval')
