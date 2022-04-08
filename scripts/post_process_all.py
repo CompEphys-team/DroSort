@@ -102,7 +102,6 @@ for i, seg  in enumerate(Blk.segments):
         SInfo = SpikeInfo.groupby([unit_column,'segment']).get_group((unit,i))
         adapt[unit]= calc_adapt(SInfo['time'].values,SpikeInfo['time'].values,Models[unit].tau_rise,Models[unit].tau_decay)
         nSpikeInfo['adapt_'+unit]= adapt[unit]
-        print(adapt[unit])
         
 sz_wd= Config.getfloat('postprocessing','spike_window_width')
 align_mode= Config.get('postprocessing','vertical_align_mode')
