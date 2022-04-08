@@ -620,9 +620,9 @@ class Spike_Model():
         self.frates = None
         pass
 
-    def fit(self, Templates, frates):
+    def fit(self, Templates, SInfo):
         """ fits the linear model """
-        
+        frates= SInfo['frate_fast']
         # keep data
         self.Templates = Templates
         self.frates = frates
@@ -651,64 +651,69 @@ spikes are changed by rescaling positive and negative part in a firing rate depe
 
     def __init__(self, n_comp=5):
          self.Templates = None
-         self.frates = None
-
+         self.adapt = None
+         self.tau_rise = 0.1
+         self.tau_decay = 0.1
+         
     def align_templates(self):
         self.Templates= self.Templates-np.outer(np.ones((self.Templates.shape[0],1)),np.mean(self.Templates,axis=0))
         #plt.figure()
         #plt.plot(self.Templates)
         #plt.show()
 
-    def fun(self, x, t, y):
-        return self.base_fun(x,t) - y
+    def fun(self, x, s_t, y_up, y_dn):
+        adapt= calc_adapt(s_t,s_t,x[8],x[9])
+        #plt.figure()
+        #plt.plot(s_t,adapt,'.')
+        #plt.show()
+        #exit(1)
+        return abs(self.base_fun(x[:4],adapt) - y_up) + abs(self.base_fun(x[4:8],adapt) -y_dn)
 
     def base_fun(self, x, t):
         return x[0]+ x[1]*np.tanh(x[2]*(t-x[3]))
     
-    def fit(self, Templates, frates, plot= False):
+    def fit(self, Templates, SInfo, plot= False):
         """ fits the model for spike rescaling """
         
         # keep data
         self.Templates = Templates
-        self.frates = frates
-
+        spike_t= SInfo['time'].values
         # extract the rescaling of positive and negative part
         self.align_templates()
         mx= np.amax(Templates, axis= 0)
         mn= np.amin(Templates, axis= 0)
-        x0= np.array([ 0.75, 0.1, -0.1, 40 ]) 
+        x0= np.array([ 0.75, 0.1, -0.1, 0.3, -0.75, 0.1, 0.1, 0.3, 0.2, 0.4 ]) 
         #up = sp.stats.linregress(frates, mx)
         #dn = sp.stats.linregress(frates, mn)
-        bot= np.array([ 0, 0, -1, -np.inf ]) # lower limit
-        top= np.array([ np.inf, np.inf, 0, np.inf ])  # upper limit
-        up = least_squares(self.fun, x0, loss='soft_l1', f_scale=0.1, args=(frates, mx))
-        x0= np.array([ -0.75, 0.1, 0.1, 40 ]) 
-        bot= np.array([ -np.inf, 0, 0, -np.inf ]) # lower limit
-        top= np.array([ 0, np.inf, 20, np.inf ])  # upper limit
-        dn= least_squares(self.fun, x0, loss='soft_l1', f_scale=0.1, args=(frates, mn))
+        bot= np.array([ 0, 0, -1, -np.inf, -np.inf, 0, 0, -np.inf, 0.01, 0.02 ]) # lower limit
+        top= np.array([ np.inf, np.inf, 0, np.inf, 0, np.inf, 20, np.inf, 0.4, 0.8 ])  # upper limit
+        res = least_squares(self.fun, x0, loss='soft_l1', f_scale=0.1, args=(spike_t, mx, mn), bounds= (bot,top))
         if plot:
-            fr_test= np.linspace(np.amin(frates),np.amax(frates),100)
-            mx_test= self.base_fun(up.x, fr_test)
+            x= res.x
+            adapt= calc_adapt(spike_t,spike_t,x[8],x[9])
+            fr_test= np.linspace(np.amin(adapt),np.amax(adapt),100)
+            mx_test= self.base_fun(x[:4], fr_test)
             plt.figure()
-            plt.plot(frates, mx, '.')
+            plt.plot(adapt, mx, '.')
             plt.plot(fr_test,mx_test)
-            print(up.x)
-            mn_test= self.base_fun(dn.x, fr_test)
+            mn_test= self.base_fun(x[4:8], fr_test)
             plt.plot(fr_test,mn_test)
-            plt.plot(frates, mn, '.')
-            print(dn.x)
+            plt.plot(adapt, mn, '.')
             plt.show()
-        self.xup= up.x
-        self.xdn= dn.x
+            print(x)
+        self.xup= res.x[:4]
+        self.xdn= res.x[4:8]
+        self.tau_rise= x[8]
+        self.tau_deacy= x[9]
         self.mean_template= np.mean(Templates, axis= 1)
         self.mean_template[self.mean_template > 0]/= np.amax(self.mean_template[self.mean_template > 0])
         self.mean_template[self.mean_template < 0]/= abs(np.amin(self.mean_template[self.mean_template < 0]))
         
-    def predict(self, fr):
+    def predict(self, adapt):
         """ predicts spike shape at firing rate fr, in PC space, returns
         inverse transform: the actual spike shape as it would be measured """
-        scale_up= self.base_fun(self.xup,fr)
-        scale_dn= abs(self.base_fun(self.xdn,fr))
+        scale_up= self.base_fun(self.xup,adapt)
+        scale_dn= abs(self.base_fun(self.xdn,adapt))
         template= self.mean_template.copy()
         template[template > 0]= template[template > 0]*scale_up
         template[template < 0]= template[template < 0]*scale_dn
@@ -731,12 +736,10 @@ def train_Models(SpikeInfo, unit_column, Templates, n_comp=5, verbose=True, mode
         # data
         ix = SInfo['id'].astype(int)
         T = Templates[:,ix.values]
-        # frates
-        frates = SInfo['frate_fast']
         # model
         Models[unit] = model_type(n_comp=n_comp)
         #Models[unit].fit(T, frates,plot= True)
-        Models[unit].fit(T, frates)
+        Models[unit].fit(T, SInfo, plot=True)
     
     return Models
 
@@ -810,29 +813,47 @@ def calc_update_frates(Segments, SpikeInfo, unit_column, kernel_fast, kernel_slo
                     # similar: when no spikes in this segment, can not set
                     pass
 
-def calc_update_final_frates(Segments, SpikeInfo, unit_column, kernel_fast):
-    """ calculate all firing rates for all units, based on unit_column. This is for after units
-have been identified as 'a' or 'b' (or unknown). Updates SpikeInfo with new columns frate_a, frate_b"""
+def calc_adapt(from_times,to_times,tau_rise, tau_decay):
+    R= 0
+    S= 0
+    dt= 1e-3  # timesteps in seconds
+    # spike times
+    t= to_times[0]
+    t_end= to_times[-1]
+    from_idx= 0
+    from_max= len(from_times)
+    to_idx= 0
+    adapt= []
+    while t <= t_end:
+        if t >= to_times[to_idx]:
+            adapt.append(S)
+            to_idx+= 1
+        if from_idx < from_max and t >= from_times[from_idx]:
+            R+= 0.01
+            from_idx+= 1
+        R-= R/tau_decay*dt
+        S+= (R/tau_rise - S/tau_decay)*dt
+        #print(f'{R}, {S}')
+        t+= dt
+    # set
+    if len(adapt) < len(to_times):
+        adapt.append(S)
+    return np.array(adapt)
+                
+def calc_update_final_adaptation(Segments, SpikeInfo, unit_column, tau_rise, tau_decay):
+    """ calculate an adaptation value for all units, based on unit_column. This is for after units
+have been identified as 'a' or 'b' (or unknown). Updates SpikeInfo with new columns adapt_a, adapt_b"""
     # TODO - mix of new and old syntax - Segments are not needed
     
     from_units = get_units(SpikeInfo, unit_column, remove_unassigned=True)
 
-    # estimating firing rate profile for "from unit" and getting the rate at "to unit" timepoints
+    # calculate adaptation variable by simple Euler integration of 2d ODE
     for i, seg  in enumerate(Segments):
         for j, from_unit in enumerate(from_units):
-            try:
-                SInfo = SpikeInfo.groupby([unit_column,'segment']).get_group((from_unit,i))
-
-                # spike times
-                from_times = SInfo['time'].values
-                to_times = SpikeInfo['time'].values
-                # estimate its own rate at its own spike times
-                rate = est_rate(from_times, to_times, kernel_fast)
-                # set
-                SpikeInfo['frate_'+from_unit] = rate
-            except:
-                # can not set it's own rate, when there are no spikes in this segment for this unit
-                pass
+            adapt= []
+            SInfo = SpikeInfo.groupby([unit_column,'segment']).get_group((from_unit,i))
+            adapt= calc_adapt(SInfo['time'].values,SpikeInfo['time'].values,tau_rise,tau_decay)
+            SpikeInfo['adapt_'+from_unit] = adapt
 
 
 """

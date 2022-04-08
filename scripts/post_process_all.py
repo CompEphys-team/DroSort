@@ -87,7 +87,6 @@ ifs= int(fs/1000)   # sampling rate in kHz as integer value to convert ms to bin
 # recalculate the latest firing rates according to spike assignments in unit_column
 #kernel_slow = Config.getfloat('kernels','sigma_slow')
 kernel_fast = Config.getfloat('kernels','sigma_fast')
-calc_update_final_frates(Blk.segments, nSpikeInfo, unit_column, kernel_fast)
 
 templates_path = config_path.parent / results_folder / "Templates_ini.npy"
 Templates= np.load(templates_path)
@@ -97,10 +96,14 @@ Models = train_Models(nSpikeInfo, unit_column, Templates, n_comp=n_model_comp, v
 
 unit_ids= nSpikeInfo[unit_column]
 units = get_units(nSpikeInfo, unit_column)
-frate= {}
-for unit in units:
-    frate[unit]= nSpikeInfo['frate_'+unit]
-
+adapt= {}
+for i, seg  in enumerate(Blk.segments):
+    for unit in units:
+        SInfo = SpikeInfo.groupby([unit_column,'segment']).get_group((unit,i))
+        adapt[unit]= calc_adapt(SInfo['time'].values,SpikeInfo['time'].values,Models[unit].tau_rise,Models[unit].tau_decay)
+        nSpikeInfo['adapt_'+unit]= adapt[unit]
+        print(adapt[unit])
+        
 sz_wd= Config.getfloat('postprocessing','spike_window_width')
 align_mode= Config.get('postprocessing','vertical_align_mode')
 same_spike_tolerance= Config.getfloat('postprocessing','spike_position_tolerance')
@@ -148,7 +151,7 @@ for i in spike_range:
         un= []
         templates= {}
         for unit in units[:2]:
-            templates[unit]= make_single_template(Models[unit], frate[unit][i])
+            templates[unit]= make_single_template(Models[unit], adapt[unit][i])
             templates[unit]= align_to(templates[unit],align_mode)
             for pos in range(n_wdh-same_spike_tolerance,n_wdh+same_spike_tolerance):
                 d.append(dist(v,templates[unit],n_samples,pos))
@@ -256,7 +259,7 @@ for i in spike_range:
         if skip:
             i= i+1
             
-calc_update_final_frates(Blk.segments, nSpikeInfo, unit_column, kernel_fast)
+#calc_update_final_frates(Blk.segments, nSpikeInfo, unit_column, kernel_fast)
 
 # Saving
 kernel = ele.kernels.GaussianKernel(sigma=kernel_fast * pq.s)

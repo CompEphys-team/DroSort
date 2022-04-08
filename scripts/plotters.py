@@ -22,7 +22,7 @@ from functions import *
 def get_colors(units, palette='tab10', desat=None, keep=True):
     """ return dict mapping unit labels to colors """
     if 'a' in units or 'b' in units or ' ' in units:
-        n_colors = 2
+        n_colors = 3
         units= [ str(x) for x in units ]
     else:
         if keep:
@@ -32,7 +32,7 @@ def get_colors(units, palette='tab10', desat=None, keep=True):
     colors = sns.color_palette(palette, n_colors=n_colors, desat=desat)
     # unit_ids = sp.arange(n_colors).astype('U')
     sunits= units.copy()
-    sunits.sort()
+    #sunits.sort()
     return dict(zip(sunits,colors))
 
 def plot_Model(Model, max_rate=None, N=5, ax=None):
@@ -396,7 +396,9 @@ def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, co
 
     if colors is None:
         colors = get_colors(units)
-
+        print(units)
+        print(colors)
+        
     fs = asig.sampling_rate
 
     for u, unit in enumerate(units):
@@ -425,7 +427,8 @@ def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, co
 
         try:
             if type(Models).__name__=='dict':
-                frates = SpikeInfo.groupby([unit_column, 'segment']).get_group((unit,j))['frate_fast'].values
+                #frates = SpikeInfo.groupby([unit_column, 'segment']).get_group((unit,j))['frate_fast'].values
+                frates= SpikeInfo.groupby([unit_column, 'segment']).get_group((unit,j))['adapt_'+str(unit)].values
                 pred_spikes = [Models[unit].predict(f) for f in frates]
             else:
                 Templates = Models
