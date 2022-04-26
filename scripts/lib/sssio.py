@@ -7,7 +7,7 @@ import neo
 import quantities as pq
 
 import numpy as np
-from functions import print_msg
+from lib.functions import print_msg, select_by_dict
 
 def asc2seg(path):
     """ reads an autospike .asc file into neo segment """
@@ -123,6 +123,48 @@ def save_data(Blk, path):
     if ext == '.dill':
         blk2dill(Blk, path)
 
+def save_all(results_folder, output_csv, SpikeInfo, Blk, units, Frates=False):
+    # store SpikeInfo
+    outpath = results_folder / 'SpikeInfo.csv'
+    print_msg("saving SpikeInfo to %s" % outpath)
+    SpikeInfo.to_csv(outpath,index= False)
+
+    # store Block
+    outpath = results_folder / 'result.dill'
+    print_msg("saving Blk as .dill to %s" % outpath)
+    blk2dill(Blk, outpath)
+
+    print_msg("data is stored")
+
+
+    # output csv data
+    # if Config.getboolean('output','csv'):
+    if output_csv:
+        print_msg("writing csv")
+
+        # SpikeTimes
+        for i, Seg in enumerate(Blk.segments):
+            seg_name = Path(Seg.annotations['filename']).stem
+            for j, unit in enumerate(units):
+                St, = select_by_dict(Seg.spiketrains, unit=unit)
+                outpath = results_folder / ("Segment_%s_unit_%s_spike_times.txt" % (seg_name, unit))
+                np.savetxt(outpath, St.times.magnitude)
+
+        if Frates:
+            # firing rates - full res
+            for i, Seg in enumerate(Blk.segments):
+                FratesDf = pd.DataFrame()
+                seg_name = Path(Seg.annotations['filename']).stem
+                for j, unit in enumerate(units):
+                    asig, = select_by_dict(Seg.analogsignals, kind='frate_fast', unit=unit)
+                    FratesDf['t'] = asig.times.magnitude
+                    FratesDf[unit] = asig.magnitude.flatten()
+
+                outpath = results_folder / ("Segment_%s_frates.csv" % seg_name)
+                FratesDf.to_csv(outpath,index=False)
+
+
+        
 
 if __name__ == '__main__':
     """ for command line usage - first argument being path to list file """

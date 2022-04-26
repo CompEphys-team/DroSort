@@ -17,9 +17,10 @@ import neo
 import elephant as ele
 
 # own
-from functions import *
-from plotters import *
-import sssio
+from lib.functions import *
+from lib.plotters import *
+import lib.sssio as sssio
+
 """
  
  #### ##    ## #### 

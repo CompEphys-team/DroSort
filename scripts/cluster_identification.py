@@ -23,9 +23,9 @@ import neo
 import elephant as ele
 
 # own
-from functions import *
-from plotters import *
-from sssio import *
+from lib.functions import *
+from lib.plotters import *
+import lib.sssio as sssio
 # from superpos_functions import *
 import matplotlib.pyplot as plt 
 
@@ -52,7 +52,7 @@ plots_folder = results_folder / 'plots'
 
 os.makedirs(plots_folder, exist_ok=True)
 
-Blk=get_data(results_folder/"result.dill")
+Blk= sssio.get_data(results_folder/"result.dill")
 SpikeInfo = pd.read_csv(results_folder/"SpikeInfo.csv")
 
 unit_column = [col for col in SpikeInfo.columns if col.startswith('unit')][-1]

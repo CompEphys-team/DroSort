@@ -1,10 +1,9 @@
 import matplotlib.pyplot as plt
 import pandas as pd
-from sssio import * 
-from plotters import *
-from functions import *
+from lib.sssio import * 
+from lib.plotters import *
+from lib.functions import *
 from sys import path
-from postprocessing_functions import *
 
 import configparser
 #import tracemalloc
@@ -312,5 +311,5 @@ if do_plot:
 
     max_window= Config.getfloat('output','max_window_fitted_spikes_overview')
     plot_fitted_spikes_complete(Blk, Models, nSpikeInfo, new_column, max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates',spike_label_interval=spike_label_interval)
-
+    print_msg("plotting done")
 
