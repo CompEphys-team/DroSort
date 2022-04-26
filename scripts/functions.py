@@ -333,7 +333,10 @@ def double_spike_detect(AnalogSignal, bounds_pos,bounds_neg, lowpass_freq=1000*p
             # get waveform to find positive reference 
             neg_waveform = AnalogSignal.magnitude[pini_st_neg:st_neg_id]
             waveform = neg_waveform
-
+            if len(neg_waveform) == 0:
+                print_msg("MAD_thresh appears to be too low for the double spike detection algorithm")
+                exit()
+                
             new_time_id = int(pini_st_neg + np.argmax(neg_waveform))
             new_time = AnalogSignal.times[new_time_id]
 

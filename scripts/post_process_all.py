@@ -70,6 +70,10 @@ Blk=get_data(results_folder/"result.dill")
 SpikeInfo = pd.read_csv(results_folder/"SpikeInfo.csv")
 nSpikeInfo= SpikeInfo.copy()
 
+if 'unit_labeled' not in SpikeInfo.columns:
+    print_msg("It appears that you have not yet labeled the spike clusters. Run cluster_identification.py first")
+    exit()
+    
 unit_column = 'unit_labeled'
 SpikeInfo = SpikeInfo.astype({unit_column: str})
 units = get_units(SpikeInfo, unit_column)
@@ -300,20 +304,13 @@ output_csv = Config.getboolean('output', 'csv')
 # warning firing rates not saved, too high memory use.
 save_all(results_folder, output_csv, nSpikeInfo, Blk, units, Frates=False)
 
-seg_name = Path(Seg.annotations['filename']).stem
-outpath = plots_folder / (seg_name + '_overview' + fig_format)
-plot_segment(Seg, units, save=outpath)
+do_plot= Config.getboolean('postprocessing','plot_fitted_spikes')
+
+if do_plot:
+    outpath = plots_folder / ('overview' + fig_format)
+    plot_segment(Seg, units, save=outpath)
+
+    max_window= Config.getfloat('output','max_window_fitted_spikes_overview')
+    plot_fitted_spikes_complete(Blk, Models, nSpikeInfo, new_column, max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates',spike_label_interval=spike_label_interval)
 
 
-max_window= Config.getfloat('output','max_window_fitted_spikes_overview')
-plot_fitted_spikes_complete(Blk, Models, nSpikeInfo, new_column, max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates',spike_label_interval=spike_label_interval)
-
-
-"""
-snapshot = tracemalloc.take_snapshot()
-top_stats = snapshot.statistics('lineno')
-
-print("[ Top 10 ]")
-for stat in top_stats[:10]:
-    print(stat)
-"""

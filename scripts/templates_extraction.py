@@ -132,10 +132,7 @@ wsize = Config.getfloat('spike detect', 'wsize') * pq.ms
 min_ampl = Config.getfloat('preprocessing', 'min_amplitude')
 max_dur = Config.getfloat('preprocessing', 'max_duration')
 
-try:
-    r_non_spikes = Config.getboolean('preprocessing','non_spikes')
-except Exception as e:
-    r_non_spikes = True
+r_non_spikes = Config.getboolean('preprocessing','reject_non_spikes')
 
 bad_segments = []
 for i, seg in enumerate(Blk.segments):
@@ -190,6 +187,7 @@ print_msg("detected spikes plotted")
 
 #Detect bad segments based on norm probability distribution 
 #TODO: this is from the original version, does not usually get any result.
+#TN: This is very specific to having multiple trials/ segments and doesn't really apply to our code any more ... consider removing
 if Config.getboolean('preprocessing', 'sd_reject'):
     stim_onset = Config.getfloat('preprocessing', 'stim_onset') * pq.s
     alpha = Config.getfloat('preprocessing', 'sd_reject_alpha')
@@ -247,7 +245,6 @@ if len(bad_segments) > 0:
 print_msg(' - getting templates - ')
 
 fs = Blk.segments[0].analogsignals[0].sampling_rate
-#n_samples = (wsize * fs).simplified.magnitude.astype('int32')
 n_samples= np.array(Config.get('spike model','template_window').split(','),dtype='float32')/1000.0
 n_samples= np.array(n_samples*fs, dtype= int)
 templates = []

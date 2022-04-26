@@ -21,7 +21,9 @@ from functions import *
 
 def get_colors(units, palette='tab10', desat=None, keep=True):
     """ return dict mapping unit labels to colors """
-    if 'a' in units or 'b' in units or ' ' in units:
+    if len(units) == 0:
+        units= ['a', 'b']
+    if 'a' in units or 'b' in units:
         n_colors = 2
         units= [ str(x) for x in units ]
     else:
@@ -147,8 +149,6 @@ def plot_segment(Seg, units, sigma=0.05, zscore=False, save=None, colors=None):
     axes[0].set_yticklabels(units)
     axes[1].set_ylabel('firing rate (Hz)')
     axes[1].set_xlabel('time (s)')
-    title = Path(Seg.annotations['filename']).stem
-    fig.suptitle(title)
     fig.tight_layout()
     fig.subplots_adjust(top=0.9)
     sns.despine(fig)
@@ -173,7 +173,7 @@ def plot_spike_events(Segment,thres=2,max_window=1,max_row=5,save=None,save_form
 
         #Plot max_row rows per window, plots n_plots to plot the complete signal
         for i_fig in range(0,n_plots):
-            fig, axes = plt.subplots(nrows=max_row)
+            fig, axes = plt.subplots(nrows=max_row,sharey=True)
 
             for idx in range(0,max_row): #plot the max_row axes.
                 #plot analog signal
@@ -185,8 +185,7 @@ def plot_spike_events(Segment,thres=2,max_window=1,max_row=5,save=None,save_form
                     break
 
                 axes[idx].plot(asig.times[ini:end],asig.data[ini:end],linewidth=1,color='k')
-
-                #plot spike events
+                
                 if st is None:
                     st = Segment.spiketrains[0] #get spike trains (assuming there's only one spike train)
 
@@ -196,10 +195,9 @@ def plot_spike_events(Segment,thres=2,max_window=1,max_row=5,save=None,save_form
                 #get events amplitude value (spike)
                 a_events = st.waveforms[np.where((st.times > t_ini) & (st.times < t_end))] 
                 a_events = [max(a) for a in a_events]
-
                 if rejs is not None:
                     chunk_r = rejs[np.where((rejs > t_ini) & (rejs < t_end))]
-                    axes[idx].plot(chunk_r,np.ones(chunk_r.shape),'|',markersize=5,color='r',label='rejected_spikes')
+                    axes[idx].plot(chunk_r,asig_max*np.ones(chunk_r.shape),'|',markersize=5,color='r',label='rejected_spikes')
 
                 axes[idx].plot(t_events,a_events,'|',markersize=5,label='detected_spikes',c=[ 0.5, 1.0, 0.5])
                 axes[idx].plot(asig.times[ini:end],np.ones(asig.times[ini:end].shape)*thres,linewidth=0.5)
@@ -345,8 +343,6 @@ def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=No
        
     plot_spike_labels(axes[0], SpikeInfo, spike_label_interval)
     plot_spike_labels(axes[1], SpikeInfo, spike_label_interval)
-    stim_name = Path(Segment.annotations['filename']).stem
-    fig.suptitle(stim_name)
     fig.tight_layout()
     #fig.subplots_adjust(top=0.9)
     #sns.despine(fig)
@@ -362,15 +358,13 @@ def plot_fitted_spikes(Segment, j, Models, SpikeInfo, unit_column, unit_order=No
 def plot_fitted_spikes_complete(Blk, Models, SpikeInfo, unit_column,max_window, plots_folder, fig_format, unit_order=None, save=None, colors=None,wsize=40,extension='',plot_function=plot_fitted_spikes,rejs=None,spike_label_interval=0):
     
     for j, Seg in enumerate(Blk.segments):
-        seg_name = Path(Seg.annotations['filename']).stem
-
         asig = Seg.analogsignals[0]
 
         max_window = int(max_window*asig.sampling_rate) #FIX conversion from secs to points
         n_plots = asig.shape[0]//max_window
 
         for n_plot in range(0,n_plots):
-            outpath = plots_folder / (seg_name + '_fitted_spikes%s_%s_%d'%(extension,max_window,n_plot) + fig_format)
+            outpath = plots_folder / ('fitted_spikes%s_%s_%d'%(extension,max_window,n_plot) + fig_format)
             ini = n_plot*max_window 
             end = ini + max_window
             #end = min(end, Seg.analogsignals[0].shape[0])
@@ -475,10 +469,7 @@ def plot_compared_fitted_spikes(Segment, j, Models, SpikeInfo, unit_columns, uni
         for ax in axes:
             ax.set_xlim(zoom)
 
-    if title is None:
-        stim_name = Path(Segment.annotations['filename']).stem
-        fig.suptitle(stim_name)
-    else:
+    if title is not None:
         fig.suptitle(title)
 
     fig.tight_layout()
@@ -571,8 +562,6 @@ def plot_templates_on_trace(Segment, j, Templates, zoom=None, save=None,wsize=40
         for ax in axes:
             ax.set_xlim(zoom)
             
-    stim_name = Path(Segment.annotations['filename']).stem
-    fig.suptitle(stim_name)
     fig.tight_layout()
     fig.subplots_adjust(top=0.9)
     sns.despine(fig)

@@ -102,9 +102,7 @@ except:
 
 
 # Data info
-wsize = Config.getfloat('spike detect', 'wsize') * pq.ms
 fs = Blk.segments[0].analogsignals[0].sampling_rate
-#n_samples = (wsize * fs).simplified.magnitude.astype('int32')
 n_samples= np.array(Config.get('spike model','template_window').split(','),dtype='float32')/1000.0
 n_samples= np.array(n_samples*fs, dtype= int)
 
@@ -227,7 +225,7 @@ units = get_units(SpikeInfo, 'unit')
 Blk = populate_block(Blk,SpikeInfo,'unit',units)
 
 Seg = Blk.segments[0]
-outpath = plots_folder / (seg_name + '_fitted_spikes_init' + fig_format)
+outpath = plots_folder / ('fitted_spikes_init' + fig_format)
 plot_fitted_spikes(Seg, 0, Models, SpikeInfo, 'unit', zoom=zoom, save=outpath,wsize=n_samples,rejs=rej_spikes,spike_label_interval=spike_label_interval)
 
 
@@ -256,7 +254,6 @@ clust_alpha = Config.getfloat('spike sort','clust_alpha')
 units = get_units(SpikeInfo, 'unit_0')
 n_units = len(units)
 penalty = Config.getfloat('spike sort','penalty')
-sorting_noise = Config.getfloat('spike sort','f_noise')
 try:
     approve_merge = Config.getboolean('spike sort', 'approve_merge')
 except Exception:
@@ -284,10 +281,7 @@ while n_units >= n_final_clusters and not last:
     # unit columns
     prev_unit_col = 'unit_%i' % (it-1)
     this_unit_col = 'unit_%i' % it
-    score = Rss
     
-    # Scores_old, units = Score_spikes(Templates, SpikeInfo, prev_unit_col, Models, score_metric=score, penalty=penalty)
-
     # update rates
     calc_update_frates(Blk.segments, SpikeInfo, prev_unit_col, kernel_fast, kernel_slow)
 
@@ -329,12 +323,6 @@ while n_units >= n_final_clusters and not last:
 
     SpikeInfo = unassign_spikes(SpikeInfo, this_unit_col)
     reject_spikes(Templates, SpikeInfo, this_unit_col,verbose=False)
-
-    # randomly unassign a fraction of spikes
-    #TODO review
-    # if it != its-1: # the last
-    # N = int(n_spikes * sorting_noise)
-    # SpikeInfo.loc[SpikeInfo.sample(N).index,this_unit_col] = '-1'
     
     # plot templates
     outpath = plots_folder / ("Templates_%s%s" % (this_unit_col, fig_format))
@@ -401,7 +389,7 @@ while n_units >= n_final_clusters and not last:
 
         Seg = Blk.segments[0]
 
-        outpath = plots_folder / (seg_name + '_fitted_spikes_%d'%(it) + fig_format)
+        outpath = plots_folder / ('fitted_spikes_%d'%(it) + fig_format)
         plot_fitted_spikes(Seg, 0, Models, SpikeInfo, this_unit_col, zoom=zoom, save=outpath,wsize=n_samples,rejs=rej_spikes,spike_label_interval=spike_label_interval)
     except Exception as ex:
         print(ex.args)
@@ -578,16 +566,19 @@ save_all(results_folder, output_csv, SpikeInfo, Blk, units, Frates=False)
 
 #TODO: fix memory rising: loop & plt.close...
 
-# plot all sorted spikes
-for j, Seg in enumerate(Blk.segments):
-    seg_name = Path(Seg.annotations['filename']).stem
-    outpath = plots_folder / (seg_name + '_overview' + fig_format)
-    plot_segment(Seg, units, save=outpath)
+do_plot= Config.getboolean('spike sort','plot_fitted_spikes')
 
-# plot all sorted spikes
-plot_fitted_spikes_complete(Blk, Templates, SpikeInfo, unit_column, max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates',rejs=rej_spikes,spike_label_interval=spike_label_interval)
+if do_plot:
+    # plot all sorted spikes
+    for j, Seg in enumerate(Blk.segments):
+        outpath = plots_folder / ('overview' + fig_format)
+        plot_segment(Seg, units, save=outpath)
 
-print_msg("plotting done")
+    # plot all sorted spikes
+    plot_fitted_spikes_complete(Blk, Templates, SpikeInfo, unit_column, max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates',rejs=rej_spikes,spike_label_interval=spike_label_interval)
+
+    print_msg("plotting done")
+    
 print_msg("all done - quitting")
 
 sys.exit()
