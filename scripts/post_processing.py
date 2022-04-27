@@ -54,6 +54,9 @@ Config = configparser.ConfigParser()
 Config.read(config_path)
 print_msg('config file read from %s' % config_path)
 
+# get segment to analyse
+seg_no= Config.getint('general','segment_number')
+
 # handling paths and creating outunits.sort()put directory
 data_path = Path(Config.get('path', 'data_path'))
 if not data_path.is_absolute():
@@ -83,14 +86,14 @@ mpl.rcParams['figure.dpi'] = Config.get('output','fig_dpi')
 fig_format = Config.get('output','fig_format')
 
 stimes= SpikeInfo['time']
-Seg = Blk.segments[0]
-fs= Seg.analogsignals[0].sampling_rate
+seg = Blk.segments[seg_no]
+fs= seg.analogsignals[0].sampling_rate
 ifs= int(fs/1000)   # sampling rate in kHz as integer value to convert ms to bins
 
 # recalculate the latest firing rates according to spike assignments in unit_column
 #kernel_slow = Config.getfloat('kernels','sigma_slow')
 kernel_fast = Config.getfloat('kernels','sigma_fast')
-calc_update_final_frates(Blk.segments, nSpikeInfo, unit_column, kernel_fast)
+calc_update_final_frates(nSpikeInfo, unit_column, kernel_fast)
 
 templates_path = config_path.parent / results_folder / "Templates_ini.npy"
 Templates= np.load(templates_path)
@@ -122,7 +125,7 @@ except:
     spike_range = range(1,len(unit_ids)-1)
 spike_label_interval=  Config.getint('output','spike_label_interval')
     
-asig= Seg.analogsignals[0]
+asig= seg.analogsignals[0]
 asig= asig.reshape(asig.shape[0])
 as_min= np.amin(asig)
 as_max= np.amax(asig)
@@ -172,12 +175,12 @@ for i in spike_range:
         d_min= min(d[best],d2[best2])
         choice= 1 if d[best] <= d2[best2] else 2
         d_diff= abs(d[best]-d2[best2])
-        print_msg("Single spike d={}, compound spike d={}, difference={}".format(d[best], d2[best2], d_diff))
+        print_msg("Single spike d={}, compound spike d={}, difference={}".format(('%.4f' % d[best]), ('%.4f' % d2[best2]), ('%.4f' % d_diff)))
         # show some plots first
         zoom= (float(stimes[i])-sz_wd/1000*20,float(stimes[i])+sz_wd/1000*20)
         if d_min >= d_accept or 200*d_diff/(d[best]+d2[best2]) < min_diff:
             # make plots and save them
-            fig2, ax2= plot_fitted_spikes(Seg, 0, Models, nSpikeInfo, new_column, zoom=zoom, box= (float(stimes[i]),sz_wd/1000), wsize= n_samples, spike_label_interval= spike_label_interval)
+            fig2, ax2= plot_fitted_spikes(seg, Models, nSpikeInfo, new_column, zoom=zoom, box= (float(stimes[i]),sz_wd/1000), wsize= n_samples, spike_label_interval= spike_label_interval)
             outpath = plots_folder / (str(nSpikeInfo['id'][i+offset])+'_context_plot' + fig_format)
             fig2.savefig(outpath)
             fig, ax= plt.subplots(ncols=2, sharey= True, figsize=[ 4, 2])
@@ -207,12 +210,12 @@ for i in spike_range:
             spike_time= stimes[i]-n_wdh/1000/ifs+sh[best]/1000/ifs  # spike time in seconds
             if (abs(stimes[i-1]-spike_time)*1000*ifs < same_spike_tolerance) and nSpikeInfo[new_column][i-1+offset] == un[best]:
                 # this spikes is already recorded with the same type
-                print_msg("Spike {}: time= {}: Single spike, was type {} but already exists as spike {}; marked for deletion (-2)".format(nSpikeInfo['id'][i+offset],stimes[i],SpikeInfo[unit_column][i],nSpikeInfo['id'][i-1+offset]))
+                print_msg("Spike {}: time= {}: Single spike, was type {} but already exists as spike {}; marked for deletion (-2)".format(nSpikeInfo['id'][i+offset],('%.4f' % stimes[i]),SpikeInfo[unit_column][i],nSpikeInfo['id'][i-1+offset]))
                 nSpikeInfo[new_column][i+offset]= '-2'
                 nSpikeInfo['good'][i+offset]= False
                 nSpikeInfo['frate_fast'][i+offset]= nSpikeInfo['frate_'+un[best]][i+offset]
             else:
-                print_msg("Spike {}: time= {}: Single spike, was type {}, now  of type {}, time= {}".format(nSpikeInfo['id'][i+offset],stimes[i],SpikeInfo[unit_column][i],un[best],spike_time))
+                print_msg("Spike {}: time= {}: Single spike, was type {}, now  of type {}, time= {}".format(nSpikeInfo['id'][i+offset],('%.4f' % stimes[i]),SpikeInfo[unit_column][i],un[best],('%.4f' % spike_time)))
                 nSpikeInfo[new_column][i+offset]= un[best]
                 nSpikeInfo['time'][i+offset]= spike_time
                 nSpikeInfo['frate_fast'][i+offset]= nSpikeInfo['frate_'+un[best]][i+offset]
@@ -222,7 +225,7 @@ for i in spike_range:
             other_spike= 1-orig_spike
             spike_unit= 'a' if orig_spike == 0 else 'b'
             spike_time= stimes[i]-n_wdh/1000/ifs+sh2[best2][orig_spike]/1000/ifs  # spike time in seconds
-            print_msg("Spike {}: time= {}: Compound spike, first spike of type {}, time= {}".format(nSpikeInfo['id'][i+offset],SpikeInfo['time'][i],spike_unit,spike_time))
+            print_msg("Spike {}: time= {}: Compound spike, first spike of type {}, time= {}".format(nSpikeInfo['id'][i+offset],('%.4f' % SpikeInfo['time'][i]),spike_unit,('%.4f' % spike_time)))
             nSpikeInfo[new_column][i+offset]= spike_unit
             nSpikeInfo['time'][i+offset]= spike_time
             nSpikeInfo['good'][i+offset]= False   # do not use compound spikes for Model building
@@ -236,7 +239,7 @@ for i in spike_range:
             if abs(stimes[o_spike_id]-o_spike_time)*1000*ifs < same_spike_tolerance:
                 # the other spike coincides with the previous spike in the original list
                 # make sure that the previous decision is consistent with the current one
-                print_msg("Spike {}: time= {}: Compound spike, second spike was known as {}, now of type {}, time= {}".format(nSpikeInfo['id'][i+offset],SpikeInfo['time'][i],SpikeInfo[unit_column][o_spike_id],o_spike_unit,o_spike_time))
+                print_msg("Spike {}: time= {}: Compound spike, second spike was known as {}, now of type {}, time= {}".format(nSpikeInfo['id'][i+offset],('%.4f' % SpikeInfo['time'][i]),SpikeInfo[unit_column][o_spike_id],o_spike_unit,('%.4f' % o_spike_time)))
                 nSpikeInfo[new_column][o_spike_id+offset]= o_spike_unit
                 nSpikeInfo['good'][o_spike_id+offset]= False   # do not use compound spikes for Model building
                 nSpikeInfo['frate_fast'][o_spike_id+offset]= nSpikeInfo['frate_'+o_spike_unit][o_spike_id+offset]
@@ -259,44 +262,40 @@ for i in spike_range:
         if skip:
             i= i+1
             
-calc_update_final_frates(Blk.segments, nSpikeInfo, unit_column, kernel_fast)
+calc_update_final_frates(nSpikeInfo, unit_column, kernel_fast)
 
 # Saving
 kernel = ele.kernels.GaussianKernel(sigma=kernel_fast * pq.s)
-for i, seg in tqdm(enumerate(Blk.segments),desc="populating block for output"):
-    fs = seg.analogsignals[0].sampling_rate
-    spike_labels = nSpikeInfo.groupby(('segment')).get_group((i))[new_column].values
-    times= nSpikeInfo.groupby(('segment')).get_group((i))['time'].values
-    St = seg.spiketrains[0]
-    seg.spiketrains[0]= neo.core.SpikeTrain(times, units='sec', t_start = St.t_start,t_stop=St.t_stop)
-    seg.spiketrains[0].array_annotate(unit_labels= list(spike_labels))
+fs = seg.analogsignals[0].sampling_rate
+spike_labels = nSpikeInfo[new_column].values
+times= nSpikeInfo['time'].values
+St = seg.spiketrains[0]
+seg.spiketrains[0]= neo.core.SpikeTrain(times, units='sec', t_start = St.t_start,t_stop=St.t_stop)
+seg.spiketrains[0].array_annotate(unit_labels= list(spike_labels))
     
-    # make spiketrains
-    St = seg.spiketrains[0]
-    sts = [St]
+# make spiketrains
+St = seg.spiketrains[0]
+sts = [St]
 
-    for unit in units:
-        times = St.times[sp.array(spike_labels) == unit]
-        st = neo.core.SpikeTrain(times, t_start = St.t_start, t_stop=St.t_stop)
-        st.annotate(unit=unit)
-        sts.append(st)
-    seg.spiketrains=sts
+for unit in units:
+    times = St.times[sp.array(spike_labels) == unit]
+    st = neo.core.SpikeTrain(times, t_start = St.t_start, t_stop=St.t_stop)
+    st.annotate(unit=unit)
+    sts.append(st)
+seg.spiketrains=sts
 
-    # est firing rates
-    asigs = [seg.analogsignals[0]]
-    for unit in units:
-        St, = select_by_dict(seg.spiketrains, unit=unit)
-        frate = ele.statistics.instantaneous_rate(St, kernel=kernel, sampling_period=1/fs)
-        frate.annotate(kind='frate_fast', unit=unit)
-        asigs.append(frate)
-    seg.analogsignals = asigs
-
+# est firing rates
+asigs = [seg.analogsignals[0]]
+for unit in units:
+    St, = select_by_dict(seg.spiketrains, unit=unit)
+    frate = ele.statistics.instantaneous_rate(St, kernel=kernel, sampling_period=1/fs)
+    frate.annotate(kind='frate_fast', unit=unit)
+    asigs.append(frate)
+seg.analogsignals = asigs
 
 #save all
 units = get_units(SpikeInfo,unit_column)
 print_msg("Number of spikes in trace: %d"%nSpikeInfo[new_column].size)
-#print_msg("Number of good spikes: %d"%len(nSpikeInfo.groupby(['good']).get_group(True)[unit_column]))
-# print_msg("Number of good spikes: %d"%len(SpikeInfo.groupby(['good']).get_group(False)[unit_column]))
 print_msg("Number of clusters: %d"%len(units))
 
 output_csv = Config.getboolean('output', 'csv')
@@ -306,10 +305,11 @@ save_all(results_folder, output_csv, nSpikeInfo, Blk, units, Frates=False)
 do_plot= Config.getboolean('postprocessing','plot_fitted_spikes')
 
 if do_plot:
+    print_msg("creating plots")
     outpath = plots_folder / ('overview' + fig_format)
-    plot_segment(Seg, units, save=outpath)
+    plot_segment(seg, units, save=outpath)
 
     max_window= Config.getfloat('output','max_window_fitted_spikes_overview')
-    plot_fitted_spikes_complete(Blk, Models, nSpikeInfo, new_column, max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates',spike_label_interval=spike_label_interval)
+    plot_fitted_spikes_complete(seg, Models, nSpikeInfo, new_column, max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates',spike_label_interval=spike_label_interval)
     print_msg("plotting done")
 

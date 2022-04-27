@@ -791,7 +791,7 @@ have been identified as 'a' or 'b' (or unknown). Updates SpikeInfo with new colu
     # estimating firing rate profile for "from unit" and getting the rate at "to unit" timepoints
     for j, from_unit in enumerate(from_units):
         try:
-            SInfo = SpikeInfo.groupby([unit_column]).get_group((from_unit,i))
+            SInfo = SpikeInfo.groupby([unit_column]).get_group((from_unit))
 
             # spike times
             from_times = SInfo['time'].values

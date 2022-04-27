@@ -225,7 +225,7 @@ units = get_units(SpikeInfo, 'unit')
 Blk = populate_block(Blk,SpikeInfo,'unit',units)
 
 outpath = plots_folder / ('fitted_spikes_init' + fig_format)
-plot_fitted_spikes(seg, 0, Models, SpikeInfo, 'unit', zoom=zoom, save=outpath,wsize=n_samples,rejs=rej_spikes,spike_label_interval=spike_label_interval)
+plot_fitted_spikes(seg, Models, SpikeInfo, 'unit', zoom=zoom, save=outpath,wsize=n_samples,rejs=rej_spikes,spike_label_interval=spike_label_interval)
 
 
 """
@@ -340,7 +340,7 @@ while n_units >= n_final_clusters and not last:
                 fig.show()
                 Blk = populate_block(Blk,SpikeInfo,this_unit_col,units)
                 Seg = Blk.segments[0]
-                fig2, ax2= plot_fitted_spikes(seg, 0, Models, SpikeInfo, this_unit_col, zoom=zoom, wsize=n_samples,rejs=rej_spikes,spike_label_interval=spike_label_interval)
+                fig2, ax2= plot_fitted_spikes(seg, Models, SpikeInfo, this_unit_col, zoom=zoom, wsize=n_samples,rejs=rej_spikes,spike_label_interval=spike_label_interval)
                 fig2.show()
                 do_merge= input("Go ahead (Y/N)?").upper() == 'Y'
                 plt.close(fig)
@@ -384,7 +384,7 @@ while n_units >= n_final_clusters and not last:
         Blk = populate_block(Blk,SpikeInfo,this_unit_col,units)
 
         outpath = plots_folder / ('fitted_spikes_%d'%(it) + fig_format)
-        plot_fitted_spikes(seg, 0, Models, SpikeInfo, this_unit_col, zoom=zoom, save=outpath,wsize=n_samples,rejs=rej_spikes,spike_label_interval=spike_label_interval)
+        plot_fitted_spikes(seg, Models, SpikeInfo, this_unit_col, zoom=zoom, save=outpath,wsize=n_samples,rejs=rej_spikes,spike_label_interval=spike_label_interval)
     except Exception as ex:
         print(ex.args)
         pass
@@ -428,7 +428,7 @@ if rm_smaller_cluster:
     outpath = plots_folder / ("Models_final%s" % (fig_format))
     plot_Models(Models, save=outpath)
 
-    plot_fitted_spikes_complete(seg, seg_no, Templates, SpikeInfo, [ 'last_remove_sae',unit_column], max_window, plots_folder, fig_format,wsize=n_samples,extension='_last_remove',plot_function=plot_compared_fitted_spikes,rejs=rej_spikes,spike_label_interval=spike_label_interval)
+    plot_fitted_spikes_complete(seg, Templates, SpikeInfo, [ 'last_remove_sae',unit_column], max_window, plots_folder, fig_format,wsize=n_samples,extension='_last_remove',plot_function=plot_compared_fitted_spikes,rejs=rej_spikes,spike_label_interval=spike_label_interval)
 
 
 
@@ -521,7 +521,7 @@ if do_plot:
     plot_segment(seg, units, save=outpath)
 
     # plot all sorted spikes
-    plot_fitted_spikes_complete(seg, seg_no, Templates, SpikeInfo, unit_column, max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates',rejs=rej_spikes,spike_label_interval=spike_label_interval)
+    plot_fitted_spikes_complete(seg, Templates, SpikeInfo, unit_column, max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates',rejs=rej_spikes,spike_label_interval=spike_label_interval)
 
     print_msg("plotting done")
     

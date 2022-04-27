@@ -41,6 +41,9 @@ Config = configparser.ConfigParser()
 Config.read(config_path)
 print_msg('config file read from %s' % config_path)
 
+# get segment to analyse
+seg_no= Config.getint('general','segment_number')
+
 # handling paths and creating output directory
 data_path = Path(Config.get('path','data_path'))
 if not data_path.is_absolute():
@@ -61,7 +64,7 @@ units = get_units(SpikeInfo,unit_column)
 
 #Load Templates
 Waveforms= np.load(results_folder/"Templates_ini.npy")
-fs = Blk.segments[0].analogsignals[0].sampling_rate
+fs = Blk.segments[seg_no].analogsignals[0].sampling_rate
 n_samples= np.array(Config.get('spike model','template_window').split(','),dtype='float32')/1000.0
 n_samples= np.array(n_samples*fs, dtype= int)
 
