@@ -419,37 +419,6 @@ def reject_non_spikes(AnalogSignal,SpikeTrain,wsize,min_ampl,max_dur,plot=False,
         non_spike_cond = ((waveform[0] < waveform[-1]-ampl*0.2) and ~(waveform[waveform.size//2:]<thres).any())
         if non_spike_cond or (ampl < min_ampl) or (dur > max_dur):
             to_remove.append(i)
-            print_msg(str(sp_id)+str(sp)+" fst << last "+str(waveform[0] < waveform[-1]-ampl*0.2)+" Doesn't cross thres "+ str(~(waveform[waveform.size//2:]<thres).any())+
-                " amplitude " + str(ampl < min_ampl) + str(ampl) + ' duration ' + str(dur > max_dur) + str(dur))
-
-            # print(sp,"ini much smaller",(waveform[0] < waveform[-1]-ampl*0.2))
-            # print("not going down",~(waveform[waveform.size//2:]<thres).any())
-            # print("amplitude < 0.25",(ampl < 0.25))
-            # print("duration > 25",(dur > 27))
-            # print(dur)
-            # if sp > 20.45 and sp < 20.5:
-            #     plt.plot(AnalogSignal.times, AnalogSignal.data, color='k', lw=1)
-            #     plt.plot(sp,1,'.',markersize=10)
-            #     plt.plot(SpikeTrain.times,SpikeTrain.waveforms,'.')
-            #     plt.xlim((sp-0.3*pq.s,sp+0.3*pq.s))
-            #     plt.show()
-
-            # outpath = plots_folder / ('removed_spike_'+str(t_id)+'_signal' + fig_format)
-
-
-            # if sp > 2.25 and sp < 2.3:
-            # print('ini-end','back_down','back_down_any')
-            # print(sp,waveform[0] < waveform[-1]-ampl*0.2, np.where(waveform[waveform.size//2:]<thres)[0].size==0,~(waveform[waveform.size//2:]<thres).any())
-            # print('ampl','dur')
-            # print((ampl < 0.25),dur > 25)
-            # #     print(waveform[0], waveform[-1],ampl*0.2, thres, ampl ,dur)
-            # plt.plot(waveform)
-            # plt.plot(waveform.size//2,AnalogSignal.magnitude[sp_id],'.',color='k')
-            # plt.plot(np.ones(waveform.shape)*thres)
-            # plt.plot(waveform[0],'.')
-            # plt.plot(waveform.size,waveform[-1],'.')
-            # plt.show()
-
 
     if plot:
         plt.show()
@@ -772,72 +741,68 @@ def est_rate(spike_times, eval_times, sig):
     rate = local_frate(eval_times[:,sp.newaxis], spike_times[sp.newaxis,:], sig).sum(1)
     return rate
 
-def calc_update_frates(Segments, SpikeInfo, unit_column, kernel_fast, kernel_slow):
+def calc_update_frates(SpikeInfo, unit_column, kernel_fast, kernel_slow):
     """ calculate all firing rates for all units, based on unit_column. Updates SpikeInfo """
-    # TODO - mix of new and old syntax - Segments are not needed
     
     from_units = get_units(SpikeInfo, unit_column, remove_unassigned=True)
     to_units = get_units(SpikeInfo, unit_column, remove_unassigned=False)
 
     # estimating firing rate profile for "from unit" and getting the rate at "to unit" timepoints
-    for i, seg  in enumerate(Segments):
-        for j, from_unit in enumerate(from_units):
+    for j, from_unit in enumerate(from_units):
+        try:
+            SInfo = SpikeInfo.groupby([unit_column]).get_group(from_unit)
+
+            # spike times
+            from_times = SInfo['time'].values
+
+            # estimate its own rate at its own spike times
+            rate = est_rate(from_times, from_times, kernel_fast)
+
+            # set
+            ix = SInfo['id']
+            SpikeInfo.loc[ix,'frate_fast'] = rate
+        except:
+            # can not set it's own rate, when there are no spikes in this segment for this unit
+            pass
+
+        # the rates on others
+        for k, to_unit in enumerate(to_units):
             try:
-                SInfo = SpikeInfo.groupby([unit_column,'segment']).get_group((from_unit,i))
+                SInfo = SpikeInfo.groupby([unit_column]).get_group(to_unit)
 
                 # spike times
-                from_times = SInfo['time'].values
+                to_times = SInfo['time'].values
 
-                # estimate its own rate at its own spike times
-                rate = est_rate(from_times, from_times, kernel_fast)
+                # the rates of the other units at this units spike times
+                pred_rate = est_rate(from_times, to_times, kernel_slow)
 
-                # set
                 ix = SInfo['id']
-                SpikeInfo.loc[ix,'frate_fast'] = rate
+                SpikeInfo.loc[ix,'frate_from_'+from_unit] = pred_rate
             except:
-                # can not set it's own rate, when there are no spikes in this segment for this unit
+                # similar: when no spikes in this segment, can not set
                 pass
 
-            # the rates on others
-            for k, to_unit in enumerate(to_units):
-                try:
-                    SInfo = SpikeInfo.groupby([unit_column, 'segment']).get_group((to_unit,i))
-
-                    # spike times
-                    to_times = SInfo['time'].values
-
-                    # the rates of the other units at this units spike times
-                    pred_rate = est_rate(from_times, to_times, kernel_slow)
-
-                    ix = SInfo['id']
-                    SpikeInfo.loc[ix,'frate_from_'+from_unit] = pred_rate
-                except:
-                    # similar: when no spikes in this segment, can not set
-                    pass
-
-def calc_update_final_frates(Segments, SpikeInfo, unit_column, kernel_fast):
+def calc_update_final_frates(SpikeInfo, unit_column, kernel_fast):
     """ calculate all firing rates for all units, based on unit_column. This is for after units
 have been identified as 'a' or 'b' (or unknown). Updates SpikeInfo with new columns frate_a, frate_b"""
-    # TODO - mix of new and old syntax - Segments are not needed
     
     from_units = get_units(SpikeInfo, unit_column, remove_unassigned=True)
 
     # estimating firing rate profile for "from unit" and getting the rate at "to unit" timepoints
-    for i, seg  in enumerate(Segments):
-        for j, from_unit in enumerate(from_units):
-            try:
-                SInfo = SpikeInfo.groupby([unit_column,'segment']).get_group((from_unit,i))
+    for j, from_unit in enumerate(from_units):
+        try:
+            SInfo = SpikeInfo.groupby([unit_column]).get_group((from_unit,i))
 
-                # spike times
-                from_times = SInfo['time'].values
-                to_times = SpikeInfo['time'].values
-                # estimate its own rate at its own spike times
-                rate = est_rate(from_times, to_times, kernel_fast)
-                # set
-                SpikeInfo['frate_'+from_unit] = rate
-            except:
-                # can not set it's own rate, when there are no spikes in this segment for this unit
-                pass
+            # spike times
+            from_times = SInfo['time'].values
+            to_times = SpikeInfo['time'].values
+            # estimate its own rate at its own spike times
+            rate = est_rate(from_times, to_times, kernel_fast)
+            # set
+            SpikeInfo['frate_'+from_unit] = rate
+        except:
+            # can not set it's own rate, when there are no spikes in this segment for this unit
+            pass
 
 
 """
@@ -928,27 +893,6 @@ def Score_spikes(Templates, SpikeInfo, unit_column, Models, score_metric=Rss, pe
   ######  ########  #######   ######     ##    ######## ##     ## 
  
 """
-
-# def get_units_amplitudes(Templates,SpikeInfo,unit_column,lim=10):
-#     units = get_units(SpikeInfo, unit_column)
-#     n_units = len(units)
-
-#     # n_spikes = spike_ids.shape[0]
-#     Amplitudes = sp.zeros((n_units))
-
-#     for i, unit in enumerate(units):
-#         # the simulated data
-#         ix_b = SpikeInfo.groupby([unit_column, 'good']).get_group((unit, True))['id']
-#         T_b = Templates[:,ix_b].T
-
-#         T_b = np.array([max(t)-min(t) for t in T_b])
-
-#         Amplitudes[i] = sp.average(T_b[:lim])
-
-    
-#     return Amplitudes
-
-
 
 def calculate_pairwise_distances(Templates, SpikeInfo, unit_column, n_comp=5):
     """ calculate all pairwise distances between Templates in PC space defined by n_comp.
@@ -1148,12 +1092,7 @@ def remove_spikes(SpikeInfo,unit_column,criteria):
         rm_unit = criteria
 
     SpikeInfo[unit_column] = SpikeInfo[unit_column].replace(rm_unit,'-1')
-
-    # index_names = SpikeInfo[ SpikeInfo[unit_column] == rm_unit ].index
   
-    # # drop these row indexes
-    # # from dataFrame
-    # SpikeInfo = SpikeInfo.drop(index_names, inplace = True)
 
 def distance_to_average(Templates,averages):
     D_pw = sp.zeros((len(averages),Templates.shape[1]))
@@ -1162,20 +1101,6 @@ def distance_to_average(Templates,averages):
         D_pw[i,:] = metrics.pairwise.euclidean_distances(Templates.T,average.reshape(1,-1)).reshape(-1)
     return D_pw.T
 
-# #TODO superpos spikes needed????
-# #from superpos_functions import align_to
-# def combine_templates(combined_templates,A,B,dt,max_len,align_mode):
-#     # n_samples = np.sum(w_samples)
-#     # max_len = w_samples[1]-1
-#     for dt in np.arange(0,max_len,dt):
-#         long_a = np.concatenate((A,[A[-1]]*(max_len)))
-#         long_b = np.concatenate(([B[0]]*abs(max_len-dt),B,[B[-1]]*dt))
-
-#         comb_t = np.array(long_a+long_b)
-#         combined_templates.append(np.array(align_to(comb_t,align_mode)))
-
-
-# def align_to(spike,mode='peak',dt=0.1,sec_wind=2.0):
 def align_to(spike,mode='peak'):
     if(spike.shape[0]!=0):
         if type(mode) is not str:

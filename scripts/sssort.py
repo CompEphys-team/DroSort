@@ -57,6 +57,9 @@ Config = configparser.ConfigParser()
 Config.read(config_path)
 print_msg('config file read from %s' % config_path)
 
+# get segment to analyse
+seg_no= Config.getint('general','segment_number')
+
 spike_label_interval= Config.getint('output','spike_label_interval')
 
 # handling paths and creating output directory
@@ -87,7 +90,8 @@ try:
 except FileNotFoundError:
     print_msg("Spike file not found, run templates_extraction.py first")
     exit()
-Seg = Blk.segments[0]
+    
+seg = Blk.segments[seg_no]
 print_msg('spikes read from %s' % spikes_path)
 
 Templates= np.load(templates_path)
@@ -101,7 +105,7 @@ except:
 
 
 # Data info
-fs = Blk.segments[0].analogsignals[0].sampling_rate
+fs = seg.analogsignals[0].sampling_rate
 n_samples= np.array(Config.get('spike model','template_window').split(','),dtype='float32')/1000.0
 n_samples= np.array(n_samples*fs, dtype= int)
 
@@ -164,16 +168,13 @@ n_spikes = Templates.shape[1]
 SpikeInfo['id'] = sp.arange(n_spikes,dtype='int32')
 
 # get all spike times
-spike_times = sp.concatenate([seg.spiketrains[0].times.magnitude for seg in Blk.segments])
+spike_times = seg.spiketrains[0].times.magnitude
 SpikeInfo['time'] = spike_times
 
 # get segment labels
 # This is from the original version, data is in only in the first segment,
 # every value in this column should be 0
-segment_labels = []
-for i, seg in enumerate(Blk.segments):
-    segment_labels.append(seg.spiketrains[0].shape[0] * [i])
-segment_labels = sp.concatenate(segment_labels)
+segment_labels = seg.spiketrains[0].shape[0] * [seg_no]
 SpikeInfo['segment'] = segment_labels
 
 # get all labels
@@ -208,7 +209,7 @@ print_msg('- initializing algorithm: calculating all initial firing rates')
 # rate est
 kernel_slow = Config.getfloat('kernels','sigma_slow')
 kernel_fast = Config.getfloat('kernels','sigma_fast')
-calc_update_frates(Blk.segments, SpikeInfo, 'unit', kernel_fast, kernel_slow)
+calc_update_frates(SpikeInfo, 'unit', kernel_fast, kernel_slow)
 
 # model
 n_model_comp = Config.getint('spike model','n_model_comp')
@@ -218,14 +219,13 @@ plot_Models(Models, save=outpath)
 
 zoom = sp.array(Config.get('output','zoom').split(','),dtype='float32') / 1000
 
-seg_name = Path(Seg.annotations['filename']).stem
+seg_name = Path(seg.annotations['filename']).stem
 units = get_units(SpikeInfo, 'unit')
 
 Blk = populate_block(Blk,SpikeInfo,'unit',units)
 
-Seg = Blk.segments[0]
 outpath = plots_folder / ('fitted_spikes_init' + fig_format)
-plot_fitted_spikes(Seg, 0, Models, SpikeInfo, 'unit', zoom=zoom, save=outpath,wsize=n_samples,rejs=rej_spikes,spike_label_interval=spike_label_interval)
+plot_fitted_spikes(seg, 0, Models, SpikeInfo, 'unit', zoom=zoom, save=outpath,wsize=n_samples,rejs=rej_spikes,spike_label_interval=spike_label_interval)
 
 
 """
@@ -282,7 +282,7 @@ while n_units >= n_final_clusters and not last:
     this_unit_col = 'unit_%i' % it
     
     # update rates
-    calc_update_frates(Blk.segments, SpikeInfo, prev_unit_col, kernel_fast, kernel_slow)
+    calc_update_frates(SpikeInfo, prev_unit_col, kernel_fast, kernel_slow)
 
     # train models with labels from last iteration
     Models = train_Models(SpikeInfo, prev_unit_col, Templates, verbose=False, n_comp=n_model_comp)
@@ -340,7 +340,7 @@ while n_units >= n_final_clusters and not last:
                 fig.show()
                 Blk = populate_block(Blk,SpikeInfo,this_unit_col,units)
                 Seg = Blk.segments[0]
-                fig2, ax2= plot_fitted_spikes(Seg, 0, Models, SpikeInfo, this_unit_col, zoom=zoom, wsize=n_samples,rejs=rej_spikes,spike_label_interval=spike_label_interval)
+                fig2, ax2= plot_fitted_spikes(seg, 0, Models, SpikeInfo, this_unit_col, zoom=zoom, wsize=n_samples,rejs=rej_spikes,spike_label_interval=spike_label_interval)
                 fig2.show()
                 do_merge= input("Go ahead (Y/N)?").upper() == 'Y'
                 plt.close(fig)
@@ -379,17 +379,12 @@ while n_units >= n_final_clusters and not last:
     try:
         zoom = sp.array(Config.get('output','zoom').split(','),dtype='float32') / 1000
         
+        seg_name = Path(seg.annotations['filename']).stem
 
-        # for j, Seg in enumerate(Blk.segments):
-        seg_name = Path(Seg.annotations['filename']).stem
-
-        # populate_block(Blk,SpikeInfo,prev_unit_col,units)
         Blk = populate_block(Blk,SpikeInfo,this_unit_col,units)
 
-        Seg = Blk.segments[0]
-
         outpath = plots_folder / ('fitted_spikes_%d'%(it) + fig_format)
-        plot_fitted_spikes(Seg, 0, Models, SpikeInfo, this_unit_col, zoom=zoom, save=outpath,wsize=n_samples,rejs=rej_spikes,spike_label_interval=spike_label_interval)
+        plot_fitted_spikes(seg, 0, Models, SpikeInfo, this_unit_col, zoom=zoom, save=outpath,wsize=n_samples,rejs=rej_spikes,spike_label_interval=spike_label_interval)
     except Exception as ex:
         print(ex.args)
         pass
@@ -413,19 +408,11 @@ print_msg("algorithm run is done")
 last_unit_col = [col for col in SpikeInfo.columns if col.startswith('unit')][-1]
 unit_column = last_unit_col
 
-# #Plot when there's only one trial
-# try:
-#     get_units(SpikeInfo,unit_column)
-# except:
-#     SpikeInfo[unit_column] = SpikeInfo['unit']
-#     pass
-
 # plot templates and models for last column
 outpath = plots_folder / ("Templates_%s%s" % (unit_column,fig_format))
 plot_templates(Templates, SpikeInfo, unit_column, save=outpath)
 outpath = plots_folder / ("Models_%s%s" % (unit_column,fig_format))
 plot_Models(Models, save=outpath)
-
 
 # Remove the smallest cluster
 # TODO change for smallest amplitude?
@@ -441,7 +428,7 @@ if rm_smaller_cluster:
     outpath = plots_folder / ("Models_final%s" % (fig_format))
     plot_Models(Models, save=outpath)
 
-    plot_fitted_spikes_complete(Blk, Templates, SpikeInfo, [ 'last_remove_sae',unit_column], max_window, plots_folder, fig_format,wsize=n_samples,extension='_last_remove',plot_function=plot_compared_fitted_spikes,rejs=rej_spikes,spike_label_interval=spike_label_interval)
+    plot_fitted_spikes_complete(seg, seg_no, Templates, SpikeInfo, [ 'last_remove_sae',unit_column], max_window, plots_folder, fig_format,wsize=n_samples,extension='_last_remove',plot_function=plot_compared_fitted_spikes,rejs=rej_spikes,spike_label_interval=spike_label_interval)
 
 
 
@@ -476,38 +463,35 @@ kernel = ele.kernels.GaussianKernel(sigma=kernel_fast * pq.s)
 it = it-1
 
 #TODO change for a call to populate block
-for i, seg in tqdm(enumerate(Blk.segments),desc="populating block for output"):
-    spike_labels = SpikeInfo.groupby(('segment')).get_group((i))['unit_%i' % it].values
-    seg.spiketrains[0].annotations['unit_labels'] = list(spike_labels)
+spike_labels = SpikeInfo['unit_%i' % it].values
+seg.spiketrains[0].annotations['unit_labels'] = list(spike_labels)
 
-    # make spiketrains
-    St = seg.spiketrains[0]
-    spike_labels = St.annotations['unit_labels']
-    sts = [St]
+# make spiketrains
+St = seg.spiketrains[0]
+spike_labels = St.annotations['unit_labels']
+sts = [St]
 
-    for unit in units:
-        times = St.times[sp.array(spike_labels) == unit]
-        st = neo.core.SpikeTrain(times, t_start = St.t_start, t_stop=St.t_stop)
-        st.annotate(unit=unit)
-        sts.append(st)
-    seg.spiketrains=sts
+for unit in units:
+    times = St.times[sp.array(spike_labels) == unit]
+    st = neo.core.SpikeTrain(times, t_start = St.t_start, t_stop=St.t_stop)
+    st.annotate(unit=unit)
+    sts.append(st)
+seg.spiketrains=sts
 
-    # est firing rates
-    asigs = [seg.analogsignals[0]]
-    for unit in units:
-        St, = select_by_dict(seg.spiketrains, unit=unit)
-        frate = ele.statistics.instantaneous_rate(St, kernel=kernel, sampling_period=1/fs)
-        frate.annotate(kind='frate_fast', unit=unit)
-        asigs.append(frate)
-    seg.analogsignals = asigs
-
+# est firing rates
+asigs = [seg.analogsignals[0]]
+for unit in units:
+    St, = select_by_dict(seg.spiketrains, unit=unit)
+    frate = ele.statistics.instantaneous_rate(St, kernel=kernel, sampling_period=1/fs)
+    frate.annotate(kind='frate_fast', unit=unit)
+    asigs.append(frate)
+seg.analogsignals = asigs
 
 #save all
 
 units = get_units(SpikeInfo,unit_column)
 print_msg("Number of spikes in trace: %d"%SpikeInfo[unit_column].size)
 print_msg("Number of bad spikes: %d"%len(SpikeInfo.groupby(['good']).get_group(True)[unit_column]))
-# print_msg("Number of good spikes: %d"%len(SpikeInfo.groupby(['good']).get_group(False)[unit_column]))
 print_msg("Number of clusters: %d"%len(units))
 
 output_csv = Config.getboolean('output', 'csv')
@@ -531,16 +515,15 @@ sssio.save_all(results_folder, output_csv, SpikeInfo, Blk, units, Frates=False)
 do_plot= Config.getboolean('spike sort','plot_fitted_spikes')
 
 if do_plot:
+    print_msg("creating plots")
     # plot all sorted spikes
-    for j, Seg in enumerate(Blk.segments):
-        outpath = plots_folder / ('overview' + fig_format)
-        plot_segment(Seg, units, save=outpath)
+    outpath = plots_folder / ('overview' + fig_format)
+    plot_segment(seg, units, save=outpath)
 
     # plot all sorted spikes
-    plot_fitted_spikes_complete(Blk, Templates, SpikeInfo, unit_column, max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates',rejs=rej_spikes,spike_label_interval=spike_label_interval)
+    plot_fitted_spikes_complete(seg, seg_no, Templates, SpikeInfo, unit_column, max_window, plots_folder, fig_format,wsize=n_samples,extension='_templates',rejs=rej_spikes,spike_label_interval=spike_label_interval)
 
     print_msg("plotting done")
     
 print_msg("all done - quitting")
 
-sys.exit()
