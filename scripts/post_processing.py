@@ -1,8 +1,8 @@
 import matplotlib.pyplot as plt
 import pandas as pd
-from lib.sssio import * 
-from lib.plotters import *
-from lib.functions import *
+from tools.sssio import * 
+from tools.plotters import *
+from tools.functions import *
 from sys import path
 
 import configparser

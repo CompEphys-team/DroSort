@@ -20,9 +20,9 @@ import neo
 import elephant as ele
 
 # own
-from lib.functions import *
-from lib.plotters import *
-import lib.sssio as sssio
+from tools.functions import *
+from tools.plotters import *
+import tools.sssio as sssio
 
 # banner
 if os.name == "posix":

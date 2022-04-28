@@ -7,7 +7,7 @@ import neo
 import quantities as pq
 
 import numpy as np
-from lib.functions import print_msg, select_by_dict
+from tools.functions import print_msg, select_by_dict
 
 def asc2seg(path):
     """ reads an autospike .asc file into neo segment """
