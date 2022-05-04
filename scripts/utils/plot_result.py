@@ -1,13 +1,17 @@
+import sys
+sys.path.append('../')
+
 import pandas as pd
-from sssio import * 
-from plotters import *
-from functions import *
+from tools.sssio import * 
+from tools.plotters import *
+from tools.functions import *
 
 # path = sys.argv[1]
 
 results_folder = Path(os.path.abspath(sys.argv[1]))
 fig_format = '.png'
 Blk = get_data(results_folder / "result.dill")
+mpl.rcParams['figure.dpi'] = 300
 
 
 SpikeInfo = pd.read_csv(results_folder / "SpikeInfo.csv")
@@ -37,7 +41,7 @@ for j, Seg in enumerate(Blk.segments):
 
 # plot all sorted spikes
 max_window = 0.3  # AG: TODO add to config file
-plot_fitted_spikes_complete(Blk, Templates, SpikeInfo, unit_column, max_window, plots_folder, fig_format, wsize=n_samples, extension='_final')
+plot_fitted_spikes_complete(Blk.segments[0], Templates, SpikeInfo, unit_column, max_window, plots_folder, fig_format, wsize=n_samples, extension='_final')
 
 
 if len(sys.argv) > 2:

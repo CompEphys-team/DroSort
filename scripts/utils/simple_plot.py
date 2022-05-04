@@ -15,13 +15,14 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # own
-from functions import *
-from plotters import *
-import sssio
+sys.path.append('../')
+from tools.functions import *
+from tools.plotters import *
+import tools.sssio as sssio
 
 
-data_path = Path(os.path.abspath(sys.argv[1]))
-data_path = sys.argv[1]
+data_path = Path(os.path.abspath(sys.argv[1])) 
+# data_path = sys.argv[1] 
 
 
 Blk = sssio.get_data(data_path)

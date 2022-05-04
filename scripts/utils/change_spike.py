@@ -1,7 +1,18 @@
+########################################################################################################
+# 
+#  Manually changes unit from a specific spike
+# 
+########################################################################################################
+
 import pandas as pd
-from sssio import * 
-from plotters import *
-from functions import *
+import sys
+
+sys.path.append('../')
+# sys.path.append('../tools')
+
+from tools.sssio import * 
+from tools.plotters import *
+from tools.functions import *
 import argparse
 
 ap = argparse.ArgumentParser()

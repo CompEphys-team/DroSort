@@ -115,6 +115,8 @@ def get_data(path):
     if ext == '.dill':
         with open(path, 'rb') as fH:
             Blk = dill.load(fH)
+    else: 
+        print_msg("Error reading data, 'get_data' expects .dill file")
     return Blk
 
 def save_data(Blk, path):
