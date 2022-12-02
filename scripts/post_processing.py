@@ -34,7 +34,7 @@ def insert_spike(SpikeInfo, new_column, i, o_spike, o_spike_time, o_spike_unit):
     idx= max(i,o_spike)
     SpikeInfo= insert_row(SpikeInfo, idx, SpikeInfo.iloc[i, ]) # insert a copy of row i 
     SpikeInfo[new_column][idx]= o_spike_unit
-    SpikeInfo['id'][idx]= str(SpikeInfo['id'][idx])+'b'
+    SpikeInfo['id'][idx]= str(SpikeInfo['id'][idx])+'B'
     SpikeInfo['time'][idx]= o_spike_time
     SpikeInfo['good'][idx]= False   # do not use for building templates!
     SpikeInfo['frate_fast'][idx]= SpikeInfo['frate_'+o_spike_unit][idx]   # update rate_fast to the correct rate for the nwe spike's identity
@@ -166,7 +166,7 @@ for i in spike_range:
             for pos2 in range(n_wd):
                 # one of the spikes must be close to the spike time under consideration
                 if ((abs(pos1-n_wdh) <= same_spike_tolerance) or (abs(pos2-n_wdh) <= same_spike_tolerance)) and (abs(pos1-pos2) < max_spike_diff):
-                    d2.append(compound_dist(v,templates['a'],templates['b'],n_samples,pos1,pos2))
+                    d2.append(compound_dist(v,templates['A'],templates['B'],n_samples,pos1,pos2))
                     sh2.append((pos1,pos2))
 
         # work out the final decision
@@ -186,7 +186,7 @@ for i in spike_range:
             fig, ax= plt.subplots(ncols=2, sharey= True, figsize=[ 4, 2])
             dist(v,templates[un[best]],n_samples,sh[best],unit= un[best],ax= ax[0])
             ax[0].set_ylim(y_lim)
-            compound_dist(v,templates['a'],templates['b'],n_samples,sh2[best2][0],sh2[best2][1],ax[1])
+            compound_dist(v,templates['A'],templates['B'],n_samples,sh2[best2][0],sh2[best2][1],ax[1])
             ax[1].set_ylim(y_lim)
             outpath = plots_folder / (str(nSpikeInfo['id'][i+offset])+'_template_matches' + fig_format)
             fig.savefig(outpath)
@@ -223,7 +223,7 @@ for i in spike_range:
             # it's a compound spike - choose the appropriate spike unit and handle second spike
             orig_spike= np.argmin(abs(np.array(sh2[best2])-n_wdh))
             other_spike= 1-orig_spike
-            spike_unit= 'a' if orig_spike == 0 else 'b'
+            spike_unit= 'A' if orig_spike == 0 else 'B'
             spike_time= stimes[i]-n_wdh/1000/ifs+sh2[best2][orig_spike]/1000/ifs  # spike time in seconds
             print_msg("Spike {}: time= {}: Compound spike, first spike of type {}, time= {}".format(nSpikeInfo['id'][i+offset],('%.4f' % SpikeInfo['time'][i]),spike_unit,('%.4f' % spike_time)))
             nSpikeInfo[new_column][i+offset]= spike_unit
@@ -234,7 +234,7 @@ for i in spike_range:
                 o_spike_id= i-1
             else:
                 o_spike_id= i+1
-            o_spike_unit= 'a' if other_spike == 0 else 'b'
+            o_spike_unit= 'A' if other_spike == 0 else 'B'
             o_spike_time= stimes[i]-n_wdh/1000/ifs+sh2[best2][other_spike]/1000/ifs  # spike time in seconds
             if abs(stimes[o_spike_id]-o_spike_time)*1000*ifs < same_spike_tolerance:
                 # the other spike coincides with the previous spike in the original list

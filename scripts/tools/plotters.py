@@ -22,8 +22,8 @@ from tools.functions import *
 def get_colors(units, palette='tab10', desat=None, keep=True):
     """ return dict mapping unit labels to colors """
     if len(units) == 0:
-        units= ['a', 'b']
-    if 'a' in units or 'b' in units:
+        units= ['A', 'B']
+    if 'A' in units or 'B' in units:
         n_colors = 2
         units= [ str(x) for x in units ]
     else:
@@ -332,7 +332,7 @@ def plot_fitted_spikes(Segment, Models, SpikeInfo, unit_column, unit_order=None,
         rejs= SpikeInfo["time"][SpikeInfo[unit_column] == '-2']
     units = get_units(SpikeInfo,unit_column)
     fac= axes[1].get_ylim()[1]*(0.95-len(units)*0.05)
-    axes[1].plot(rejs, np.ones(rejs.shape)*fac, '|', markersize=2, color='k', label="rejected_spike")
+    axes[1].plot(rejs, np.ones(rejs.shape)*fac, '|', markersize=2, color='k', label="rejected spike")
 
     plot_by_unit(axes[1], st, asig, Models, SpikeInfo, unit_column, unit_order,
                  colors, wsize)
@@ -395,7 +395,7 @@ def plot_by_unit(ax,st, asig,Models, SpikeInfo, unit_column, unit_order=None, co
         # St, = select_by_dict(Segment.spiketrains, unit=unit)
         fac= ax.get_ylim()[1]*(0.95-0.05*u)
         times= SpikeInfo["time"][SpikeInfo[unit_column] == unit]
-        ax.plot(times, np.ones(times.shape)*fac, '|', markersize=2, linewidth= 0.5, label='spikes '+unit,color=colors[unit])
+        ax.plot(times, np.ones(times.shape)*fac, '|', markersize=2, linewidth= 0.5, label=unit+' spikes',color=colors[unit])
         asig_recons = sp.zeros(asig.shape[0])
         asig_recons[:] = sp.nan 
 

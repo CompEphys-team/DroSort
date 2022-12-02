@@ -784,7 +784,7 @@ def calc_update_frates(SpikeInfo, unit_column, kernel_fast, kernel_slow):
 
 def calc_update_final_frates(SpikeInfo, unit_column, kernel_fast):
     """ calculate all firing rates for all units, based on unit_column. This is for after units
-have been identified as 'a' or 'b' (or unknown). Updates SpikeInfo with new columns frate_a, frate_b"""
+have been identified as 'A' or 'B' (or unknown). Updates SpikeInfo with new columns frate_A, frate_B"""
     
     from_units = get_units(SpikeInfo, unit_column, remove_unassigned=True)
 
@@ -1182,7 +1182,7 @@ def compound_dist(d, t1, t2, n_samples, pos1, pos2, ax= None):
         ax.plot(d2, linewidth= 0.7)
         ax.plot(t, linewidth= 0.7)
         ax.set_ylim(-1.2,1.2)
-        lbl= 'a+b: d=' if pos1 <= pos2 else 'b+a: d='
+        lbl= 'A+B: d=' if pos1 <= pos2 else 'B+A: d='
         ax.set_title(lbl+('%.4f' % (dst/(stop_r-start_l))))
     return dst/(stop_r-start_l)
     #return dst 

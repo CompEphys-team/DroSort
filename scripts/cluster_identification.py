@@ -81,17 +81,17 @@ if new_column in SpikeInfo.keys():
 
 
 #Load model templates 
-template_a = np.load(os.path.join(sssort_path,"templates/template_a.npy"))
-template_b = np.load(os.path.join(sssort_path,"templates/template_b.npy"))
+template_A = np.load(os.path.join(sssort_path,"templates/template_A.npy"))
+template_B = np.load(os.path.join(sssort_path,"templates/template_B.npy"))
 
 # templates and waveforms need to be put on comparable shape and size
-tmid_a= np.argmax(template_a)
-tmid_b= np.argmax(template_b)
+tmid_a= np.argmax(template_A)
+tmid_b= np.argmax(template_B)
 left= np.amin([ tmid_a, tmid_b, n_samples[0] ])
-right= np.amin([ len(template_a)-tmid_a, len(template_b)-tmid_b, n_samples[1] ])
+right= np.amin([ len(template_A)-tmid_a, len(template_B)-tmid_b, n_samples[1] ])
 
-template_a = template_a[tmid_a-left:tmid_a+right]
-template_b = template_b[tmid_b-left:tmid_b+right]
+template_A = template_A[tmid_a-left:tmid_a+right]
+template_B = template_B[tmid_b-left:tmid_b+right]
 Waveforms= Waveforms[n_samples[0]-left:n_samples[0]+right,:]
 
 
@@ -118,22 +118,22 @@ for unit in units:
     amplitude.append(np.max(mean_waveforms[unit])-np.min(mean_waveforms[unit]))
 
 max_ampl= np.max(amplitude)
-norm_factor= (np.max(template_a)-np.min(template_a))/max_ampl
+norm_factor= (np.max(template_A)-np.min(template_A))/max_ampl
 
 for unit in units:
     #plt.figure()
     #plt.plot(mean_waveforms[unit]*norm_factor)
-    #plt.plot(template_a)
-    #plt.plot(template_b)
+    #plt.plot(template_A)
+    #plt.plot(template_B)
     #plt.show()
-    d_a = np.linalg.norm(mean_waveforms[unit]*norm_factor-template_a)
-    d_b = np.linalg.norm(mean_waveforms[unit]*norm_factor-template_b)
-    #d_a = metrics.pairwise.euclidean_distances(mean_waveforms.reshape(1,-1),template_a.reshape(1,-1)).reshape(-1)[0]
-    #d_b = metrics.pairwise.euclidean_distances(mean_waveforms.reshape(1,-1),template_b.reshape(1,-1)).reshape(-1)[0]
+    d_a = np.linalg.norm(mean_waveforms[unit]*norm_factor-template_A)
+    d_b = np.linalg.norm(mean_waveforms[unit]*norm_factor-template_B)
+    #d_a = metrics.pairwise.euclidean_distances(mean_waveforms.reshape(1,-1),template_A.reshape(1,-1)).reshape(-1)[0]
+    #d_b = metrics.pairwise.euclidean_distances(mean_waveforms.reshape(1,-1),template_B.reshape(1,-1)).reshape(-1)[0]
     
     #compute distances by mean of distances
-    # distances_a = metrics.pairwise.euclidean_distances(waveforms,template_a.reshape(1,-1)).reshape(-1)
-    # distances_b = metrics.pairwise.euclidean_distances(waveforms,template_b.reshape(1,-1)).reshape(-1)
+    # distances_a = metrics.pairwise.euclidean_distances(waveforms,template_A.reshape(1,-1)).reshape(-1)
+    # distances_b = metrics.pairwise.euclidean_distances(waveforms,template_B.reshape(1,-1)).reshape(-1)
 
     distances_a.append(d_a)
     distances_b.append(d_b)
@@ -160,7 +160,7 @@ print_msg("Final assignation: %s" % asigs)
 
 # plot assignments
 outpath = plots_folder / ("cluster_reassignments" + fig_format)
-plot_means(means, units, template_a, template_b, asigs=asigs, outpath=outpath)
+plot_means(means, units, template_A, template_B, asigs=asigs, outpath=outpath)
 
 # create new column with reassigned labels
 SpikeInfo[new_column] = copy.deepcopy(SpikeInfo[unit_column].values)
@@ -169,9 +169,9 @@ if len(units) > 2:
     SpikeInfo.loc[non_unit_rows.index, new_column] = '-2'
 
 a_unit_rows = SpikeInfo.groupby(new_column).get_group(a_unit)
-SpikeInfo.loc[a_unit_rows.index, new_column] = 'a'
+SpikeInfo.loc[a_unit_rows.index, new_column] = 'A'
 b_unit_rows = SpikeInfo.groupby(new_column).get_group(b_unit)
-SpikeInfo.loc[b_unit_rows.index, new_column] = 'b'
+SpikeInfo.loc[b_unit_rows.index, new_column] = 'B'
 
 units = get_units(SpikeInfo, new_column)
 Blk = populate_block(Blk, SpikeInfo, new_column, units)
