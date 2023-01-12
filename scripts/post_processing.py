@@ -201,7 +201,10 @@ for i in spike_range:
                 elif d_min >= d_accept:
                     reason= "no good match but not bad enough to reject"
                 print("User feedback required: "+reason)
-                choice= int(input("Single spike (1), Compound spike (2), no spike (0)? "))
+                choice= " "
+                while choice not in ["0", "1", "2"]:
+                    choice= input("Single spike (1), Compound spike (2), no spike (0)? ")
+                choice= int(choice)
             plt.close(fig2)
             plt.close(fig)
         # apply choice 
