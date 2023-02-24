@@ -21,6 +21,9 @@ from tools.functions import *
 from tools.plotters import *
 import tools.sssio as sssio
 
+# banner
+print(banner)
+
 """
  
  #### ##    ## #### 

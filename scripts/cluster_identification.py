@@ -29,6 +29,9 @@ import tools.sssio as sssio
 # from superpos_functions import *
 import matplotlib.pyplot as plt 
 
+# banner
+print(banner)
+
 #Load file
 mpl.rcParams['figure.dpi'] = 300
 fig_format = '.png'
@@ -179,4 +182,4 @@ Blk = populate_block(Blk, SpikeInfo, new_column, units)
 # store SpikeInfo
 outpath = results_folder / 'SpikeInfo.csv'
 print_msg("saving SpikeInfo to %s" % outpath)
-SpikeInfo.to_csv(outpath)
+SpikeInfo.to_csv(outpath,index= False)

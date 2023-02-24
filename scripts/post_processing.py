@@ -9,14 +9,20 @@ import configparser
 #import tracemalloc
 import gc
 
+# banner
+print(banner)
 
 plt.rcParams.update({'font.size': 6})
 
-################################################################
-##  
-##  Some tools 
-##
-################################################################
+"""
+########  #######    #######   ##       ######
+   ##    ##     ##  ##     ##  ##      ##    ##
+   ##    ##     ##  ##     ##  ##      ##     
+   ##    ##     ##  ##     ##  ##       ######
+   ##    ##     ##  ##     ##  ##            ##
+   ##    ##     ##  ##     ##  ##      ##    ##
+   ##     #######    #######   #######  ######
+"""
 
 def insert_row(df, idx, df_insert):
     dfA = df.iloc[:idx, ]
@@ -41,11 +47,16 @@ def insert_spike(SpikeInfo, new_column, i, o_spike, o_spike_time, o_spike_unit):
     return SpikeInfo
 
     
-################################################################
-##  
-##              Load clustering result
-##
-################################################################
+"""
+##       ######      ###     ########      ######  ##      ##     ##   ######  ######## ######## ########  
+##      ##    ##    ## ##    ##     ##    ##    ## ##      ##     ##  ##    ##    ##    ##       ##     ## 
+##      ##    ##   ##   ##   ##     ##    ##       ##      ##     ##  ##          ##    ##       ##     ## 
+##      ##    ##  ##     ##  ##     ##    ##       ##      ##     ##   ######     ##    ######   ########  
+##      ##    ##  #########  ##     ##    ##       ##      ##     ##        ##    ##    ##       ##   ##   
+##      ##    ##  ##     ##  ##     ##    ##    ## ##      ##     ##  ##    ##    ##    ##       ##    ## 
+#######  ######   ##     ##  ########      ######  #######  #######    ######     ##    ######## ##     ##  
+"""
+
 
 # get config
 config_path = Path(os.path.abspath(sys.argv[1]))
@@ -88,7 +99,7 @@ fig_format = Config.get('output','fig_format')
 stimes= SpikeInfo['time']
 seg = Blk.segments[seg_no]
 fs= seg.analogsignals[0].sampling_rate
-ifs= int(fs/1000)   # sampling rate in kHz as integer value to convert ms to bins
+ifs= int(fs/1000)   # sampling rate in kHz as integer value to convert ms to bins NOTE: assumes sampling rate divisible by 1000
 
 # recalculate the latest firing rates according to spike assignments in unit_column
 #kernel_slow = Config.getfloat('kernels','sigma_slow')
@@ -133,6 +144,16 @@ y_lim= [ 1.05*as_min, 1.05*as_max ]
 n_wd= int(sz_wd*ifs)
 n_wdh= n_wd//2
 
+"""
+##     ##      ###     ##   ##    ##    ##        #######    #######   ########   
+###   ###     ## ##    ##   ###   ##    ##       ##     ##  ##     ##  ##     ## 
+#### ####    ##   ##   ##   ####  ##    ##       ##     ##  ##     ##  ##     ## 
+## ### ##   ##     ##  ##   ## ## ##    ##       ##     ##  ##     ##  ########  
+##     ##   #########  ##   ##  ####    ##       ##     ##  ##     ##  ##    
+##     ##   ##     ##  ##   ##   ###    ##       ##     ##  ##     ##  ##    
+##     ##   ##     ##  ##   ##    ##    ########  #######    #######   ##    
+"""
+
 new_column = 'unit_final'
 if new_column not in nSpikeInfo.keys():
     nSpikeInfo[new_column]= ' '
@@ -176,7 +197,6 @@ for i in spike_range:
         choice= 1 if d[best] <= d2[best2] else 2
         d_diff= abs(d[best]-d2[best2])
         print_msg("Single spike d={}, compound spike d={}, difference={}".format(('%.4f' % d[best]), ('%.4f' % d2[best2]), ('%.4f' % d_diff)))
-        # show some plots first
         zoom= (float(stimes[i])-sz_wd/1000*20,float(stimes[i])+sz_wd/1000*20)
         if d_min >= d_accept or 200*d_diff/(d[best]+d2[best2]) < min_diff:
             # make plots and save them
@@ -192,10 +212,11 @@ for i in spike_range:
             fig.savefig(outpath)
             if d_min > d_reject:
                 choice= 0
-            elif (d_min >= d_accept or (200*d_diff/(d[best]+d2[best2]) < min_diff)):
-                # ask user
+            else:
+                # show some plots first
                 fig2.show()
                 fig.show()
+                # ask user
                 if (200*d_diff/(d[best]+d2[best2]) <= min_diff):
                     reason= "two very close matches"
                 elif d_min >= d_accept:
@@ -210,7 +231,7 @@ for i in spike_range:
         # apply choice 
         if choice == 1:
             # it;s a single spike - choose the appropriate single spike unit
-            spike_time= stimes[i]-n_wdh/1000/ifs+sh[best]/1000/ifs  # spike time in seconds
+            spike_time= stimes[i]+(sh[best]-n_wdh)/1000/ifs  # spike time in seconds
             if (abs(stimes[i-1]-spike_time)*1000*ifs < same_spike_tolerance) and nSpikeInfo[new_column][i-1+offset] == un[best]:
                 # this spikes is already recorded with the same type
                 print_msg("Spike {}: time= {}: Single spike, was type {} but already exists as spike {}; marked for deletion (-2)".format(nSpikeInfo['id'][i+offset],('%.4f' % stimes[i]),SpikeInfo[unit_column][i],nSpikeInfo['id'][i-1+offset]))
@@ -227,7 +248,7 @@ for i in spike_range:
             orig_spike= np.argmin(abs(np.array(sh2[best2])-n_wdh))
             other_spike= 1-orig_spike
             spike_unit= 'A' if orig_spike == 0 else 'B'
-            spike_time= stimes[i]-n_wdh/1000/ifs+sh2[best2][orig_spike]/1000/ifs  # spike time in seconds
+            spike_time= stimes[i]+(sh2[best2][orig_spike]-n_wdh)/1000/ifs  # spike time in seconds
             print_msg("Spike {}: time= {}: Compound spike, first spike of type {}, time= {}".format(nSpikeInfo['id'][i+offset],('%.4f' % SpikeInfo['time'][i]),spike_unit,('%.4f' % spike_time)))
             nSpikeInfo[new_column][i+offset]= spike_unit
             nSpikeInfo['time'][i+offset]= spike_time
@@ -238,7 +259,7 @@ for i in spike_range:
             else:
                 o_spike_id= i+1
             o_spike_unit= 'A' if other_spike == 0 else 'B'
-            o_spike_time= stimes[i]-n_wdh/1000/ifs+sh2[best2][other_spike]/1000/ifs  # spike time in seconds
+            o_spike_time= stimes[i]+(sh2[best2][other_spike]-n_wdh)/1000/ifs  # spike time in seconds
             if abs(stimes[o_spike_id]-o_spike_time)*1000*ifs < same_spike_tolerance:
                 # the other spike coincides with the previous spike in the original list
                 # make sure that the previous decision is consistent with the current one
@@ -250,7 +271,7 @@ for i in spike_range:
                     skip= True
             else:
                 # the other spike does not yet exist in the list: insert new row
-                print_msg("Spike {}: Compound spike, second spike was undetected, inserted new spike of type {}, time= {}".format(nSpikeInfo['id'][i+offset],SpikeInfo['time'][i],o_spike_unit,o_spike_time))
+                print_msg("Spike {}: Compound spike, second spike was undetected, inserted new spike of type {}, time= {}".format(nSpikeInfo['id'][i+offset],o_spike_unit,o_spike_time))
                 nSpikeInfo= insert_spike(nSpikeInfo, new_column, i+offset, o_spike_id+offset, o_spike_time, o_spike_unit)
                 offset+= 1
 
@@ -262,8 +283,6 @@ for i in spike_range:
             nSpikeInfo['good'][i+offset]= False   # definitively do not use for model building
             print_msg("Spike {}: Not a spike, marked for deletion (-2)".format(nSpikeInfo['id'][i+offset]))
             #offset-= 1
-        if skip:
-            i= i+1
             
 calc_update_final_frates(nSpikeInfo, unit_column, kernel_fast)
 
@@ -301,9 +320,8 @@ units = get_units(SpikeInfo,unit_column)
 print_msg("Number of spikes in trace: %d"%nSpikeInfo[new_column].size)
 print_msg("Number of clusters: %d"%len(units))
 
-output_csv = Config.getboolean('output', 'csv')
 # warning firing rates not saved, too high memory use.
-save_all(results_folder, output_csv, nSpikeInfo, Blk, units, Frates=False)
+save_all(results_folder, nSpikeInfo, Blk, FinalSpikes=True)
 
 do_plot= Config.getboolean('postprocessing','plot_fitted_spikes')
 

@@ -57,33 +57,6 @@ def asc2seg_noheader(path, fs, unit=pq.uV, header_rows=6, col=1):
     segment.annotate(filename=str(path))
     return segment
 
-def list2blk(path):
-    """ convenience function for reading a file containing file paths to recordings per line into a neo block """
-
-    with open(path, 'r') as fH:
-        fnames = [line.strip() for line in fH.readlines()]
-
-    Segments = []
-    for fname in fnames:
-        print_msg("reading file %s" %fname, log=False)
-        fmt = os.path.splitext(fname)[1].lower()
-        if fmt=='.asc':
-            segment = asc2seg(fname)
-
-        if fmt=='.raw':
-            segment = raw2seg(fname)
-
-        if fmt== '.dill':
-            segment = dill2seg(fname)
-
-        segment.annotate(filename=fname)
-        Segments.append(segment)
-
-    Blk = neo.core.Block()
-    Blk.segments = Segments
-
-    return Blk
-
 def seg2dill(Seg, path):
     """ dumps a seg via dill"""
     with open(path, 'wb') as fH:
@@ -125,52 +98,23 @@ def save_data(Blk, path):
     if ext == '.dill':
         blk2dill(Blk, path)
 
-def save_all(results_folder, output_csv, SpikeInfo, Blk, units, Frates=False):
+def save_all(results_folder, SpikeInfo, Blk, FinalSpikes= False):
     # store SpikeInfo
     outpath = results_folder / 'SpikeInfo.csv'
     print_msg("saving SpikeInfo to %s" % outpath)
     SpikeInfo.to_csv(outpath,index= False)
 
+    if FinalSpikes:
+        # store separate spike time lists for A and B cells
+        for unit in ['A','B']:
+            st = SpikeInfo.groupby('unit_final').get_group(unit)['time']
+            outpath = results_folder / ('Spikes'+unit+'.csv')
+            np.savetxt(outpath, st)
+    
     # store Block
     outpath = results_folder / 'result.dill'
     print_msg("saving Blk as .dill to %s" % outpath)
     blk2dill(Blk, outpath)
 
     print_msg("data is stored")
-
-
-    # output csv data
-    # if Config.getboolean('output','csv'):
-    if output_csv:
-        print_msg("writing csv")
-
-        # SpikeTimes
-        for i, Seg in enumerate(Blk.segments):
-            seg_name = Path(Seg.annotations['filename']).stem
-            for j, unit in enumerate(units):
-                St, = select_by_dict(Seg.spiketrains, unit=unit)
-                outpath = results_folder / ("Segment_%s_unit_%s_spike_times.txt" % (seg_name, unit))
-                np.savetxt(outpath, St.times.magnitude)
-
-        if Frates:
-            # firing rates - full res
-            for i, Seg in enumerate(Blk.segments):
-                FratesDf = pd.DataFrame()
-                seg_name = Path(Seg.annotations['filename']).stem
-                for j, unit in enumerate(units):
-                    asig, = select_by_dict(Seg.analogsignals, kind='frate_fast', unit=unit)
-                    FratesDf['t'] = asig.times.magnitude
-                    FratesDf[unit] = asig.magnitude.flatten()
-
-                outpath = results_folder / ("Segment_%s_frates.csv" % seg_name)
-                FratesDf.to_csv(outpath,index=False)
-
-
         
-
-if __name__ == '__main__':
-    """ for command line usage - first argument being path to list file """
-    path = Path(sys.argv[1])
-    Blk = list2blk(path)
-    blk2dill(Blk, path.with_suffix('.dill'))
-

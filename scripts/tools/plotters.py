@@ -484,40 +484,6 @@ def plot_compared_fitted_spikes(Segment, j, Models, SpikeInfo, unit_columns, uni
     return fig, axes
 
 
-
-# def plot_compared_traces(AnalogSignal,SpikeTrains, zoom=None, save=None):
-#     """ plot to inspect fitted spikes """
-#     fig, axes =plt.subplots(nrows=2, sharex=True, sharey=True)
-    
-#     # try:
-#     asig = AnalogSignal
-#     axes[0].plot(asig.times, asig.data, color='k', lw=1)
-#     axes[1].plot(asig.times, asig.data, color='k', lw=1)
-
-#     st = SpikeTrains #get all spike trains (assuming there's only one spike train)
-#     #get events amplitude value (spike)
-#     a_events = st.waveforms
-#     a_events = [max(a) for a in a_events]
-#     axes[1].plot(st.times,a_events,'.',markersize=1)
-
-#     if zoom is not None:
-#         for ax in axes:
-#             ax.set_xlim(zoom)
-            
-#     stim_name = Path(Segment.annotations['filename']).stem
-#     fig.suptitle(stim_name)
-#     fig.tight_layout()
-#     fig.subplots_adjust(top=0.9)
-#     sns.despine(fig)
-
-#     if save is not None:
-#         fig.savefig(save)
-#         plt.close(fig)
-
-#     return fig, axes
-
-
-
 def plot_templates_on_trace(Segment, j, Templates, zoom=None, save=None,wsize=40):
     """ plot to inspect fitted spikes """
     fig, axes =plt.subplots(nrows=2, sharex=True, sharey=True)

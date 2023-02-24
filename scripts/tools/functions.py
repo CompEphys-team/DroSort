@@ -41,6 +41,20 @@ from pathlib import Path
 warnings.filterwarnings("ignore")
 t0 = time.time()
 
+
+banner= """
+____________________________________________________________________________
+|    This is DroSort v1.0.0 based on SSSort v1.0.0                         |
+|    https://github.com/CompEphys-team/DroSort                             |
+|    authors: Georg Raiser (SSSort) - grg2rsr@gmail.com                    |
+|             Thomas Nowotny (DroSort) - t.nowotny@sussex.ac.uk            |
+|             Alicia Garrido Peña (DroSort) - alicia.garrido@uam.es        |
+|             Lydia Ellsion (DroSort) - l.ellison@sussex.ac.uk             |
+____________________________________________________________________________
+"""
+
+
+
 """
  
  ##     ## ######## ##       ########  ######## ########   ######  

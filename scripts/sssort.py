@@ -25,12 +25,7 @@ from tools.plotters import *
 import tools.sssio as sssio
 
 # banner
-if os.name == "posix":
-    tp.banner("This is SSSort v1.0.0", 78)
-    tp.banner("author: Georg Raiser - grg2rsr@gmail.com", 78)
-else:
-    print("This is SSSort v1.0.0")
-    print("author: Georg Raiser - grg2rsr@gmail.com")
+print(banner)
 
 # plotting
 import matplotlib as mpl
@@ -494,9 +489,8 @@ print_msg("Number of spikes in trace: %d"%SpikeInfo[unit_column].size)
 print_msg("Number of bad spikes: %d"%len(SpikeInfo.groupby(['good']).get_group(True)[unit_column]))
 print_msg("Number of clusters: %d"%len(units))
 
-output_csv = Config.getboolean('output', 'csv')
 # warning firing rates not saved, too high memory use.
-sssio.save_all(results_folder, output_csv, SpikeInfo, Blk, units, Frates=False)
+sssio.save_all(results_folder, SpikeInfo, Blk, FinalSpikes= False)
 
 """
  
