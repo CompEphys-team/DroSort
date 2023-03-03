@@ -125,6 +125,7 @@ same_spike_tolerance= int(same_spike_tolerance*ifs) # in time steps
 d_accept= Config.getfloat('postprocessing','max_dist_for_auto_accept')
 d_reject= Config.getfloat('postprocessing','min_dist_for_auto_reject')
 min_diff= Config.getfloat('postprocessing','min_diff_for_auto_accept')
+wsize= Config.getfloat('spike detect','wsize')
 max_spike_diff= int(Config.getfloat('postprocessing','max_compound_spike_diff')*ifs)
 n_samples= np.array(Config.get('spike model','template_window').split(','),dtype='float32')/1000.0
 n_samples= np.array(n_samples*fs, dtype= int)
@@ -143,6 +144,8 @@ as_max= np.amax(asig)
 y_lim= [ 1.05*as_min, 1.05*as_max ]
 n_wd= int(sz_wd*ifs)
 n_wdh= n_wd//2
+# difference of half window width to half template width
+wd_diff= (n_wd-wsize*ifs)/2 # Note: all templates are same lenght!
 
 """
 ##     ##      ###     ##   ##    ##    ##        #######    #######   ########   
@@ -230,8 +233,9 @@ for i in spike_range:
             plt.close(fig)
         # apply choice 
         if choice == 1:
-            # it;s a single spike - choose the appropriate single spike unit
-            spike_time= stimes[i]+(sh[best]-n_wdh)/1000/ifs  # spike time in seconds
+            # it's a single spike - choose the appropriate single spike unit
+            peak_pos= np.argmax(templates[un[best]])
+            spike_time= stimes[i]+(sh[best]-(wd_diff+peak_pos))/1000/ifs  # spike time in seconds
             if (abs(stimes[i-1]-spike_time)*1000*ifs < same_spike_tolerance) and nSpikeInfo[new_column][i-1+offset] == un[best]:
                 # this spikes is already recorded with the same type
                 print_msg("Spike {}: time= {}: Single spike, was type {} but already exists as spike {}; marked for deletion (-2)".format(nSpikeInfo['id'][i+offset],('%.4f' % stimes[i]),SpikeInfo[unit_column][i],nSpikeInfo['id'][i-1+offset]))
@@ -248,7 +252,9 @@ for i in spike_range:
             orig_spike= np.argmin(abs(np.array(sh2[best2])-n_wdh))
             other_spike= 1-orig_spike
             spike_unit= 'A' if orig_spike == 0 else 'B'
-            spike_time= stimes[i]+(sh2[best2][orig_spike]-n_wdh)/1000/ifs  # spike time in seconds
+            # fix spike_time here!!
+            peak_pos= np.argmax(templates[spike_unit])
+            spike_time= stimes[i]+(sh2[best2][orig_spike]-(wd_diff+peak_pos))/1000/ifs  # spike time in seconds
             print_msg("Spike {}: time= {}: Compound spike, first spike of type {}, time= {}".format(nSpikeInfo['id'][i+offset],('%.4f' % SpikeInfo['time'][i]),spike_unit,('%.4f' % spike_time)))
             nSpikeInfo[new_column][i+offset]= spike_unit
             nSpikeInfo['time'][i+offset]= spike_time
@@ -259,7 +265,9 @@ for i in spike_range:
             else:
                 o_spike_id= i+1
             o_spike_unit= 'A' if other_spike == 0 else 'B'
-            o_spike_time= stimes[i]+(sh2[best2][other_spike]-n_wdh)/1000/ifs  # spike time in seconds
+            # fix spike_time here!!            
+            peak_pos= np.argmax(templates[o_spike_unit])
+            o_spike_time= stimes[i]+(sh2[best2][other_spike]-(wd_diff+peak_pos))/1000/ifs  # spike time in seconds
             if abs(stimes[o_spike_id]-o_spike_time)*1000*ifs < same_spike_tolerance:
                 # the other spike coincides with the previous spike in the original list
                 # make sure that the previous decision is consistent with the current one

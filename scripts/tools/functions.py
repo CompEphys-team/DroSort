@@ -1144,7 +1144,7 @@ def make_single_template(Model, frate):
     d= Model.predict(frate)
     return d
 
-# add a template at defined position into frame of length ln1
+# add a template at defined position into frame of length ln
 def bounds(ln, n_samples, pos):
     start= max(int(pos-n_samples[0]), 0)
     stop= min(int(pos+n_samples[1]), ln)
