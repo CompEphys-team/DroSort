@@ -1144,25 +1144,44 @@ def make_single_template(Model, frate):
     d= Model.predict(frate)
     return d
 
-# add a template at defined position into frame of length ln
+"""
+function bounds() - indices for adding a template at a defined position into a frame of length ln
+inputs:
+ln - number of samples in the data window
+n_samples - list of length 2 with number of samples to consider left and right of typical template peak
+pos - index of the current spike under consideration
+outputs:
+start - index in the data window where to start pasting template data
+stop - index in the data window where to stop
+t_start - index in the template where to start taking data from
+t_end - index in the templae where to stop
+"""
 def bounds(ln, n_samples, pos):
-    start= max(int(pos-n_samples[0]), 0)
-    stop= min(int(pos+n_samples[1]), ln)
-    t_start= max(int(n_samples[0]-pos),0)
-    t_stop= min(int(np.sum(n_samples)), t_start+stop-start)
-    stop= start+min(stop-start, t_stop-t_start)
+    start= max(int(pos-n_samples[0]), 0)   # start index of data in data window
+    stop= min(int(pos+n_samples[1]), ln)   # stop index of data in data window
+    t_start= max(int(n_samples[0]-pos),0)   # start index of data taken from template within the template
+    t_stop= t_start+stop-start # stop index of data taken
     return (start, stop, t_start, t_stop)
 
-# calculate the distance between a data trace and a template at a shift
+"""
+function dist() - calculate the distance between a data trace and a template at a shift
+Inputs:
+d - a data window from the experimental data (centred around a candidate spike)
+t - a template of a candidate spike
+n_samples - list of length 2 with number of samples to consider left and right of typical template peak 
+pos - position of the template to be tested, relative to original candidate spike
+unit - name of the neuron unit considered (for axis label if plotting)
+ax - axis to plot into, no plotting if None
+"""
 def dist(d, t, n_samples, pos, unit= None, ax= None):
-    # Make a template at position pos
+    # Make a template at position pos expressed as index in data window d
     t2= np.zeros(len(d))
     start, stop, t_start, t_stop= bounds(len(d), n_samples, pos)
-    t2[start:stop]= t[t_start:t_stop]
+    t2[start:stop]= t[t_start:t_stop]   # template shifted and cropped to comparison region
     # data outside where the template sits is zeroed, so that those
     # regions are not considered during the comparison
     d2= np.zeros(len(d))
-    d2[start:stop]= d[start:stop]
+    d2[start:stop]= d[start:stop]   # data cropped to comparison region
     dst= np.linalg.norm(d2-t2)
     if ax is not None:
         ax.plot(d,'.',markersize=1)
@@ -1170,8 +1189,8 @@ def dist(d, t, n_samples, pos, unit= None, ax= None):
         ax.plot(t2,linewidth= 0.7)
         ax.set_ylim(-1.2,1.2)
         lbl= unit+': d=' if unit is not None else ''
-        ax.set_title(lbl+('%.4f' % (dst/len(t))))
-    return dst/len(t)
+        ax.set_title(lbl+('%.4f' % (dst/(stop-start))))
+    return dst/(stop-start)
     #return dst
 
 # calculate the distance between a data trace and a compound template 
