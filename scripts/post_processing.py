@@ -232,7 +232,7 @@ for i in spike_range:
         if choice == 1:
             # it's a single spike - choose the appropriate single spike unit
             peak_pos= np.argmax(templates[un[best]])
-            peak_diff= peak_pos-(n_samples[0]-1)   # difference in actual peak pos compared where it should be
+            peak_diff= peak_pos-n_samples[0]   # difference in actual peak pos compared where it should be
             spike_time= stimes[i]+np.float((sh[best]-n_wdh+peak_diff))/fs  # spike time in seconds
             if (abs(stimes[i+1]-spike_time)*fs < max_spike_diff):
                 skip= True
@@ -260,7 +260,7 @@ for i in spike_range:
             other_spike= 1-orig_spike
             spike_unit= 'A' if orig_spike == 0 else 'B'
             peak_pos= np.argmax(templates[spike_unit])
-            peak_diff= peak_pos-(n_samples[0]-1)   # difference in actual peak pos compared where it should be
+            peak_diff= peak_pos-n_samples[0]   # difference in actual peak pos compared where it should be
             spike_time= stimes[i]+np.float(sh2[best2][orig_spike]-n_wdh+peak_diff)/fs  # spike time in seconds
             print_msg("Spike {}: time= {}: Compound spike, first spike of type {}, time= {}".format(SpikeInfo['id'][i+offset],('%.4f' % SpikeInfo['time'][i+offset]),spike_unit,('%.4f' % spike_time)))
             SpikeInfo[new_column][i+offset]= spike_unit
@@ -270,7 +270,7 @@ for i in spike_range:
             o_spike_id= i+1
             o_spike_unit= 'A' if other_spike == 0 else 'B'
             peak_pos= np.argmax(templates[o_spike_unit])
-            peak_diff= peak_pos-(n_samples[0]-1)   # difference in actual peak pos compared where it should be
+            peak_diff= peak_pos-n_samples[0]   # difference in actual peak pos compared where it should be
             o_spike_time= stimes[i]+np.float(sh2[best2][other_spike]-n_wdh+peak_diff)/fs  # spike time in seconds
             found= False
             for j in [i-1, i+1]:
