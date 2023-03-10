@@ -108,7 +108,11 @@ templates_path = config_path.parent / results_folder / "Templates_ini.npy"
 Templates= np.load(templates_path)
 print_msg('templates read from %s' % templates_path)
 n_model_comp = Config.getint('spike model','n_model_comp')
-Models = train_Models(SpikeInfo, unit_column, Templates, n_comp=n_model_comp, verbose=True, model_type= Spike_Model_Nlin)
+
+
+spike_model_type=  Config.get('postprocessing','spike_model_type')
+spike_model= Spike_Model if spike_model_type == "individual" else Spike_Model_Nlin
+Models = train_Models(SpikeInfo, unit_column, Templates, n_comp=n_model_comp, verbose=True, model_type= spike_model)
 
 unit_ids= SpikeInfo[unit_column]
 units = get_units(SpikeInfo, unit_column)
